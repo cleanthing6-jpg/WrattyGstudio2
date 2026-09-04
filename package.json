@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "latest",
+    "@neondatabase/serverless": "latest",
+    "@uploadthing/react": "latest",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "@clerk/nextjs": "latest",
-    "@neondatabase/serverless": "latest"
+    "uploadthing": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
