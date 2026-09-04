@@ -12,7 +12,14 @@ const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number
 
 export default function Dashboard() {
   const { user } = useUser();
-  const [credits, setCredits] = useState<any>(null);
+  type Credits = {
+  tier: string;
+  beats_used: number;
+  covers_used: number;
+  mixes_used: number;
+};
+
+const [credits, setCredits] = useState<Credits | null>(null);
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json()).then(setCredits).catch(() => {});

@@ -1,14 +1,23 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
+
+type StudioTab = "beat" | "cover" | "mix";
+
+function getStudioTab(value: string | null): StudioTab {
+  return value === "beat" || value === "cover" || value === "mix"
+    ? value
+    : "beat";
+}
 
 function StudioInner() {
   const { user } = useUser();
   const searchParams = useSearchParams();
-  const initialType = searchParams.get("type") || "beat";
+  const initialType = getStudioTab(searchParams.get("type"));
 
-  const [activeTab, setActiveTab] = useState<"beat" | "cover" | "mix">(initialType as any);
+  const [activeTab, setActiveTab] = useState<StudioTab>(initialType);
 
   // Beat Generation
   const [beatPrompt, setBeatPrompt] = useState("");
@@ -27,11 +36,6 @@ function StudioInner() {
   const [mixProcessing, setMixProcessing] = useState(false);
   const [mixResult, setMixResult] = useState("");
   const [mixType, setMixType] = useState<"automix" | "master" | "stems">("automix");
-
-  useEffect(() => {
-    const type = searchParams.get("type");
-    if (type && ["beat", "cover", "mix"].includes(type)) setActiveTab(type as any);
-  }, [searchParams]);
 
   const generateBeat = async () => {
     if (!beatPrompt) return;
@@ -212,7 +216,7 @@ function StudioInner() {
           {coverResult && (
             <div className="bg-gray-900 rounded-2xl p-6 border border-green-500/30">
               <h3 className="font-bold mb-3 text-green-400">✅ Cover Generated!</h3>
-              <img src={coverResult} alt="Album Cover" className="w-full rounded-xl mb-4" />
+              <Image src={coverResult} alt="Album Cover" width={1024} height={1024} className="w-full rounded-xl mb-4" unoptimized />
               <a href={coverResult} download className="block w-full text-center bg-green-500 text-black font-bold py-3 rounded-xl">
                 Download Cover ⬇️
               </a>

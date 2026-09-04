@@ -1,19 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setTier } from "@/lib/credits";
+
+const PRICES: Record<string, number> = {
+  starter: 300000,
+  pro: 700000,
+  studio: 1400000,
+};
+
 export async function GET(req: NextRequest) {
-  const ref = req.nextUrl.searchParams.get("reference");
-  const tier = req.nextUrl.searchParams.get("tier");
-  const metadataTier = req.nextUrl.searchParams.get("metadata[userId]");
-  if (!ref || !tier) return NextResponse.redirect(new URL("/dashboard", req.url));
+  const reference = req.nextUrl.searchParams.get("reference");
+
+  if (!reference) {
+    return NextResponse.redirect(
+      new URL("/dashboard?payment=failed", req.url)
+    );
+  }
+
   try {
-    const res = await fetch(`https://api.paystack.co/transaction/verify/${ref}`, {
-      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
-    });
-    const data = await res.json();
-    if (data.data?.status === "success") {
-      const userId = data.data.metadata?.userId;
-      if (userId) await setTier(userId, tier);
+    const response = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+    const transaction = data.data;
+
+    if (!response.ok || transaction?.status !== "success") {
+      return NextResponse.redirect(
+        new URL("/dashboard?payment=failed", req.url)
+      );
     }
-  } catch (e) {}
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+
+    const userId = transaction.metadata?.userId;
+    const tier = transaction.metadata?.tier;
+    const expectedAmount = PRICES[tier];
+
+    if (
+      typeof userId !== "string" ||
+      typeof tier !== "string" ||
+      !expectedAmount ||
+      transaction.amount !== expectedAmount ||
+      transaction.currency !== "NGN"
+    ) {
+      return NextResponse.redirect(
+        new URL("/dashboard?payment=failed", req.url)
+      );
+    }
+
+    await setTier(userId, tier);
+
+    return NextResponse.redirect(
+      new URL("/dashboard?payment=success", req.url)
+    );
+  } catch {
+    return NextResponse.redirect(
+      new URL("/dashboard?payment=failed", req.url)
+    );
+  }
 }

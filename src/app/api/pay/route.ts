@@ -10,5 +10,5 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     if (data.status) return NextResponse.json({ authorization_url: data.data.authorization_url });
     return NextResponse.json({ error: "Payment failed" }, { status: 500 });
-  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }
+  } catch (e: unknown) { return NextResponse.json({ error: e instanceof Error ? e.message : "Request failed" }, { status: 500 }); }
 }

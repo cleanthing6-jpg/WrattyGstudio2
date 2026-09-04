@@ -7,5 +7,5 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const base64 = buffer.toString("base64");
     return NextResponse.json({ url: `data:audio/${file.name.split(".").pop()};base64,${base64}` });
-  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }
+  } catch (e: unknown) { return NextResponse.json({ error: e instanceof Error ? e.message : "Request failed" }, { status: 500 }); }
 }
