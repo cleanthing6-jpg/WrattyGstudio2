@@ -1,28 +1,51 @@
 "use client";
-const tiers = [
-  { name: "Free", price: "₦0", beats: "0", covers: "1 (preview)", mixes: "1 (preview)", color: "gray" },
-  { name: "Starter", price: "₦3,000", beats: "5", covers: "3", mixes: "3", color: "green" },
-  { name: "Pro", price: "₦7,000", beats: "10", covers: "7", mixes: "10", color: "yellow" },
-  { name: "Studio", price: "₦14,000", beats: "30", covers: "20", mixes: "30", color: "purple" },
+import { SignInButton, useUser } from "@clerk/nextjs";
+import Link from "next/link";
+
+const TIERS = [
+  { name: "Free", price: "₦0", features: ["1 album cover", "Mix & master preview only", "No beat generation"], cta: "Start Free", color: "gray" },
+  { name: "Starter", price: "₦3,000", period: "/month", features: ["5 beat generations", "3 album covers", "3 mix & master downloads", "Full-length beats"], cta: "Get Starter", color: "green" },
+  { name: "Pro", price: "₦7,000", period: "/month", features: ["10 beat generations", "7 album covers", "10 mix & master downloads", "Priority processing"], cta: "Get Pro", color: "yellow" },
+  { name: "Studio", price: "₦14,000", period: "/month", features: ["30 beat generations", "20 album covers", "30 mix & master downloads", "Fastest processing", "Commercial license"], cta: "Get Studio", color: "red" },
 ];
+
 export default function Pricing() {
+  const { user } = useUser();
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Pricing</h1>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
-        {tiers.map((t) => (
-          <div key={t.name} className={`bg-gray-900 p-6 rounded-xl border-2 border-${t.color}-500/30`}>
-            <h2 className={`text-2xl font-bold text-${t.color}-400`}>{t.name}</h2>
-            <p className="text-3xl font-bold my-4">{t.price}</p>
-            <ul className="text-gray-400 space-y-2">
-              <li>🎵 Beats: {t.beats}</li>
-              <li>🎨 Covers: {t.covers}</li>
-              <li>🎚️ Mix: {t.mixes}</li>
+    <div className="min-h-screen px-4 py-12 max-w-5xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-black mb-3">Choose Your Plan</h1>
+        <p className="text-gray-500">Start free. Upgrade when you're ready.</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {TIERS.map(tier => (
+          <div key={tier.name} className={`bg-gray-900 rounded-2xl p-6 border ${tier.color === "green" ? "border-green-500" : "border-gray-800"}`}>
+            {tier.color === "green" && <div className="text-xs text-green-400 font-bold mb-2">MOST POPULAR</div>}
+            <h3 className="text-lg font-bold mb-1">{tier.name}</h3>
+            <div className="text-3xl font-black mb-1">{tier.price}</div>
+            {tier.period && <div className="text-gray-500 text-sm mb-4">{tier.period}</div>}
+            {!tier.period && <div className="mb-4"></div>}
+            <ul className="space-y-2 mb-6">
+              {tier.features.map((f, i) => (
+                <li key={i} className="text-sm text-gray-400 flex items-start gap-2">
+                  <span className="text-green-400 mt-0.5">✓</span> {f}
+                </li>
+              ))}
             </ul>
-            <button className={`w-full mt-6 py-2 rounded-full font-bold bg-${t.color}-500 text-black`}>Select</button>
+            {user ? (
+              <Link href="/dashboard" className="block text-center bg-green-500/10 hover:bg-green-500/20 text-green-400 font-bold py-3 rounded-xl transition">
+                {tier.cta}
+              </Link>
+            ) : (
+              <SignInButton mode="modal">
+                <button className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-400 font-bold py-3 rounded-xl transition">
+                  {tier.cta}
+                </button>
+              </SignInButton>
+            )}
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }
