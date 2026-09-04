@@ -16,41 +16,38 @@ export async function POST(req: NextRequest) {
       if (!ok) return NextResponse.json({ error: "No credits left for album covers" }, { status: 403 });
 
       const apiKey = process.env.GEMINI_API_KEY;
-      
-      // Use Gemini 2.0 Flash with image generation
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ 
-              parts: [{ 
-                text: `Generate a professional, high-quality album cover image. Description: ${prompt}. Style: vibrant colors, professional music artwork, suitable for African music album cover.` 
-              }] 
-            }],
-            generationConfig: { 
-              responseModalities: ["TEXT", "IMAGE"] 
-            }
-          })
-        }
-      );
+      const models = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
 
-      const data = await response.json();
-      
-      if (data.candidates?.[0]?.content?.parts) {
-        for (const part of data.candidates[0].content.parts) {
-          if (part.inlineData) {
+      for (const model of models) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: `Create a professional music album cover. Subject: ${prompt}. Vibrant, high-quality, suitable for an African music release. No text unless specified.`
+                  }]
+                }],
+                generationConfig: { responseModalities: ["IMAGE"] }
+              })
+            }
+          );
+          const data = await response.json();
+
+          const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+          if (part?.inlineData?.data) {
             const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             await useCredit(userId, "cover");
             await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
             return NextResponse.json({ url: imageUrl });
           }
-        }
+        } catch { /* try next model */ }
       }
-      
-      // If Gemini doesn't support image gen, try alternative
-      return NextResponse.json({ error: "Image generation failed. Your API key may not have image generation access." }, { status: 500 });
+
+      return NextResponse.json({ error: "Image generation failed. Check that GEMINI_API_KEY is valid and has image access." }, { status: 500 });
     }
 
     if (type === "beat") {
@@ -59,26 +56,16 @@ export async function POST(req: NextRequest) {
 
       const aimlRes = await fetch("https://api.aimlapi.com/v2/generation", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` 
-        },
-        body: JSON.stringify({
-          model: "minimax/music-01",
-          prompt: prompt,
-          duration: body.duration || 180,
-          return_all: false
-        })
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` },
+        body: JSON.stringify({ model: "minimax/music-01", prompt, duration: body.duration || 180, return_all: false })
       });
-
       const aimlData = await aimlRes.json();
-      
+
       if (aimlData.id) {
-        const pollUrl = `https://api.aimlapi.com/v2/generation/${aimlData.id}`;
         for (let i = 0; i < 60; i++) {
           await new Promise(r => setTimeout(r, 5000));
-          const poll = await fetch(pollUrl, { 
-            headers: { "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` } 
+          const poll = await fetch(`https://api.aimlapi.com/v2/generation/${aimlData.id}`, {
+            headers: { "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` }
           });
           const pd = await poll.json();
           if (pd.status === "completed" && pd.audio_url) {
@@ -86,13 +73,10 @@ export async function POST(req: NextRequest) {
             await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'beat', ${pd.audio_url}, ${prompt})`;
             return NextResponse.json({ url: pd.audio_url });
           }
-          if (pd.status === "failed") {
-            return NextResponse.json({ error: "Beat generation failed" }, { status: 500 });
-          }
+          if (pd.status === "failed") return NextResponse.json({ error: "Beat generation failed" }, { status: 500 });
         }
-        return NextResponse.json({ error: "Generation timed out" }, { status: 500 });
+        return NextResponse.json({ error: "Beat generation timed out" }, { status: 500 });
       }
-      
       return NextResponse.json({ error: aimlData.message || "Beat generation failed" }, { status: 500 });
     }
 
