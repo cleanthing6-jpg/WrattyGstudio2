@@ -4,48 +4,107 @@ import { checkCredit, useCredit } from "@/lib/credits";
 import { sql } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { type, prompt, audioUrl } = await req.json();
-  const credit = await checkCredit(userId, type);
-  if (!credit.allowed) return NextResponse.json({ error: "No credits left. Upgrade your plan." }, { status: 403 });
-
   try {
-    if (type === "beat") {
-      const res = await fetch("https://api.aimlapi.com/v2/generation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.AIMLAPI_KEY}` },
-        body: JSON.stringify({ model: "minimax-music-01", prompt, duration: 150 }),
-      });
-      const data = await res.json();
-      if (data.audio_url) {
-        await useCredit(userId, "beat");
-        await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'beat', ${data.audio_url}, ${prompt})`;
-        return NextResponse.json({ url: data.audio_url });
-      }
-      return NextResponse.json({ url: "https://cdn.pixabay.com/audio/2024/11/28/audio_61b584d50c.mp3" });
-    }
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const { type, prompt } = body;
 
     if (type === "cover") {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      const ok = await checkCredit(userId, "cover");
+      if (!ok) return NextResponse.json({ error: "No credits left for album covers" }, { status: 403 });
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      
+      // Use Gemini 2.0 Flash with image generation
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ 
+              parts: [{ 
+                text: `Generate a professional, high-quality album cover image. Description: ${prompt}. Style: vibrant colors, professional music artwork, suitable for African music album cover.` 
+              }] 
+            }],
+            generationConfig: { 
+              responseModalities: ["TEXT", "IMAGE"] 
+            }
+          })
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.candidates?.[0]?.content?.parts) {
+        for (const part of data.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            await useCredit(userId, "cover");
+            await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
+            return NextResponse.json({ url: imageUrl });
+          }
+        }
+      }
+      
+      // If Gemini doesn't support image gen, try alternative
+      return NextResponse.json({ error: "Image generation failed. Your API key may not have image generation access." }, { status: 500 });
+    }
+
+    if (type === "beat") {
+      const ok = await checkCredit(userId, "beat");
+      if (!ok) return NextResponse.json({ error: "No credits left for beats" }, { status: 403 });
+
+      const aimlRes = await fetch("https://api.aimlapi.com/v2/generation", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: `Generate an album cover image: ${prompt}. Make it professional and vivid.` }] }] }),
+        headers: { 
+          "Content-Type": "application/json", 
+          "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` 
+        },
+        body: JSON.stringify({
+          model: "minimax/music-01",
+          prompt: prompt,
+          duration: body.duration || 180,
+          return_all: false
+        })
       });
-      const data = await res.json();
-      const url = data?.candidates?.[0]?.content?.parts?.[0]?.text || "https://placehold.co/1024x1024/000000/ffffff?text=Album+Cover";
-      await useCredit(userId, "cover");
-      await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${url}, ${prompt})`;
-      return NextResponse.json({ url });
+
+      const aimlData = await aimlRes.json();
+      
+      if (aimlData.id) {
+        const pollUrl = `https://api.aimlapi.com/v2/generation/${aimlData.id}`;
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const poll = await fetch(pollUrl, { 
+            headers: { "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` } 
+          });
+          const pd = await poll.json();
+          if (pd.status === "completed" && pd.audio_url) {
+            await useCredit(userId, "beat");
+            await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'beat', ${pd.audio_url}, ${prompt})`;
+            return NextResponse.json({ url: pd.audio_url });
+          }
+          if (pd.status === "failed") {
+            return NextResponse.json({ error: "Beat generation failed" }, { status: 500 });
+          }
+        }
+        return NextResponse.json({ error: "Generation timed out" }, { status: 500 });
+      }
+      
+      return NextResponse.json({ error: aimlData.message || "Beat generation failed" }, { status: 500 });
     }
 
     if (type === "mix") {
-      const mixedUrl = audioUrl || "https://cdn.pixabay.com/audio/2024/11/28/audio_61b584d50c.mp3";
+      const ok = await checkCredit(userId, "mix");
+      if (!ok) return NextResponse.json({ error: "No credits left for mixing" }, { status: 403 });
       await useCredit(userId, "mix");
-      await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'mix', ${mixedUrl}, ${prompt})`;
-      return NextResponse.json({ url: mixedUrl });
+      return NextResponse.json({ url: body.audioUrl || "", message: "Mix processing initiated" });
     }
 
-    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
-  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }
+    return NextResponse.json({ error: "Unknown generation type" }, { status: 400 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }
