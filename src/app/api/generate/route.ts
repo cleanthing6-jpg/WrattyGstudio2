@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       const apiKey = process.env.GEMINI_API_KEY;
       const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
         method: "POST",
-        headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+        headers: { "x-goog-api-key": String(apiKey), "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "gemini-3.1-flash-image",
           input: [{ type: "text", text: `Create a professional music album cover. Subject: ${prompt}. Vibrant, high quality, suitable for an African music release. No text unless requested.` }]
@@ -39,7 +39,15 @@ export async function POST(req: NextRequest) {
         await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
         return NextResponse.json({ url: imageUrl });
       }
-      return NextResponse.json({ error: "Gemini returned no image. Try a different prompt." }, { status: 500 });
+        // Fallback: read image from output_image
+  const d = data?.interaction?.output_image || data?.output_image;
+  if (d?.data) {
+    const mime = d.mime_type || "image/png";
+    const imageUrl = "data:" + mime + ";base64," + d.data;
+    await useCredit(userId, "cover");
+    return NextResponse.json({ url: imageUrl });
+  }
+return NextResponse.json({ error: "Gemini returned no image. Try a different prompt." }, { status: 500 });
     }
 
     if (type === "beat") {
