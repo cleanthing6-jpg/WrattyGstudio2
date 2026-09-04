@@ -16,51 +16,41 @@ export async function POST(req: NextRequest) {
       if (!ok) return NextResponse.json({ error: "No credits left for album covers" }, { status: 403 });
 
       const apiKey = process.env.GEMINI_API_KEY;
-      const models = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        method: "POST",
+        headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gemini-3.1-flash-image",
+          input: [{ type: "text", text: `Create a professional music album cover. Subject: ${prompt}. Vibrant, high quality, suitable for an African music release. No text unless requested.` }]
+        })
+      });
 
-      for (const model of models) {
-        try {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [{
-                    text: `Create a professional music album cover. Subject: ${prompt}. Vibrant, high-quality, suitable for an African music release. No text unless specified.`
-                  }]
-                }],
-                generationConfig: { responseModalities: ["IMAGE"] }
-              })
-            }
-          );
-          const data = await response.json();
-
-          const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-          if (part?.inlineData?.data) {
-            const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            await useCredit(userId, "cover");
-            await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
-            return NextResponse.json({ url: imageUrl });
-          }
-        } catch { /* try next model */ }
+      const data = await response.json();
+      if (!response.ok) {
+        return NextResponse.json({ error: `Gemini error ${response.status}: ${data?.error?.message || "unknown"}` }, { status: 500 });
       }
 
-      return NextResponse.json({ error: "Image generation failed. Check that GEMINI_API_KEY is valid and has image access." }, { status: 500 });
+      const modelStep = data.steps?.find((s: any) => s.type === "model_output");
+      const imageBlock = modelStep?.content?.find((c: any) => c.type === "image");
+      if (imageBlock?.data) {
+        const mime = imageBlock.mime_type || "image/png";
+        const imageUrl = `data:${mime};base64,${imageBlock.data}`;
+        await useCredit(userId, "cover");
+        await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
+        return NextResponse.json({ url: imageUrl });
+      }
+      return NextResponse.json({ error: "Gemini returned no image. Try a different prompt." }, { status: 500 });
     }
 
     if (type === "beat") {
       const ok = await checkCredit(userId, "beat");
       if (!ok) return NextResponse.json({ error: "No credits left for beats" }, { status: 403 });
-
       const aimlRes = await fetch("https://api.aimlapi.com/v2/generation", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.AIMLAPI_KEY}` },
         body: JSON.stringify({ model: "minimax/music-01", prompt, duration: body.duration || 180, return_all: false })
       });
       const aimlData = await aimlRes.json();
-
       if (aimlData.id) {
         for (let i = 0; i < 60; i++) {
           await new Promise(r => setTimeout(r, 5000));
@@ -84,7 +74,7 @@ export async function POST(req: NextRequest) {
       const ok = await checkCredit(userId, "mix");
       if (!ok) return NextResponse.json({ error: "No credits left for mixing" }, { status: 403 });
       await useCredit(userId, "mix");
-      return NextResponse.json({ url: body.audioUrl || "", message: "Mix processing initiated" });
+      return NextResponse.json({ url: body.audioUrl || "", message: "Processing started" });
     }
 
     return NextResponse.json({ error: "Unknown generation type" }, { status: 400 });
