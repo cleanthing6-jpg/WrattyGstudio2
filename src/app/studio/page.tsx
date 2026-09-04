@@ -72,7 +72,7 @@ function StudioInner() {
       const formData = new FormData();
       formData.append("file", mixFile);
       formData.append("type", mixType);
-      const res = await fetch("/api/generate", { method: "POST", body: formData });
+      const res = await fetch("/api/process", { method: "POST", body: formData });
       const data = await res.json();
       if (data.url) setMixResult(data.url);
       else alert(data.error || "Processing failed");
