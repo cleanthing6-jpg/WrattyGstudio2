@@ -14,40 +14,16 @@ export async function POST(req: NextRequest) {
     if (type === "cover") {
       const ok = await checkCredit(userId, "cover");
       if (!ok) return NextResponse.json({ error: "No credits left for album covers" }, { status: 403 });
-
-      const apiKey = process.env.GEMINI_API_KEY;
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-        method: "POST",
-        headers: { "x-goog-api-key": String(apiKey), "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "gemini-3.1-flash-image",
-          input: [{ type: "text", text: `Create a professional music album cover. Subject: ${prompt}. Vibrant, high quality, suitable for an African music release. No text unless requested.` }]
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return NextResponse.json({ error: `Gemini error ${response.status}: ${data?.error?.message || "unknown"}` }, { status: 500 });
-      }
-
-      const modelStep = data.steps?.find((s: any) => s.type === "model_output");
-      const imageBlock = modelStep?.content?.find((c: any) => c.type === "image");
-      if (imageBlock?.data) {
-        const mime = imageBlock.mime_type || "image/png";
-        const imageUrl = `data:${mime};base64,${imageBlock.data}`;
-        await useCredit(userId, "cover");
-        await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
-        return NextResponse.json({ url: imageUrl });
-      }
-        // Fallback: read image from output_image
-  const d = data?.interaction?.output_image || data?.output_image;
-  if (d?.data) {
-    const mime = d.mime_type || "image/png";
-    const imageUrl = "data:" + mime + ";base64," + d.data;
-    await useCredit(userId, "cover");
-    return NextResponse.json({ url: imageUrl });
-  }
-return NextResponse.json({ error: "Gemini returned no image. Try a different prompt." }, { status: 500 });
+      const stylePrompt = "Professional music album cover. " + prompt + ". Vibrant, high quality, suitable for an African music release, square artwork, no watermark";
+      const enc = encodeURIComponent(stylePrompt);
+      const imgUrl = "https://image.pollinations.ai/prompt/" + enc + "?width=1024&height=1024&model=flux&nologo=true";
+      const res = await fetch(imgUrl);
+      if (!res.ok) return NextResponse.json({ error: "Cover service busy, please retry in a few seconds" }, { status: 502 });
+      const buf = Buffer.from(await res.arrayBuffer());
+      const imageUrl = "data:image/jpeg;base64," + buf.toString("base64");
+      await useCredit(userId, "cover");
+      await sql`INSERT INTO generations (user_id, type, result_url, prompt) VALUES (${userId}, 'cover', ${imageUrl.substring(0, 200)}, ${prompt})`;
+      return NextResponse.json({ url: imageUrl });
     }
 
     if (type === "beat") {
