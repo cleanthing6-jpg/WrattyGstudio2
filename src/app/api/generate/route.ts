@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
         prompt: prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail",
         models: ["AlbedoBase XL"],
         params: {
-          width: 768,
-          height: 768,
+          width: 512,
+          height: 512,
           steps: 20,
           cfg_scale: 6,
           sampler_name: "k_euler",
