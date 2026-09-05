@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.AIMLAPI_KEY}`,
+            Authorization: `Bearer ${process.env.MUSICAPI_KEY}`,
           },
           body: JSON.stringify({
             model: "minimax/music-01",
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
           `https://api.aimlapi.com/v2/generation/${aimlData.id}`,
           {
             headers: {
-              Authorization: `Bearer ${process.env.AIMLAPI_KEY}`,
+              Authorization: `Bearer ${process.env.MUSICAPI_KEY}`,
             },
           }
         );
