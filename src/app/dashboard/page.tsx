@@ -109,6 +109,27 @@ export default function Dashboard() {
         </section>
 
         <section className="mt-8">
+{history.length > 0 && (
+  <section className="mt-8">
+    <h2 className="text-lg font-bold mb-3">Your recent creations</h2>
+    <div className="space-y-3">
+      {history.slice(0, 8).map((h, i) => (
+        <div key={i} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-4">
+          {h.type === "cover" ? (
+            <img src={h.result_url} alt="cover" className="w-16 h-16 rounded-xl object-cover" />
+          ) : (
+            <span className="w-16 h-16 rounded-xl bg-green-100 grid place-items-center text-2xl">🎵</span>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold capitalize text-slate-900">{h.type}</p>
+            {h.type === "beat" && <audio controls src={h.result_url} className="w-full mt-1 h-8" />}
+          </div>
+          <a href={h.result_url} download className="text-xs font-bold text-green-700 shrink-0">Download</a>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
           <h2 className="text-lg font-bold mb-3">Need more? Upgrade your plan</h2>
           <div className="grid sm:grid-cols-3 gap-4">
             {Object.entries(TIER_LIMITS).filter(([k]) => k !== "free").map(([key, p]) => (
