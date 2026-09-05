@@ -88,3 +88,11 @@ export default function Home() {
             ))}
           </div>
         </section>
+      </main>
+      <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-400">
+        <p className="font-bold text-sm text-slate-700">Wratty<span className="text-green-600">G</span>studio</p>
+        <p className="mt-2">Made for African creators. © 2026</p>
+      </footer>
+    </div>
+  );
+}
