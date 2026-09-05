@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+const targetDuration = Math.min(360, Math.max(10, Math.round(duration * 1.06)));
       const musicRes = await fetch(
         "https://api.musicapi.ai/api/v1/sonic/create",
         {
@@ -97,11 +98,11 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             custom_mode: false,
             mv: "sonic-v5",
-            gpt_description_prompt: prompt.trim(),
+            gpt_description_prompt: `${prompt.trim()}, strictly instrumental, no vocals, no singing, no voices, no lyrics, no choir, instrumental only`,
             title: "WrattyGstudio",
-            tags: "afrobeats, amapiano, highlife",
+            tags: "afrobeats, amapiano, instrumental",
             make_instrumental: true,
-            duration,
+            duration: targetDuration,
           }),
         }
       );

@@ -21,7 +21,7 @@ function StudioInner() {
 
   // Beat Generation
   const [beatPrompt, setBeatPrompt] = useState("");
-  const [beatDuration, setBeatDuration] = useState("120");
+  const [beatDuration, setBeatDuration] = useState("150");
   const [beatGenerating, setBeatGenerating] = useState(false);
   const [beatResult, setBeatResult] = useState("");
 
@@ -136,9 +136,9 @@ function StudioInner() {
                   onChange={e => setBeatDuration(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-green-500"
                 >
-                  <option value="30">30 seconds (preview)</option>
-                  <option value="60">60 seconds</option>
-                  <option value="120">2 minutes (full beat)</option>
+                  <option value="150">2:30 (150 seconds)</option>
+<option value="180">3:00 (180 seconds)</option>
+<option value="210">3:30 (210 seconds)</option>
                 </select>
               </div>
               <button

@@ -13,6 +13,7 @@ const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number
 export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [usage, setUsage] = useState<any>(null);
+      const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -20,6 +21,10 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((d) => setUsage(d))
       .catch(() => {});
+  fetch("/api/history")
+    .then((r) => r.json())
+    .then((h) => setHistory(h.items || []))
+    .catch(() => {});
   }, [isSignedIn]);
 
   if (!isLoaded) {
