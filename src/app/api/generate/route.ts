@@ -12,33 +12,22 @@ function isGenerationType(value: unknown): value is GenerationType {
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
     const { type, prompt } = body;
 
     if (!isGenerationType(type)) {
-      return NextResponse.json(
-        { error: "Invalid generation type" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid generation type" }, { status: 400 });
     }
 
     if (type !== "mix" && (!prompt || typeof prompt !== "string" || !prompt.trim())) {
-      return NextResponse.json(
-        { error: "A prompt is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "A prompt is required" }, { status: 400 });
     }
 
     const credit = await checkCredit(userId, type);
-
     if (!credit.allowed) {
       return NextResponse.json(
         {
@@ -58,14 +47,12 @@ export async function POST(req: NextRequest) {
         ". Vibrant, high quality, suitable for an African music release, square artwork, no watermark";
 
       const enc = encodeURIComponent(stylePrompt);
-
       const imgUrl =
         "https://image.pollinations.ai/prompt/" +
         enc +
         "?width=1024&height=1024&model=flux&nologo=true";
 
       const res = await fetch(imgUrl);
-
       if (!res.ok) {
         return NextResponse.json(
           { error: "Cover service busy, please retry in a few seconds" },
@@ -74,12 +61,8 @@ export async function POST(req: NextRequest) {
       }
 
       const consumed = await consumeCredit(userId, "cover");
-
       if (!consumed) {
-        return NextResponse.json(
-          { error: "No album cover credits remaining" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "No album cover credits remaining" }, { status: 403 });
       }
 
       await sql`
@@ -103,8 +86,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const aimlRes = await fetch(
-        "https://api.aimlapi.com/v2/generation",
+      const musicRes = await fetch(
+        "https://api.musicapi.ai/api/v1/sonic/create",
         {
           method: "POST",
           headers: {
@@ -112,32 +95,32 @@ export async function POST(req: NextRequest) {
             Authorization: `Bearer ${process.env.MUSICAPI_KEY}`,
           },
           body: JSON.stringify({
-            model: "minimax/music-01",
-            prompt: prompt.trim(),
+            custom_mode: false,
+            mv: "sonic-v5",
+            gpt_description_prompt: prompt.trim(),
+            title: "WrattyGstudio",
+            tags: "afrobeats, amapiano, highlife",
+            make_instrumental: true,
             duration,
-            return_all: false,
           }),
         }
       );
 
-      const aimlData = await aimlRes.json();
-
-      if (!aimlRes.ok || !aimlData.id) {
+      const musicData = await musicRes.json();
+      if (!musicRes.ok || !musicData.task_id) {
         return NextResponse.json(
-          {
-            error:
-              aimlData.message ||
-              "Beat generation service is unavailable",
-          },
+          { error: musicData.message || "Beat generation service is unavailable" },
           { status: 502 }
         );
       }
+
+      const taskId = musicData.task_id;
 
       for (let i = 0; i < 60; i++) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
 
         const poll = await fetch(
-          `https://api.aimlapi.com/v2/generation/${aimlData.id}`,
+          `https://api.musicapi.ai/api/v1/sonic/task/${taskId}`,
           {
             headers: {
               Authorization: `Bearer ${process.env.MUSICAPI_KEY}`,
@@ -147,58 +130,39 @@ export async function POST(req: NextRequest) {
 
         const pollData = await poll.json();
 
-        if (pollData.status === "completed" && pollData.audio_url) {
-          const consumed = await consumeCredit(userId, "beat");
+        if (pollData.code === 200 && pollData.data && pollData.data.length > 0) {
+          const clip = pollData.data.find((d: any) => d.state === "succeeded");
 
-          if (!consumed) {
-            return NextResponse.json(
-              { error: "No beat credits remaining" },
-              { status: 403 }
-            );
+          if (clip) {
+            const consumed = await consumeCredit(userId, "beat");
+            if (!consumed) {
+              return NextResponse.json({ error: "No beat credits remaining" }, { status: 403 });
+            }
+
+            await sql`
+              INSERT INTO generations (user_id, type, result_url, prompt)
+              VALUES (${userId}, 'beat', ${clip.audio_url}, ${prompt.trim()})
+            `;
+
+            return NextResponse.json({ url: clip.audio_url });
           }
-
-          await sql`
-            INSERT INTO generations (user_id, type, result_url, prompt)
-            VALUES (${userId}, 'beat', ${pollData.audio_url}, ${prompt.trim()})
-          `;
-
-          return NextResponse.json({
-            url: pollData.audio_url,
-          });
         }
 
-        if (pollData.status === "failed") {
-          return NextResponse.json(
-            { error: "Beat generation failed" },
-            { status: 502 }
-          );
+        if (pollData.code !== 200 && pollData.message?.includes?.("failed")) {
+          return NextResponse.json({ error: "Beat generation failed" }, { status: 502 });
         }
       }
 
-      return NextResponse.json(
-        { error: "Beat generation timed out" },
-        { status: 504 }
-      );
+      return NextResponse.json({ error: "Beat generation timed out" }, { status: 504 });
     }
 
     return NextResponse.json(
-      {
-        error:
-          "Mix processing is not connected yet. Please use the Mix & Master page when the processing engine is enabled.",
-      },
+      { error: "Mix processing is not connected yet. Please use the Mix & Master page when the processing engine is enabled." },
       { status: 501 }
     );
   } catch (error: unknown) {
     console.error("Generation error:", error);
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Generation failed";
-
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Generation failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
