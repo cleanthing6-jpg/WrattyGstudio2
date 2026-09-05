@@ -133,7 +133,8 @@ const targetDuration = Math.min(360, Math.max(10, Math.round(duration * 1.06)));
 
       if (pollData.code === 200 && pollData.data && pollData.data.length > 0) {
         const clips = (pollData.data || []).filter((d: any) => d.state === "succeeded");
-        if (clips.length > 0) {
+        const allDone = (pollData.data || []).every((d: any) => d.state === "succeeded" || d.state === "failed" || d.state === "error");
+        if (allDone && clips.length > 0) {
           const consumed = await consumeCredit(userId, "beat");
           if (!consumed) {
             return NextResponse.json({ error: "No beat credits remaining" }, { status: 403 });
