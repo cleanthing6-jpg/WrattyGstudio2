@@ -53,22 +53,39 @@ function StudioInner() {
     setBeatGenerating(false);
   };
 
-  const generateCover = async () => {
-    if (!coverPrompt) return;
-    setCoverGenerating(true);
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "cover", prompt: coverPrompt }),
+const generateCover = async () => {
+  if (!coverPrompt) return;
+  setCoverGenerating(true);
+  try {
+    let reference = "";
+    if (coverFile) {
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const el = new Image();
+        el.onload = () => res(el);
+        el.onerror = rej;
+        el.src = URL.createObjectURL(coverFile);
       });
-      const data = await res.json();
-      if (data.url) setCoverResult(data.url);
-      else alert(data.error || "Generation failed");
-    } catch { alert("Network error"); }
-    setCoverGenerating(false);
-  };
-
+      const scale = Math.min(1, 768 / Math.max(img.width, img.height));
+      const w = Math.max(64, Math.round((img.width * scale) / 64) * 64);
+      const h = Math.max(64, Math.round((img.height * scale) / 64) * 64);
+      const cv = document.createElement("canvas");
+      cv.width = w;
+      cv.height = h;
+      cv.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      reference = cv.toDataURL("image/jpeg", 0.85).split(",")[1];
+      URL.revokeObjectURL(img.src);
+    }
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "cover", prompt: coverPrompt, reference }),
+    });
+    const data = await res.json();
+    if (data.url) setCoverResult(data.url);
+    else alert(data.error || "Generation failed");
+  } catch { alert("Network error"); }
+  setCoverGenerating(false);
+};
   const processMix = async () => {
     if (!mixFile) return;
     setMixProcessing(true);

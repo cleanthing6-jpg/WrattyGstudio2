@@ -41,38 +41,69 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === "cover") {
-      const stylePrompt =
-        "Professional music album cover. " +
-        prompt.trim() +
-        ". Vibrant, high quality, suitable for an African music release, square artwork, no watermark";
-
-      const enc = encodeURIComponent(stylePrompt);
-      const imgUrl =
-        "https://image.pollinations.ai/prompt/" +
-        enc +
-        "?width=1024&height=1024&model=flux&nologo=true";
-
-      const res = await fetch(imgUrl);
-      if (!res.ok) {
+      const ref = typeof body.reference === "string" ? body.reference.trim() : "";
+      const submitBody: any = {
+        prompt: prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail",
+        models: ["AlbedoBase XL"],
+        params: {
+          width: 768,
+          height: 768,
+          steps: 20,
+          cfg_scale: 6,
+          sampler_name: "k_euler",
+        },
+        nsfw: false,
+      };
+      if (ref) {
+        submitBody.source_image = ref;
+        submitBody.params.source_processing = "img2img";
+        submitBody.params.denoising_strength = 0.6;
+      }
+      const horde = await fetch("https://aihorde.net/api/v2/generate/async", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: process.env.AIHORDE_API_KEY || "",
+        },
+        body: JSON.stringify(submitBody),
+      });
+      const hordeData = await horde.json();
+      if (!horde.ok || !hordeData.id) {
         return NextResponse.json(
-          { error: "Cover service busy, please retry in a few seconds" },
+          { error: "AI Horde: " + (hordeData.message || hordeData.rc || JSON.stringify(hordeData).slice(0, 200)) },
           { status: 502 }
         );
       }
-
+      const jobId = hordeData.id;
+      let coverUrl = "";
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const chk = await fetch("https://aihorde.net/api/v2/generate/check/" + jobId);
+        const chkData = await chk.json();
+        if (chkData.done && chkData.finished > 0) {
+          const st = await fetch("https://aihorde.net/api/v2/generate/status/" + jobId);
+          const stData = await st.json();
+          const gen = stData.generations?.[0];
+          if (gen && gen.img) {
+            coverUrl = gen.img.startsWith("http") ? gen.img : "data:image/webp;base64," + gen.img;
+          }
+          break;
+        }
+        if (chkData.faulted) break;
+      }
+      if (!coverUrl) {
+        return NextResponse.json({ error: "Cover generation timed out, please retry" }, { status: 504 });
+      }
       const consumed = await consumeCredit(userId, "cover");
       if (!consumed) {
         return NextResponse.json({ error: "No album cover credits remaining" }, { status: 403 });
       }
-
       await sql`
         INSERT INTO generations (user_id, type, result_url, prompt)
-        VALUES (${userId}, 'cover', ${imgUrl}, ${prompt.trim()})
+        VALUES (${userId}, 'cover', ${coverUrl}, ${prompt.trim()})
       `;
-
-      return NextResponse.json({ url: imgUrl });
+      return NextResponse.json({ url: coverUrl });
     }
-
     if (type === "beat") {
       const duration =
         typeof body.duration === "number"
