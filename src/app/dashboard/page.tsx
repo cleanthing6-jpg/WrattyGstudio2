@@ -43,12 +43,12 @@ export default function Dashboard() {
   }
 
   const firstName = user?.firstName || user?.username || "Creator";
-  const plan = (usage && (usage.plan || "free")) || "free";
+  const plan = (usage && (usage.tier || "free")) || "free";
   const lim = TIER_LIMITS[plan] || TIER_LIMITS.free;
   const used = usage || {};
-  const usedBeats = used.beats ?? used.used?.beats ?? 0;
-  const usedCovers = used.covers ?? used.used?.covers ?? 0;
-  const usedMixes = used.mixes ?? used.used?.mixes ?? 0;
+  const usedBeats = used.beats_used ?? used.used?.beats ?? 0;
+  const usedCovers = used.covers_used ?? used.used?.covers ?? 0;
+  const usedMixes = used.mixes_used ?? used.used?.mixes ?? 0;
 
   const statCards = [
     { icon: "🎵", label: "Beats", used: usedBeats, total: lim.beats, chip: "bg-green-100 text-green-700", bar: "bg-green-500", href: "/studio?type=beat" },
