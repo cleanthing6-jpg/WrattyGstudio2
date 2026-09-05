@@ -88,8 +88,8 @@ export default function Pricing() {
         {TIERS.map((tier) => (
           <div
             key={tier.id}
-            className={`bg-gray-900 rounded-2xl p-6 border ${
-              tier.color === "green" ? "border-green-500" : "border-gray-800"
+            className={`bg-white rounded-2xl p-6 border ${
+              tier.color === "green" ? "border-green-500" : "border-slate-200"
             }`}
           >
             {tier.color === "green" && (
