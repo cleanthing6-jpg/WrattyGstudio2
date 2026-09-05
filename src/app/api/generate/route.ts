@@ -110,7 +110,7 @@ const targetDuration = Math.min(360, Math.max(10, Math.round(duration * 1.06)));
       const musicData = await musicRes.json();
       if (!musicRes.ok || !musicData.task_id) {
         return NextResponse.json(
-          { error: musicData.message || "Beat generation service is unavailable" },
+          { error: "MusicAPI status " + musicRes.status + " body " + JSON.stringify(musicData).slice(0,300) },
           { status: 502 }
         );
       }
