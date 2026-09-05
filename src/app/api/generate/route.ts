@@ -42,39 +42,63 @@ export async function POST(req: NextRequest) {
 
     if (type === "cover") {
       const ref = typeof body.reference === "string" ? body.reference.trim() : "";
-      const submitBody: any = {
-        prompt: prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail",
-        models: ["AlbedoBase XL"],
-        params: {
-          width: 512,
-          height: 512,
-          steps: 20,
-          cfg_scale: 6,
-          sampler_name: "k_euler",
-        },
-        nsfw: false,
-      };
-      if (ref) {
-        submitBody.source_image = ref;
-        submitBody.params.source_processing = "img2img";
-        submitBody.params.denoising_strength = 0.6;
-      }
-      const horde = await fetch("https://aihorde.net/api/v2/generate/async", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: process.env.AIHORDE_API_KEY || "",
-        },
-        body: JSON.stringify(submitBody),
-      });
-      const hordeData = await horde.json();
-      if (!horde.ok || !hordeData.id) {
-        return NextResponse.json(
-          { error: "AI Horde: " + (hordeData.message || hordeData.rc || JSON.stringify(hordeData).slice(0, 200)) },
-          { status: 502 }
+      const promptText = prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail";
+      let imgBase64 = "";
+      if (!ref) {
+        const cfRes = await fetch(
+          "https://api.cloudflare.com/client/v4/accounts/" + process.env.CLOUDFLARE_ACCOUNT_ID + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + process.env.CLOUDFLARE_API_TOKEN,
+            },
+            body: JSON.stringify({ prompt: promptText }),
+          }
         );
+        const cfData = await cfRes.json();
+        if (!cfRes.ok || !cfData.result || !cfData.result.image) {
+          return NextResponse.json(
+            { error: "Cloudflare: " + (cfData.errors?.[0]?.message || cfData.message || "image generation failed") },
+            { status: 502 }
+          );
+        }
+        imgBase64 = cfData.result.image;
+      } else {
+        const buf = Buffer.from(ref, "base64");
+        const form = new FormData();
+        form.append("prompt", "Recreate this reference image as a professional music album cover: " + prompt.trim() + ". Keep the subject and style of the reference image. Square artwork, vibrant, high detail");
+        form.append("input_image_0", new Blob([buf], { type: "image/jpeg" }), "ref.jpg");
+        form.append("steps", "20");
+        form.append("width", "1024");
+        form.append("height", "1024");
+        const cfRes = await fetch(
+          "https://api.cloudflare.com/client/v4/accounts/" + process.env.CLOUDFLARE_ACCOUNT_ID + "/ai/run/@cf/black-forest-labs/flux-2-dev",
+          {
+            method: "POST",
+            headers: { Authorization: "Bearer " + process.env.CLOUDFLARE_API_TOKEN },
+            body: form,
+          }
+        );
+        const cfData = await cfRes.json();
+        if (!cfRes.ok || !cfData.result || !cfData.result.image) {
+          return NextResponse.json(
+            { error: "Cloudflare flux2: " + (cfData.errors?.[0]?.message || cfData.message || JSON.stringify(cfData).slice(0, 200)) },
+            { status: 502 }
+          );
+        }
+        imgBase64 = cfData.result.image;
       }
-      return NextResponse.json({ jobId: hordeData.id });
+      const coverUrl = "data:image/jpeg;base64," + imgBase64;
+      const consumed = await consumeCredit(userId, "cover");
+      if (!consumed) {
+        return NextResponse.json({ error: "No album cover credits remaining" }, { status: 403 });
+      }
+      await sql`
+        INSERT INTO generations (user_id, type, result_url, prompt)
+        VALUES (${userId}, 'cover', ${coverUrl}, ${prompt.trim()})
+      `;
+      return NextResponse.json({ url: coverUrl });
     }
     if (type === "beat") {
       const duration =
