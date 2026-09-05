@@ -60,7 +60,7 @@ const generateCover = async () => {
     let reference = "";
     if (coverFile) {
       const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const el = new Image();
+        const el = document.createElement("img");
         el.onload = () => res(el);
         el.onerror = rej;
         el.src = URL.createObjectURL(coverFile);
