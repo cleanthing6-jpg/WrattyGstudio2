@@ -74,35 +74,7 @@ export async function POST(req: NextRequest) {
           { status: 502 }
         );
       }
-      const jobId = hordeData.id;
-      let coverUrl = "";
-      for (let i = 0; i < 60; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const chk = await fetch("https://aihorde.net/api/v2/generate/check/" + jobId);
-        const chkData = await chk.json();
-        if (chkData.done && chkData.finished > 0) {
-          const st = await fetch("https://aihorde.net/api/v2/generate/status/" + jobId);
-          const stData = await st.json();
-          const gen = stData.generations?.[0];
-          if (gen && gen.img) {
-            coverUrl = gen.img.startsWith("http") ? gen.img : "data:image/webp;base64," + gen.img;
-          }
-          break;
-        }
-        if (chkData.faulted) break;
-      }
-      if (!coverUrl) {
-        return NextResponse.json({ error: "Cover generation timed out, please retry" }, { status: 504 });
-      }
-      const consumed = await consumeCredit(userId, "cover");
-      if (!consumed) {
-        return NextResponse.json({ error: "No album cover credits remaining" }, { status: 403 });
-      }
-      await sql`
-        INSERT INTO generations (user_id, type, result_url, prompt)
-        VALUES (${userId}, 'cover', ${coverUrl}, ${prompt.trim()})
-      `;
-      return NextResponse.json({ url: coverUrl });
+      return NextResponse.json({ jobId: hordeData.id });
     }
     if (type === "beat") {
       const duration =

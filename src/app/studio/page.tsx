@@ -81,8 +81,18 @@ const generateCover = async () => {
       body: JSON.stringify({ type: "cover", prompt: coverPrompt, reference }),
     });
     const data = await res.json();
-    if (data.url) setCoverResult(data.url);
-    else alert(data.error || "Generation failed");
+    if (data.jobId) {
+      let url = "";
+      for (let i = 0; i < 45; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const sr = await fetch("/api/cover-status?jobId=" + encodeURIComponent(data.jobId) + "&prompt=" + encodeURIComponent(coverPrompt));
+        const sd = await sr.json();
+        if (sd.url) { url = sd.url; break; }
+        if (sd.error) { alert(sd.error); break; }
+      }
+      if (url) setCoverResult(url);
+      else alert("Cover generation timed out, please retry");
+    } else alert(data.error || "Generation failed");
   } catch { alert("Network error"); }
   setCoverGenerating(false);
 };
