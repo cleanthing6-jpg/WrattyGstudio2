@@ -83,7 +83,7 @@ const generateCover = async () => {
     const data = await res.json();
     if (data.jobId) {
       let url = "";
-      for (let i = 0; i < 45; i++) {
+      for (let i = 0; i < 120; i++) {
         await new Promise((r) => setTimeout(r, 4000));
         const sr = await fetch("/api/cover-status?jobId=" + encodeURIComponent(data.jobId) + "&prompt=" + encodeURIComponent(coverPrompt));
         const sd = await sr.json();
