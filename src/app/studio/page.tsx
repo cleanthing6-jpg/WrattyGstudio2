@@ -104,7 +104,7 @@ function StudioInner() {
             className={`px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition ${
               activeTab === tab.id
                 ? "bg-green-500 text-black"
-                : "bg-gray-900 text-gray-400 hover:text-white border border-gray-800"
+                : "bg-white text-gray-400 hover:text-slate-900 border border-slate-200"
             }`}
           >
             {tab.label}
@@ -115,7 +115,7 @@ function StudioInner() {
       {/* BEAT GENERATOR */}
       {activeTab === "beat" && (
         <div className="space-y-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200">
             <h2 className="text-xl font-bold mb-4">Generate a Beat</h2>
             <p className="text-gray-500 text-sm mb-6">Describe the beat you want. Be specific about genre, mood, and tempo.</p>
 
@@ -126,7 +126,7 @@ function StudioInner() {
                   value={beatPrompt}
                   onChange={e => setBeatPrompt(e.target.value)}
                   placeholder="e.g. Afrobeats dancehall 120bpm, heavy bass, joyful vibe, Amapiano log drums..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-green-500 h-24 resize-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-gray-600 focus:outline-none focus:border-green-500 h-24 resize-none"
                 />
               </div>
               <div>
@@ -134,7 +134,7 @@ function StudioInner() {
                 <select
                   value={beatDuration}
                   onChange={e => setBeatDuration(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-green-500"
                 >
                   <option value="30">30 seconds (preview)</option>
                   <option value="60">60 seconds</option>
@@ -144,7 +144,7 @@ function StudioInner() {
               <button
                 onClick={generateBeat}
                 disabled={beatGenerating || !beatPrompt}
-                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
+                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
               >
                 {beatGenerating ? "Generating... ⏳" : "Generate Beat 🎵"}
               </button>
@@ -152,7 +152,7 @@ function StudioInner() {
           </div>
 
           {beatResult && (
-            <div className="bg-gray-900 rounded-2xl p-6 border border-green-500/30">
+            <div className="bg-white rounded-2xl p-6 border border-green-500/30">
               <h3 className="font-bold mb-3 text-green-400">✅ Beat Generated!</h3>
               <audio controls src={beatResult} className="w-full mb-4" />
               <a href={beatResult} download className="block w-full text-center bg-green-500 text-black font-bold py-3 rounded-xl">
@@ -166,7 +166,7 @@ function StudioInner() {
       {/* ALBUM COVER */}
       {activeTab === "cover" && (
         <div className="space-y-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200">
             <h2 className="text-xl font-bold mb-4">Design Album Cover</h2>
             <p className="text-gray-500 text-sm mb-6">Describe your vision or upload reference images.</p>
 
@@ -174,7 +174,7 @@ function StudioInner() {
               {/* Upload Reference */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Reference Image (optional)</label>
-                <label className="block border-2 border-dashed border-gray-700 hover:border-gray-500 rounded-xl p-8 text-center cursor-pointer transition">
+                <label className="block border-2 border-dashed border-slate-200 hover:border-gray-500 rounded-xl p-8 text-center cursor-pointer transition">
                   <input
                     type="file"
                     accept="image/*"
@@ -199,14 +199,14 @@ function StudioInner() {
                   value={coverPrompt}
                   onChange={e => setCoverPrompt(e.target.value)}
                   placeholder="e.g. African sunset with golden microphone, colorful, vibrant, album art style..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-green-500 h-24 resize-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-gray-600 focus:outline-none focus:border-green-500 h-24 resize-none"
                 />
               </div>
 
               <button
                 onClick={generateCover}
                 disabled={coverGenerating || !coverPrompt}
-                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
+                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
               >
                 {coverGenerating ? "Generating... ⏳" : "Generate Cover 🎨"}
               </button>
@@ -214,7 +214,7 @@ function StudioInner() {
           </div>
 
           {coverResult && (
-            <div className="bg-gray-900 rounded-2xl p-6 border border-green-500/30">
+            <div className="bg-white rounded-2xl p-6 border border-green-500/30">
               <h3 className="font-bold mb-3 text-green-400">✅ Cover Generated!</h3>
               <Image src={coverResult} alt="Album Cover" width={1024} height={1024} className="w-full rounded-xl mb-4" unoptimized />
               <a href={coverResult} download className="block w-full text-center bg-green-500 text-black font-bold py-3 rounded-xl">
@@ -228,7 +228,7 @@ function StudioInner() {
       {/* MIX & MASTER */}
       {activeTab === "mix" && (
         <div className="space-y-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200">
             <h2 className="text-xl font-bold mb-4">Mix & Master</h2>
             <p className="text-gray-500 text-sm mb-6">Upload your track. Choose what you need.</p>
 
@@ -236,7 +236,7 @@ function StudioInner() {
               {/* Upload Audio */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Upload Audio File</label>
-                <label className="block border-2 border-dashed border-gray-700 hover:border-gray-500 rounded-xl p-8 text-center cursor-pointer transition">
+                <label className="block border-2 border-dashed border-slate-200 hover:border-gray-500 rounded-xl p-8 text-center cursor-pointer transition">
                   <input
                     type="file"
                     accept="audio/*"
@@ -275,8 +275,8 @@ function StudioInner() {
                       onClick={() => setMixType(opt.id)}
                       className={`p-3 rounded-xl text-center transition border ${
                         mixType === opt.id
-                          ? "bg-green-500/10 border-green-500 text-white"
-                          : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                          ? "bg-green-500/10 border-green-500 text-slate-900"
+                          : "bg-white border-slate-200 text-gray-400 hover:text-slate-900"
                       }`}
                     >
                       <div className="font-semibold text-sm">{opt.label}</div>
@@ -289,7 +289,7 @@ function StudioInner() {
               <button
                 onClick={processMix}
                 disabled={mixProcessing || !mixFile}
-                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
+                className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
               >
                 {mixProcessing ? "Processing... ⏳" : `Process Track ${mixType === "stems" ? "✂️" : mixType === "automix" ? "🎛️" : "🔊"}`}
               </button>
@@ -297,7 +297,7 @@ function StudioInner() {
           </div>
 
           {mixResult && (
-            <div className="bg-gray-900 rounded-2xl p-6 border border-green-500/30">
+            <div className="bg-white rounded-2xl p-6 border border-green-500/30">
               <h3 className="font-bold mb-3 text-green-400">✅ Processing Complete!</h3>
               <audio controls src={mixResult} className="w-full mb-4" />
               <a href={mixResult} download className="block w-full text-center bg-green-500 text-black font-bold py-3 rounded-xl">
