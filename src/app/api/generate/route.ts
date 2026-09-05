@@ -131,24 +131,25 @@ const targetDuration = Math.min(360, Math.max(10, Math.round(duration * 1.06)));
 
         const pollData = await poll.json();
 
-        if (pollData.code === 200 && pollData.data && pollData.data.length > 0) {
-          const clip = pollData.data.find((d: any) => d.state === "succeeded");
-
-          if (clip) {
-            const consumed = await consumeCredit(userId, "beat");
-            if (!consumed) {
-              return NextResponse.json({ error: "No beat credits remaining" }, { status: 403 });
-            }
-
+      if (pollData.code === 200 && pollData.data && pollData.data.length > 0) {
+        const clips = (pollData.data || []).filter((d: any) => d.state === "succeeded");
+        if (clips.length > 0) {
+          const consumed = await consumeCredit(userId, "beat");
+          if (!consumed) {
+            return NextResponse.json({ error: "No beat credits remaining" }, { status: 403 });
+          }
+          const tracks: { url: string; label: string }[] = [];
+          for (let ti = 0; ti < clips.length; ti++) {
+            const c = clips[ti];
             await sql`
               INSERT INTO generations (user_id, type, result_url, prompt)
-              VALUES (${userId}, 'beat', ${clip.audio_url}, ${prompt.trim()})
+              VALUES (${userId}, 'beat', ${c.audio_url}, ${prompt.trim()})
             `;
-
-            return NextResponse.json({ url: clip.audio_url });
+            tracks.push({ url: c.audio_url, label: "Version " + (ti + 1) });
           }
+          return NextResponse.json({ url: tracks[0].url, tracks });
         }
-
+      }
         if (pollData.code !== 200 && pollData.message?.includes?.("failed")) {
           return NextResponse.json({ error: "Beat generation failed" }, { status: 502 });
         }
