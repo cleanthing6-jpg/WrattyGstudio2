@@ -65,7 +65,7 @@ const generateCover = async () => {
         el.onerror = rej;
         el.src = URL.createObjectURL(coverFile);
       });
-      const scale = Math.min(1, 768 / Math.max(img.width, img.height));
+      const scale = Math.min(1, 512 / Math.max(img.width, img.height));
       const w = Math.max(64, Math.round((img.width * scale) / 64) * 64);
       const h = Math.max(64, Math.round((img.height * scale) / 64) * 64);
       const cv = document.createElement("canvas");
