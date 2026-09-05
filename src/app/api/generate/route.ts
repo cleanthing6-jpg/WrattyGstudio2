@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     if (type === "cover") {
       const ref = typeof body.reference === "string" ? body.reference.trim() : "";
-      const promptText = prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail";
+      const promptText = prompt.trim() + ", professional music album cover, square artwork, vibrant colors, high detail, no watermark, no extra text, no unreadable letters";
       let imgBase64 = "";
       if (!ref) {
         const cfRes = await fetch(
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       } else {
         const buf = Buffer.from(ref, "base64");
         const form = new FormData();
-        form.append("prompt", "Recreate this reference image as a professional music album cover: " + prompt.trim() + ". Keep the subject and style of the reference image. Square artwork, vibrant, high detail");
+        form.append("prompt", "Recreate this reference image as a professional music album cover: " + prompt.trim() + ". Keep the subject and style of the reference image. Square artwork, vibrant, high detail, no watermark, no extra text, no unreadable letters");
         form.append("input_image_0", new Blob([buf], { type: "image/jpeg" }), "ref.jpg");
         form.append("steps", "20");
         form.append("width", "1024");
