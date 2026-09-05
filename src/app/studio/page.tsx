@@ -49,7 +49,7 @@ function StudioInner() {
       const data = await res.json();
       if (data.url) setBeatResult(data.url);
       else alert(data.error || "Generation failed");
-    } catch { alert("Network error"); }
+    } catch (e:any) { alert("Error: " + ((e && e.message) ? e.message : "network error")); }
     setBeatGenerating(false);
   };
 
@@ -93,7 +93,7 @@ const generateCover = async () => {
       if (url) setCoverResult(url);
       else alert("Cover generation timed out, please retry");
     } else alert(data.error || "Generation failed");
-  } catch { alert("Network error"); }
+  } catch (e:any) { alert("Error: " + ((e && e.message) ? e.message : "network error")); }
   setCoverGenerating(false);
 };
   const processMix = async () => {
@@ -107,7 +107,7 @@ const generateCover = async () => {
       const data = await res.json();
       if (data.url) setMixResult(data.url);
       else alert(data.error || "Processing failed");
-    } catch { alert("Network error"); }
+    } catch (e:any) { alert("Error: " + ((e && e.message) ? e.message : "network error")); }
     setMixProcessing(false);
   };
 
