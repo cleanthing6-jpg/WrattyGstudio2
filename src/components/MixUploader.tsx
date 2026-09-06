@@ -14,10 +14,13 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
     setError("");
     try {
       const res = await startUpload([file]);
-      const f = res && res[0];
-      const url = (f && ((f as any).ufsUrl || (f as any).url)) || "";
-      if (url) onReady(url, (f && (f as any).name) || file.name);
-      else setError("Upload returned no file URL");
+      const f: any = res && res[0];
+      const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
+      if (url) {
+        onReady(url, (f && f.name) || file.name);
+      } else {
+        setError("No file URL in response: " + JSON.stringify(f).slice(0, 300));
+      }
     } catch (e: any) {
       setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
     }
@@ -31,7 +34,7 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
         <input
           ref={inputRef}
           type="file"
-          accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.flac,.m4a,.mp4"
+          accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.flac,.mp4"
           className="hidden"
           onChange={(e) => pick(e.target.files?.[0])}
         />
