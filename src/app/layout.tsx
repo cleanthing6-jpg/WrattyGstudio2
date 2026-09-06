@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
+import { extractRouterConfig } from "uploadthing/server";
+import { ourFileRouter } from "@/app/api/uploadthing/core";
 import Link from "next/link";
 import "./globals.css";
 
@@ -50,7 +53,8 @@ export default function RootLayout({
           </nav>
 
           <main className="pt-16">{children}</main>
-        </body>
+        <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
+</body>
       </html>
     </ClerkProvider>
   );
