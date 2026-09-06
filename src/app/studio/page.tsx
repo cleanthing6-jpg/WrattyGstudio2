@@ -1,6 +1,6 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
-import { UploadDropzone } from "@/utils/uploadthing";
+import MixUploader from "@/components/MixUploader";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
@@ -294,18 +294,7 @@ const generateCover = async () => {
               {/* Upload Audio */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Upload Audio File (up to 64MB)</label>
-                <UploadDropzone
-                  endpoint="audioUploader"
-                  onClientUploadComplete={(res: any[]) => {
-                    const f = res && res[0];
-                    const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
-                    if (url) {
-                      setMixUrl(url);
-                      setMixName(f.name || "Track");
-                    }
-                  }}
-                  onUploadError={(e: any) => alert("Upload error: " + ((e && e.message) ? e.message : "unknown"))}
-                />
+                <MixUploader onReady={(url, name) => { setMixUrl(url); setMixName(name); }} />
                 {mixUrl && (
                   <div className="mt-3 bg-green-50 border border-green-500/40 rounded-xl p-3">
                     <div className="text-green-600 font-semibold text-sm mb-2">✅ {mixName} uploaded — ready to split</div>
