@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const ct = req.headers.get("content-type") || "";
     let form: FormData = new FormData();
     form.append("api_token", MVSEP_TOKEN);
-    form.append("sep_type", "20");
+    form.append("sep_type", "40");
 
     if (ct.includes("application/json")) {
       const body = await req.json();
