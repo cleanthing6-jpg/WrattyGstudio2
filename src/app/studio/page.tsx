@@ -116,7 +116,7 @@ const generateCover = async () => {
           const files = sdata.data && sdata.data.files ? sdata.data.files : sdata.files;
           if (st === "done" && Array.isArray(files)) {
             const stems = files
-              .filter((f: any) => f && f.url && (f.type === "Vocals" || f.type === "Instrumental"))
+              .filter((f: any) => f && f.url)
               .map((f: any) => ({ type: f.type, url: f.url }));
             if (stems.length) {
               setMixStems(stems);
