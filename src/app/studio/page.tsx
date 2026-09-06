@@ -33,6 +33,8 @@ function StudioInner() {
 
   // Mix & Master
   const [mixFile, setMixFile] = useState<File | null>(null);
+  const [mixStems, setMixStems] = useState<{ type: string; url: string }[]>([]);
+  const [mixStage, setMixStage] = useState("");
   const [mixProcessing, setMixProcessing] = useState(false);
   const [mixResult, setMixResult] = useState("");
   const [mixType, setMixType] = useState<"automix" | "master" | "stems">("automix");
@@ -88,17 +90,53 @@ const generateCover = async () => {
 };
   const processMix = async () => {
     if (!mixFile) return;
-    setMixProcessing(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", mixFile);
-      formData.append("type", mixType);
-      const res = await fetch("/api/process", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.url) setMixResult(data.url);
-      else alert(data.error || "Processing failed");
-    } catch (e:any) { alert("Error: " + ((e && e.message) ? e.message : "network error")); }
-    setMixProcessing(false);
+    if (mixType === "stems") {
+      setMixProcessing(true);
+      setMixResult("");
+      setMixStems([]);
+      setMixStage("Uploading to the splitter…");
+      try {
+        const formData = new FormData();
+        formData.append("file", mixFile);
+        const res = await fetch("/api/mix-stems", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!data.taskId) {
+          alert(data.error || "Split failed — check credits");
+          setMixProcessing(false);
+          return;
+        }
+        for (let i = 0; i < 60; i++) {
+          setMixStage("Splitting stems… free queue can take 1–3 min");
+          await new Promise(r => setTimeout(r, 10000));
+          const sres = await fetch("/api/mix-status?hash=" + encodeURIComponent(data.taskId));
+          const sdata = await sres.json();
+          const st = sdata.status || (sdata.data && sdata.data.status);
+          const files = sdata.data && sdata.data.files ? sdata.data.files : sdata.files;
+          if (st === "done" && Array.isArray(files)) {
+            const stems = files.filter((f: any) => f && f.type && f.url).map((f: any) => ({ type: f.type, url: f.url }));
+            if (stems.length) {
+              setMixStems(stems);
+              setMixStage("");
+              setMixProcessing(false);
+              return;
+            }
+          }
+          if (st === "failed") {
+            alert("Stem split failed on the server");
+            setMixProcessing(false);
+            return;
+          }
+        }
+        alert("Timed out — free queue is busy, try again in a minute");
+        setMixProcessing(false);
+      } catch (e: any) {
+        alert("Error: " + ((e && e.message) ? e.message : "network error"));
+        setMixProcessing(false);
+      }
+    } else {
+      setMixProcessing(false);
+      alert(mixType === "automix" ? "Auto Mix engine is next. Stems splitting is live now — pick Split Stems." : "Mastering engine is next. Stems splitting is live now — pick Split Stems.");
+    }
   };
 
   if (!user) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
@@ -312,6 +350,26 @@ const generateCover = async () => {
               </button>
             </div>
           </div>
+
+          {mixStage && (
+            <p className="text-gray-500 text-sm text-center mt-2">{mixStage}</p>
+          )}
+
+          {mixStems.length > 0 && (
+            <div className="bg-white rounded-2xl p-6 border border-green-500/30">
+              <h3 className="font-bold mb-1 text-green-400">✅ Stems Ready!</h3>
+              <p className="text-xs text-gray-500 mb-3">Vocals • Instrumental • Drums • Bass • Other — 320 kbps</p>
+              <div className="space-y-3">
+                {mixStems.map(s => (
+                  <div key={s.type} className="border border-slate-200 rounded-xl p-3">
+                    <div className="font-semibold mb-2">{s.type}</div>
+                    <audio controls src={s.url} className="w-full mb-2" preload="none" />
+                    <a href={s.url} target="_blank" rel="noreferrer" download className="text-sm font-semibold text-green-600">Download {s.type} ⬇️</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {mixResult && (
             <div className="bg-white rounded-2xl p-6 border border-green-500/30">
