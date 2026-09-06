@@ -1,5 +1,6 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
+import { UploadDropzone } from "@/utils/uploadthing";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
@@ -33,6 +34,8 @@ function StudioInner() {
 
   // Mix & Master
   const [mixFile, setMixFile] = useState<File | null>(null);
+  const [mixUrl, setMixUrl] = useState("");
+  const [mixName, setMixName] = useState("");
   const [mixStems, setMixStems] = useState<{ type: string; url: string }[]>([]);
   const [mixStage, setMixStage] = useState("");
   const [mixProcessing, setMixProcessing] = useState(false);
@@ -89,6 +92,59 @@ const generateCover = async () => {
   setCoverGenerating(false);
 };
   const processMix = async () => {
+    if (!mixUrl) return;
+    if (mixType === "stems") {
+      setMixProcessing(true);
+      setMixResult("");
+      setMixStems([]);
+      setMixStage("Starting split…");
+      try {
+        const res = await fetch("/api/mix-stems", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audioUrl: mixUrl }),
+        });
+        const data = await res.json();
+        if (!data.taskId) {
+          alert(data.error || "Split failed");
+          setMixProcessing(false);
+          return;
+        }
+        for (let i = 0; i < 60; i++) {
+          setMixStage("Splitting… free queue can take 1–3 min");
+          await new Promise((r) => setTimeout(r, 10000));
+          const sres = await fetch("/api/mix-status?hash=" + encodeURIComponent(data.taskId));
+          const sdata = await sres.json();
+          const st = sdata.status || (sdata.data && sdata.data.status);
+          const files = sdata.data && sdata.data.files ? sdata.data.files : sdata.files;
+          if (st === "done" && Array.isArray(files)) {
+            const stems = files
+              .filter((f: any) => f && f.url && (f.type === "Vocals" || f.type === "Instrumental"))
+              .map((f: any) => ({ type: f.type, url: f.url }));
+            if (stems.length) {
+              setMixStems(stems);
+              setMixStage("");
+              setMixProcessing(false);
+              return;
+            }
+          }
+          if (st === "failed") {
+            alert("Stem split failed on the server");
+            setMixProcessing(false);
+            return;
+          }
+        }
+        alert("Timed out — free queue is busy, try again in a minute");
+        setMixProcessing(false);
+      } catch (e: any) {
+        alert("Error: " + ((e && e.message) ? e.message : "network error"));
+        setMixProcessing(false);
+      }
+    } else {
+      setMixProcessing(false);
+      alert(mixType === "automix" ? "Auto Mix engine is next. Stems splitting is live now — pick Split Stems." : "Mastering engine is next. Stems splitting is live now — pick Split Stems.");
+    }
+  };
     if (!mixFile) return;
     if (mixType === "stems") {
       setMixProcessing(true);
@@ -137,7 +193,6 @@ const generateCover = async () => {
       setMixProcessing(false);
       alert(mixType === "automix" ? "Auto Mix engine is next. Stems splitting is live now — pick Split Stems." : "Mastering engine is next. Stems splitting is live now — pick Split Stems.");
     }
-  };
 
   if (!user) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
 
@@ -290,26 +345,27 @@ const generateCover = async () => {
             <div className="space-y-4">
               {/* Upload Audio */}
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Upload Audio File</label>
-                <label className="block border-2 border-dashed border-slate-200 hover:border-gray-500 rounded-xl p-8 text-center cursor-pointer transition">
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={e => setMixFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                  {mixFile ? (
-                    <div className="text-green-400">✅ {mixFile.name}</div>
-                  ) : (
-                    <div>
-                      <div className="text-3xl mb-2">🎙️</div>
-                      <div className="text-gray-400">Tap to upload audio</div>
-                      <div className="text-gray-600 text-sm">MP3, WAV, M4A — stems or full mix</div>
-                    </div>
-                  )}
-                </label>
+                <label className="block text-sm text-gray-400 mb-2">Upload Audio File (up to 64MB)</label>
+                <UploadDropzone
+                  endpoint="audioUploader"
+                  onClientUploadComplete={(res: any[]) => {
+                    const f = res && res[0];
+                    const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
+                    if (url) {
+                      setMixUrl(url);
+                      setMixName(f.name || "Track");
+                      setMixStage("");
+                    }
+                  }}
+                  onUploadError={(e: any) => alert("Upload error: " + ((e && e.message) ? e.message : "unknown"))}
+                />
+                {mixUrl && (
+                  <div className="mt-3 bg-green-50 border border-green-500/40 rounded-xl p-3">
+                    <div className="text-green-600 font-semibold text-sm mb-2">✅ {mixName} uploaded — ready to split</div>
+                    <audio controls src={mixUrl} className="w-full" />
+                  </div>
+                )}
               </div>
-
               {mixFile && (
                 <div>
                   <audio controls src={URL.createObjectURL(mixFile)} className="w-full" />
@@ -343,7 +399,7 @@ const generateCover = async () => {
 
               <button
                 onClick={processMix}
-                disabled={mixProcessing || !mixFile}
+                disabled={mixProcessing || !mixUrl}
                 className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
               >
                 {mixProcessing ? "Processing... ⏳" : `Process Track ${mixType === "stems" ? "✂️" : mixType === "automix" ? "🎛️" : "🔊"}`}
