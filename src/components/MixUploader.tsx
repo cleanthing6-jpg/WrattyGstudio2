@@ -6,31 +6,34 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { startUpload } = useUploadThing("audioUploader");
+
+  const { startUpload } = useUploadThing("audioUploader", {
+    onClientUploadComplete: (res: any[]) => {
+      const f = res && res[0];
+      const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
+      if (url) {
+        onReady(url, (f && f.name) || "Track");
+      } else {
+        setError("No URL on file: " + JSON.stringify(f).slice(0, 300));
+      }
+      setBusy(false);
+    },
+    onUploadError: (e: any) => {
+      setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
+      setBusy(false);
+    },
+  });
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
-    setBusy(true);
     setError("");
+    setBusy(true);
     try {
-      const res: any = await startUpload([file]);
-      if (res && Array.isArray(res) && res[0]) {
-        const f = res[0];
-        const url = (f.ufsUrl || f.url || (f.serverData && f.serverData.url)) || "";
-        if (url) {
-          onReady(url, f.name || file.name);
-        } else {
-          setError("No URL on file: " + JSON.stringify(f).slice(0, 400));
-        }
-      } else {
-        let desc = "empty response";
-        try { desc = JSON.stringify(res); } catch { desc = String(res); }
-        setError("No upload response (" + typeof res + "): " + String(desc).slice(0, 400));
-      }
+      await startUpload([file]);
     } catch (e: any) {
       setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
+      setBusy(false);
     }
-    setBusy(false);
     if (inputRef.current) inputRef.current.value = "";
   };
 
