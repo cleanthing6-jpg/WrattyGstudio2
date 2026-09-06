@@ -113,7 +113,7 @@ const generateCover = async () => {
           const st = sdata.status || (sdata.data && sdata.data.status);
           const files = sdata.data && sdata.data.files ? sdata.data.files : sdata.files;
           if (st === "done" && Array.isArray(files)) {
-            const stems = files.filter((f: any) => f && f.type && f.url).map((f: any) => ({ type: f.type, url: f.url }));
+            const stems = files.filter((f: any) => f && f.url && (f.type === "Vocals" || f.type === "Instrumental")).map((f: any) => ({ type: f.type, url: f.url }));
             if (stems.length) {
               setMixStems(stems);
               setMixStage("");
@@ -357,8 +357,8 @@ const generateCover = async () => {
 
           {mixStems.length > 0 && (
             <div className="bg-white rounded-2xl p-6 border border-green-500/30">
-              <h3 className="font-bold mb-1 text-green-400">✅ Stems Ready!</h3>
-              <p className="text-xs text-gray-500 mb-3">Vocals • Instrumental • Drums • Bass • Other — 320 kbps</p>
+              <h3 className="font-bold mb-1 text-green-400">✅ Vocals & Beat Ready!</h3>
+              <p className="text-xs text-gray-500 mb-3">Vocals isolated — your beat kept fully intact</p>
               <div className="space-y-3">
                 {mixStems.map(s => (
                   <div key={s.type} className="border border-slate-200 rounded-xl p-3">
