@@ -225,13 +225,13 @@ function StudioInner() {
       const vs = vocalSources[idx];
       if (vs) {
         const revSend = offline.createGain();
-        revSend.gain.value = 0.12;
+        revSend.gain.value = 0;
         vs.gain.connect(revSend);
         revSend.connect(reverb);
         reverb.connect(vocalBusGain);
 
         const dlSend = offline.createGain();
-        dlSend.gain.value = 0.07;
+        dlSend.gain.value = 0;
         vs.gain.connect(dlSend);
         dlSend.connect(delay);
         delay.connect(vocalBusGain);
@@ -242,7 +242,7 @@ function StudioInner() {
       const vs = vocalSources[i];
       if (vs) {
         const send = offline.createGain();
-        send.gain.value = 0.08;
+        send.gain.value = 0;
         vs.gain.connect(send);
         send.connect(reverb);
         reverb.connect(vocalBusGain);
@@ -262,7 +262,7 @@ function StudioInner() {
     masterGain.gain.value = 1;
     const limiter = makeLimiter(offline, -1.0);
 
-    mixInput.connect(mixBusComp);
+    mixInput.connect(offline.destination);
     mixBusComp.connect(masterGain);
     masterGain.connect(limiter);
     limiter.connect(offline.destination);
@@ -284,7 +284,7 @@ function StudioInner() {
 
   const bakeMix = async () => {
     if (mixMode !== "mix") return;
-    const stems = readyStems.length ? readyStems : files.filter((f) => f.role !== "beat").map((f) => ({ url: f.url, name: f.name, role: f.role }));
+    const stems = readyStems.length ? readyStems : files.map((f) => ({ url: f.url, name: f.name, role: f.role }));
     if (!stems.length) { alert("Upload at least one vocal or beat first"); return; }
     setProcessing(true);
     setStage("Loading & analysing stems…");
