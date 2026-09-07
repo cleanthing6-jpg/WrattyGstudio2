@@ -300,10 +300,21 @@ function StudioInner() {
         leadDeess.Q.value = 1;
         leadDeess.gain.value = -5;
 
+        const leadDemud = offline.createBiquadFilter();
+        leadDemud.type = "peaking";
+        leadDemud.frequency.value = 280;
+        leadDemud.Q.value = 0.9;
+        leadDemud.gain.value = -2.5;
+
+        const leadAir = offline.createBiquadFilter();
+        leadAir.type = "highshelf";
+        leadAir.frequency.value = 10000;
+        leadAir.gain.value = 2.5;
+
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
         leadMakeup.connect(leadDeess);
-        leadDeess.connect(pan);
+        leadDeess.connect(leadDemud); leadDemud.connect(leadAir); leadAir.connect(pan);
       } else {
         lp.connect(pan);
       }
