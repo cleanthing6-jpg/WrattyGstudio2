@@ -133,7 +133,13 @@ function StudioInner() {
 
     const mixInput = offline.createGain();
     mixInput.gain.value = 1;
-    mixInput.connect(offline.destination);
+        const masterLim = offline.createDynamicsCompressor();
+        masterLim.threshold.value = -1;
+        masterLim.ratio.value = 20;
+        masterLim.attack.value = 0.002;
+        masterLim.release.value = 0.15;
+        masterLim.knee.value = 0;
+    mixInput.connect(masterLim); masterLim.connect(offline.destination);
 
     // Vocal glue bus (lead + backing bus + adlib bus all sum here)
     const vocalGlue = offline.createGain();
@@ -151,7 +157,12 @@ function StudioInner() {
 
     vocalGlue.connect(glueComp);
     glueComp.connect(glueMakeup);
-    glueMakeup.connect(mixInput);
+        const glueSat = offline.createWaveShaper();
+        glueSat.oversample = "none";
+        const glueSatCurve = new Float32Array(1024);
+        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.6 * gx) / Math.tanh(1.6); }
+        glueSat.curve = glueSatCurve;
+    glueMakeup.connect(glueSat); glueSat.connect(mixInput);
 
     // Backing bus compressor + makeup
     const backBus = offline.createGain();
