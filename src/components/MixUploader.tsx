@@ -11,29 +11,27 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
     onClientUploadComplete: (res: any[]) => {
       const f = res && res[0];
       const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
-      if (url) {
-        onReady(url, (f && f.name) || "Track");
-      } else {
-        setError("No URL on file: " + JSON.stringify(f).slice(0, 300));
-      }
-      setBusy(false);
+      if (url) onReady(url, (f && f.name) || "Track");
+      else setError("No URL on file: " + JSON.stringify(f).slice(0, 300));
     },
     onUploadError: (e: any) => {
       setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
-      setBusy(false);
     },
   });
 
-  const pick = async (file: File | undefined) => {
-    if (!file) return;
+  const pick = async (files: FileList | null) => {
+    const arr = files ? Array.from(files) : [];
+    if (!arr.length) return;
     setError("");
     setBusy(true);
     try {
-      await startUpload([file]);
+      for (const file of arr) {
+        await startUpload([file]);
+      }
     } catch (e: any) {
       setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
-      setBusy(false);
     }
+    setBusy(false);
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -43,17 +41,18 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
         <input
           ref={inputRef}
           type="file"
+          multiple
           accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.flac,.mp4"
           className="hidden"
-          onChange={(e) => pick(e.target.files?.[0])}
+          onChange={(e) => pick(e.target.files)}
         />
         {busy ? (
           <div className="text-gray-400">Uploading… ⏳</div>
         ) : (
           <div>
             <div className="text-3xl mb-2">🎙️</div>
-            <div className="text-gray-400">Tap to choose your audio</div>
-            <div className="text-gray-600 text-sm">Any audio file — up to 64MB</div>
+            <div className="text-gray-400">Tap to choose audio files</div>
+            <div className="text-gray-600 text-sm">Pick several at once — beat, lead vocal, each backup — up to 64MB each</div>
           </div>
         )}
       </label>
