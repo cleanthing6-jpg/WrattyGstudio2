@@ -163,7 +163,7 @@ function StudioInner() {
       hp.connect(eq);
       eq.connect(comp);
       comp.connect(deess);
-      deess.connect(offline.destination);
+      deess.connect(vocalBusGain);
       src.start(0);
       vocalSources.push({ src, gain, compressor: comp, deess, hp, eq });
       return { src, gain, compressor: comp, deess, hp, eq };
@@ -191,6 +191,7 @@ function StudioInner() {
 
     const reverb = makeReverb(offline, 1.6, 0.55);
     const delay = makeDelay(offline, 0.32, 0.4, 0.35);
+    const mixInput = offline.createGain();
 
     for (let i = 0; i < stems.length; i++) {
       const stem = stems[i];
@@ -211,7 +212,7 @@ function StudioInner() {
         src.connect(gain);
         gain.connect(hp);
         hp.connect(lp);
-        lp.connect(offline.destination);
+        lp.connect(mixInput);
         src.start(0);
       } else {
         makeVocalChain(stem, buf, stem.role === "lead");
@@ -249,7 +250,7 @@ function StudioInner() {
     }
     vocalBusGain.connect(vocalBusComp);
     vocalBusComp.connect(vocalBusEq);
-    vocalBusEq.connect(offline.destination);
+    vocalBusEq.connect(mixInput);
 
     const mixBusComp = offline.createDynamicsCompressor();
     mixBusComp.threshold.value = -14;
@@ -261,7 +262,7 @@ function StudioInner() {
     masterGain.gain.value = 1;
     const limiter = makeLimiter(offline, -1.0);
 
-    offline.destination.connect(mixBusComp);
+    mixInput.connect(mixBusComp);
     mixBusComp.connect(masterGain);
     masterGain.connect(limiter);
     limiter.connect(offline.destination);
@@ -271,11 +272,14 @@ function StudioInner() {
     const targetDb = -14;
     const gainDb = targetDb - integratedDb;
     const gainLinear = Math.pow(10, Math.max(-6, Math.min(6, gainDb)) / 20);
-    const finalGain = offline.createGain();
-    finalGain.gain.value = gainLinear;
-    finalGain.connect(makeLimiter(offline, -1.0));
-    const rendered2 = await offline.startRendering();
-    return rendered2;
+    for (let c = 0; c < rendered.numberOfChannels; c++) {
+      const ch = rendered.getChannelData(c);
+      for (let i = 0; i < ch.length; i++) {
+        const v = ch[i] * gainLinear;
+        ch[i] = v > 1 ? 1 : v < -1 ? -1 : v;
+      }
+    }
+    return rendered;
   }, []);
 
   const bakeMix = async () => {
@@ -374,8 +378,6 @@ function StudioInner() {
     delayLine.connect(feedbackGain);
     feedbackGain.connect(delayLine);
     delayLine.connect(wetGain);
-    wetGain.connect(ctx.destination);
-    dryGain.connect(ctx.destination);
     return dryGain;
   };
 
