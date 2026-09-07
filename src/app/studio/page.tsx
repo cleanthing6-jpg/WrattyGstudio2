@@ -115,168 +115,81 @@ function StudioInner() {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     audioCtxRef.current = ctx;
 
+    const normRole = (r: any, n: any) => {
+      const t = String(r || n || "").toLowerCase();
+      if (t.includes("beat") || t.includes("instrumental") || t.includes("drums") || t.includes("other")) return "beat";
+      if (t.includes("lead") || t.includes("main") || t.includes("vocal")) return "lead";
+      if (t.includes("ad") || t.includes("adlib")) return "adlib";
+      return "backing";
+    };
+
     const load = (url: string) => fetch(url).then((r) => r.arrayBuffer()).then((ab) => ctx.decodeAudioData(ab));
     const buffers = await Promise.all(stems.map((s) => load(s.url)));
     const mixLen = Math.max(...buffers.map((b) => b.duration));
     const sampleRate = ctx.sampleRate;
-    const length = Math.ceil(mixLen * sampleRate);
+    const length = Math.max(1, Math.ceil(mixLen * sampleRate));
     const offline = new OfflineAudioContext(2, length, sampleRate);
 
-    const vocalSources: { src: AudioBufferSourceNode; gain: GainNode; compressor: DynamicsCompressorNode; deess: BiquadFilterNode; hp: BiquadFilterNode; eq: BiquadFilterNode }[] = [];
-
-    const makeVocalChain = (stem: ReadyStem, buf: AudioBuffer, isLead: boolean) => {
-      const src = offline.createBufferSource();
-      src.buffer = buf;
-      const gain = offline.createGain();
-      const hp = offline.createBiquadFilter();
-      const eq = offline.createBiquadFilter();
-      const comp = offline.createDynamicsCompressor();
-      const deess = offline.createBiquadFilter();
-
-      const targetDb = isLeading(stem, stems) ? -3 : -9;
-      const linear = Math.pow(10, targetDb / 20);
-      gain.gain.value = linear;
-
-      hp.type = "highpass";
-      hp.frequency.value = 100;
-      hp.Q.value = 0.7;
-
-      eq.type = "peaking";
-      eq.frequency.value = isLead ? 4000 : 2500;
-      eq.Q.value = 0.8;
-      eq.gain.value = isLead ? 2.5 : 1.2;
-
-      comp.threshold.value = isLead ? -22 : -26;
-      comp.ratio.value = 3.2;
-      comp.attack.value = 0.006;
-      comp.release.value = 0.18;
-      comp.knee.value = 6;
-
-      deess.type = "highpass";
-      deess.frequency.value = 6500;
-      deess.Q.value = 0.7;
-
-      const pan = isLead ? 0 : (stem.role === "backup" ? (stems.filter((s) => s.role === "backup" || s.role === "adlib")).indexOf(stem) % 2 === 0 ? -0.5 : 0.5 : (stems.filter((s) => s.role === "adlib")).indexOf(stem) % 2 === 0 ? -0.6 : 0.6);
-
-      src.connect(gain);
-      gain.connect(hp);
-      hp.connect(eq);
-      eq.connect(comp);
-      comp.connect(deess);
-      deess.connect(vocalBusGain);
-      src.start(0);
-      vocalSources.push({ src, gain, compressor: comp, deess, hp, eq });
-      return { src, gain, compressor: comp, deess, hp, eq };
-    };
-
-    const isLeading = (stem: ReadyStem, all: ReadyStem[]) => {
-      const lead = all.find((s) => s.role === "lead");
-      return !!lead && (stem.role === "lead" || (!lead && stem.role === "backup"));
-    };
-
-    const vocalBusGain = offline.createGain();
-    vocalBusGain.gain.value = 1;
-    const vocalBusComp = offline.createDynamicsCompressor();
-    vocalBusComp.threshold.value = -16;
-    vocalBusComp.ratio.value = 2.2;
-    vocalBusComp.attack.value = 0.01;
-    vocalBusComp.release.value = 0.25;
-    vocalBusComp.knee.value = 10;
-
-    const vocalBusEq = offline.createBiquadFilter();
-    vocalBusEq.type = "peaking";
-    vocalBusEq.frequency.value = 250;
-    vocalBusEq.Q.value = 0.6;
-    vocalBusEq.gain.value = -1.5;
-
-    const reverb = makeReverb(offline, 1.6, 0.55);
-    const delay = makeDelay(offline, 0.32, 0.4, 0.35);
     const mixInput = offline.createGain();
+    mixInput.gain.value = 1;
+    mixInput.connect(offline.destination);
+
+    const vocalBus = offline.createGain();
+    vocalBus.gain.value = 1;
+    vocalBus.connect(mixInput);
 
     for (let i = 0; i < stems.length; i++) {
-      const stem = stems[i];
-      const buf = buffers[i];
-      if (stem.role === "beat") {
-        const src = offline.createBufferSource();
-        src.buffer = buf;
-        const gain = offline.createGain();
-        gain.gain.value = 0.82;
+      const role = normRole(stems[i].role, (stems[i] as any).name);
+      const src = offline.createBufferSource();
+      src.buffer = buffers[i];
+
+      if (role === "beat") {
+        const g = offline.createGain();
+        g.gain.value = 0.85;
         const hp = offline.createBiquadFilter();
         hp.type = "highpass";
-        hp.frequency.value = 25;
-        hp.Q.value = 0.7;
-        const lp = offline.createBiquadFilter();
-        lp.type = "lowpass";
-        lp.frequency.value = 14000;
-        lp.Q.value = 0.7;
-        src.connect(gain);
-        gain.connect(hp);
-        hp.connect(lp);
-        lp.connect(mixInput);
+        hp.frequency.value = 28;
+        src.connect(g);
+        g.connect(hp);
+        hp.connect(mixInput);
         src.start(0);
-      } else {
-        makeVocalChain(stem, buf, stem.role === "lead");
+        continue;
       }
+
+      const g = offline.createGain();
+      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.45 : 0.6;
+      const hp = offline.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 70;
+      const lp = offline.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 16000;
+      const pan = offline.createStereoPanner();
+      pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.25 : 0.25);
+
+      src.connect(g);
+      g.connect(hp);
+      hp.connect(lp);
+      lp.connect(pan);
+      pan.connect(vocalBus);
+      src.start(0);
     }
-
-    const lead = stems.find((s) => s.role === "lead");
-    if (lead) {
-      const idx = stems.indexOf(lead);
-      const vs = vocalSources[idx];
-      if (vs) {
-        const revSend = offline.createGain();
-        revSend.gain.value = 0;
-        vs.gain.connect(revSend);
-        revSend.connect(reverb);
-        reverb.connect(vocalBusGain);
-
-        const dlSend = offline.createGain();
-        dlSend.gain.value = 0;
-        vs.gain.connect(dlSend);
-        dlSend.connect(delay);
-        delay.connect(vocalBusGain);
-      }
-    }
-    const allVocalIdx = stems.filter((s) => s.role !== "beat").map((s) => stems.indexOf(s));
-    for (const i of allVocalIdx) {
-      const vs = vocalSources[i];
-      if (vs) {
-        const send = offline.createGain();
-        send.gain.value = 0;
-        vs.gain.connect(send);
-        send.connect(reverb);
-        reverb.connect(vocalBusGain);
-      }
-    }
-    vocalBusGain.connect(vocalBusComp);
-    vocalBusComp.connect(vocalBusEq);
-    vocalBusEq.connect(mixInput);
-
-    const mixBusComp = offline.createDynamicsCompressor();
-    mixBusComp.threshold.value = -14;
-    mixBusComp.ratio.value = 1.8;
-    mixBusComp.attack.value = 0.01;
-    mixBusComp.release.value = 0.3;
-    mixBusComp.knee.value = 12;
-    const masterGain = offline.createGain();
-    masterGain.gain.value = 1;
-    const limiter = makeLimiter(offline, -1.0);
-
-    mixInput.connect(offline.destination);
-    mixBusComp.connect(masterGain);
-    masterGain.connect(limiter);
-    limiter.connect(offline.destination);
 
     const rendered = await offline.startRendering();
-    const integratedDb = approximateIntegratedLoudness(rendered);
-    const targetDb = -14;
-    const gainDb = targetDb - integratedDb;
-    const gainLinear = Math.pow(10, Math.max(-6, Math.min(6, gainDb)) / 20);
+    let peak = 0;
     for (let c = 0; c < rendered.numberOfChannels; c++) {
       const ch = rendered.getChannelData(c);
-      for (let i = 0; i < ch.length; i++) {
-        const v = ch[i] * gainLinear;
-        ch[i] = v > 1 ? 1 : v < -1 ? -1 : v;
+      for (let j = 0; j < ch.length; j++) {
+        const a = Math.abs(ch[j]);
+        if (a > peak) peak = a;
+      }
+    }
+    const gainLinear = peak > 0.000001 ? Math.min(0.95 / peak, 64) : 1;
+    for (let c = 0; c < rendered.numberOfChannels; c++) {
+      const ch = rendered.getChannelData(c);
+      for (let j = 0; j < ch.length; j++) {
+        const v = ch[j] * gainLinear;
+        ch[j] = v > 1 ? 1 : v < -1 ? -1 : v;
       }
     }
     return rendered;
