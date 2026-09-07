@@ -160,7 +160,7 @@ function StudioInner() {
         const glueSat = offline.createWaveShaper();
         glueSat.oversample = "none";
         const glueSatCurve = new Float32Array(1024);
-        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.6 * gx) / Math.tanh(1.6); }
+        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.2 * gx) / Math.tanh(1.2); }
         glueSat.curve = glueSatCurve;
     glueMakeup.connect(glueSat); glueSat.connect(mixInput);
 
@@ -272,7 +272,7 @@ function StudioInner() {
 
       if (role === "beat") {
         const g = offline.createGain();
-        g.gain.value = 0.85;
+        g.gain.value = 0.75;
         const hp = offline.createBiquadFilter();
         hp.type = "highpass";
         hp.frequency.value = 28;
@@ -281,7 +281,7 @@ function StudioInner() {
         const beatWeight = offline.createBiquadFilter();
         beatWeight.type = "lowshelf";
         beatWeight.frequency.value = 80;
-        beatWeight.gain.value = 1.5;
+        beatWeight.gain.value = 0.8;
 
         const beatCarve = offline.createBiquadFilter();
         beatCarve.type = "peaking";
@@ -337,18 +337,18 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 2.5;
+        leadAir.gain.value = 1.0;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
         leadBody.frequency.value = 160;
-        leadBody.gain.value = 1.5;
+        leadBody.gain.value = 0.2;
 
         const leadPresence = offline.createBiquadFilter();
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.8;
+        leadPresence.gain.value = 0.7;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
