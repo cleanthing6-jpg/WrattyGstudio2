@@ -342,7 +342,6 @@ function StudioInner() {
     }
     return rendered;
   }, []);
-  }, []);
 
   const bakeMix = async () => {
     if (mixMode !== "mix") return;
