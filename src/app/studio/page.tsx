@@ -225,13 +225,13 @@ function StudioInner() {
       if (vs) {
         const revSend = offline.createGain();
         revSend.gain.value = 0.12;
-        vs.dest.connect(revSend);
+        vs.gain.connect(revSend);
         revSend.connect(reverb);
         reverb.connect(vocalBusGain);
 
         const dlSend = offline.createGain();
         dlSend.gain.value = 0.07;
-        vs.dest.connect(dlSend);
+        vs.gain.connect(dlSend);
         dlSend.connect(delay);
         delay.connect(vocalBusGain);
       }
@@ -242,7 +242,7 @@ function StudioInner() {
       if (vs) {
         const send = offline.createGain();
         send.gain.value = 0.08;
-        vs.dest.connect(send);
+        vs.gain.connect(send);
         send.connect(reverb);
         reverb.connect(vocalBusGain);
       }
@@ -516,7 +516,7 @@ function StudioInner() {
 
               <button
                 onClick={mixMode === "split" ? runSplit : bakeMix}
-                disabled={processing || (!mixMode === "split" ? false : !files.length) || (mixMode === "mix" ? !readyStems.length && !files.length : false)}
+                disabled={processing || (mixMode === "split" ? !files.length : false) || (mixMode === "mix" ? !readyStems.length && !files.length : false)}
                 className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg"
               >
                 {processing
