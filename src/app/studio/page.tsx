@@ -207,7 +207,14 @@ function StudioInner() {
     reverbHp.frequency.value = 250;
     const reverbReturn = offline.createGain();
     reverbReturn.gain.value = 0.5;
-    reverb.connect(reverbHp);
+        const reverbDamp = offline.createBiquadFilter();
+        reverbDamp.type = "lowpass";
+        reverbDamp.frequency.value = 9000;
+        reverbDamp.Q.value = 0.7;
+
+        const reverbPredelay = offline.createDelay(1.0);
+        reverbPredelay.delayTime.value = 0.030;
+    reverb.connect(reverbDamp); reverbDamp.connect(reverbPredelay); reverbPredelay.connect(reverbHp);
     reverbHp.connect(reverbReturn);
     reverbReturn.connect(mixInput);
 
@@ -271,7 +278,17 @@ function StudioInner() {
         hp.frequency.value = 28;
         src.connect(g);
         g.connect(hp);
-        hp.connect(mixInput);
+        const beatWeight = offline.createBiquadFilter();
+        beatWeight.type = "lowshelf";
+        beatWeight.frequency.value = 80;
+        beatWeight.gain.value = 1.5;
+
+        const beatCarve = offline.createBiquadFilter();
+        beatCarve.type = "peaking";
+        beatCarve.frequency.value = 3200;
+        beatCarve.Q.value = 1.2;
+        beatCarve.gain.value = -2.5;
+        hp.connect(beatWeight); beatWeight.connect(beatCarve); beatCarve.connect(mixInput);
         src.start(0);
         continue;
       }
@@ -322,10 +339,21 @@ function StudioInner() {
         leadAir.frequency.value = 10000;
         leadAir.gain.value = 2.5;
 
+        const leadBody = offline.createBiquadFilter();
+        leadBody.type = "lowshelf";
+        leadBody.frequency.value = 160;
+        leadBody.gain.value = 1.5;
+
+        const leadPresence = offline.createBiquadFilter();
+        leadPresence.type = "peaking";
+        leadPresence.frequency.value = 3200;
+        leadPresence.Q.value = 0.8;
+        leadPresence.gain.value = 1.8;
+
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
         leadMakeup.connect(leadDeess);
-        leadDeess.connect(leadDemud); leadDemud.connect(leadAir); leadAir.connect(pan);
+        leadDeess.connect(leadDemud); leadDemud.connect(leadAir); leadAir.connect(leadBody); leadBody.connect(leadPresence); leadPresence.connect(pan);
       } else {
         lp.connect(pan);
       }
