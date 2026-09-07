@@ -118,6 +118,7 @@ function StudioInner() {
     const normRole = (r: any, n: any) => {
       const t = String(r || n || "").toLowerCase();
       if (t.includes("beat") || t.includes("instrumental") || t.includes("drums") || t.includes("other")) return "beat";
+      if (t.includes("back") || t.includes("harmony") || t.includes("chorus")) return "backing";
       if (t.includes("lead") || t.includes("main") || t.includes("vocal")) return "lead";
       if (t.includes("ad") || t.includes("adlib")) return "adlib";
       return "backing";
