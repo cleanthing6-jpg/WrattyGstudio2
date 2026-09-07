@@ -52,7 +52,7 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
           <div>
             <div className="text-3xl mb-2">🎙️</div>
             <div className="text-gray-400">Tap to choose audio files</div>
-            <div className="text-gray-600 text-sm">Pick several at once — beat, lead vocal, each backup — up to 64MB each</div>
+            <div className="text-gray-600 text-sm">Full song to split, or stems to mix — lead, backups, ad-libs, beat</div>
           </div>
         )}
       </label>
