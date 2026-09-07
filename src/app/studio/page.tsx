@@ -165,7 +165,7 @@ function StudioInner() {
     backComp.knee.value = 10;
 
     const backMakeup = offline.createGain();
-    backMakeup.gain.value = 1.5;
+    backMakeup.gain.value = 1.15;
 
     backBus.connect(backComp);
     backComp.connect(backMakeup);
@@ -266,7 +266,7 @@ function StudioInner() {
       }
 
       const g = offline.createGain();
-      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.22 : 0.28;
+      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.15 : 0.20;
 
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
@@ -277,7 +277,7 @@ function StudioInner() {
       lp.frequency.value = role === "lead" ? 16000 : role === "adlib" ? 12000 : 14000;
 
       const pan = offline.createStereoPanner();
-      pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.25 : 0.25);
+      pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.4 : 0.4);
 
       src.connect(g);
       g.connect(hp);
