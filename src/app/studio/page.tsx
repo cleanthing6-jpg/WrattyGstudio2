@@ -128,17 +128,125 @@ function StudioInner() {
     const buffers = await Promise.all(stems.map((s) => load(s.url)));
     const mixLen = Math.max(...buffers.map((b) => b.duration));
     const sampleRate = ctx.sampleRate;
-    const length = Math.max(1, Math.ceil(mixLen * sampleRate));
+    const length = Math.max(1, Math.ceil((mixLen + 2.5) * sampleRate));
     const offline = new OfflineAudioContext(2, length, sampleRate);
 
     const mixInput = offline.createGain();
     mixInput.gain.value = 1;
     mixInput.connect(offline.destination);
 
-    const vocalBus = offline.createGain();
-    vocalBus.gain.value = 1;
-    vocalBus.connect(mixInput);
+    // Vocal glue bus (lead + backing bus + adlib bus all sum here)
+    const vocalGlue = offline.createGain();
+    vocalGlue.gain.value = 1;
 
+    const glueComp = offline.createDynamicsCompressor();
+    glueComp.threshold.value = -16;
+    glueComp.ratio.value = 2;
+    glueComp.attack.value = 0.01;
+    glueComp.release.value = 0.2;
+    glueComp.knee.value = 8;
+
+    const glueMakeup = offline.createGain();
+    glueMakeup.gain.value = 1.25;
+
+    vocalGlue.connect(glueComp);
+    glueComp.connect(glueMakeup);
+    glueMakeup.connect(mixInput);
+
+    // Backing bus compressor + makeup
+    const backBus = offline.createGain();
+    backBus.gain.value = 1;
+
+    const backComp = offline.createDynamicsCompressor();
+    backComp.threshold.value = -22;
+    backComp.ratio.value = 3.5;
+    backComp.attack.value = 0.005;
+    backComp.release.value = 0.25;
+    backComp.knee.value = 10;
+
+    const backMakeup = offline.createGain();
+    backMakeup.gain.value = 1.5;
+
+    backBus.connect(backComp);
+    backComp.connect(backMakeup);
+    backMakeup.connect(vocalGlue);
+
+    // Adlib bus (quiet, wide, just summed)
+    const adlibBus = offline.createGain();
+    adlibBus.gain.value = 1;
+    adlibBus.connect(vocalGlue);
+
+    // ----- Reverb (stereo IR, exp decay, HP) -----
+    const reverb = offline.createConvolver();
+    reverb.normalize = true;
+    const irLength = Math.floor(offline.sampleRate * 1.8);
+    const irBuffer = offline.createBuffer(2, irLength, offline.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const data = irBuffer.getChannelData(c);
+      for (let i = 0; i < irLength; i++) {
+        const secs = i / offline.sampleRate;
+        const env = Math.exp(-3.0 * secs) * (c === 0 ? 0.9 : 1.0);
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+    }
+    reverb.buffer = irBuffer;
+
+    const reverbHp = offline.createBiquadFilter();
+    reverbHp.type = "highpass";
+    reverbHp.frequency.value = 250;
+    const reverbReturn = offline.createGain();
+    reverbReturn.gain.value = 0.5;
+    reverb.connect(reverbHp);
+    reverbHp.connect(reverbReturn);
+    reverbReturn.connect(mixInput);
+
+    const revSendLead = offline.createGain();
+    revSendLead.gain.value = 0.14;
+    revSendLead.connect(reverb);
+    const revSendBack = offline.createGain();
+    revSendBack.gain.value = 0.08;
+    revSendBack.connect(reverb);
+    const revSendAd = offline.createGain();
+    revSendAd.gain.value = 0.05;
+    revSendAd.connect(reverb);
+
+    // ----- Ping-pong delay -----
+    const delayL = offline.createDelay(1.0);
+    delayL.delayTime.value = 0.28;
+    const delayR = offline.createDelay(1.0);
+    delayR.delayTime.value = 0.34;
+
+    const fbLR = offline.createGain();
+    fbLR.gain.value = 0.32;
+    const fbRL = offline.createGain();
+    fbRL.gain.value = 0.32;
+    delayL.connect(fbLR);
+    fbLR.connect(delayR);
+    delayR.connect(fbRL);
+    fbRL.connect(delayL);
+
+    const delayMerge = offline.createChannelMerger(2);
+    const delayWetL = offline.createGain();
+    delayWetL.gain.value = 0.6;
+    const delayWetR = offline.createGain();
+    delayWetR.gain.value = 0.6;
+    delayL.connect(delayWetL);
+    delayWetL.connect(delayMerge, 0, 0);
+    delayR.connect(delayWetR);
+    delayWetR.connect(delayMerge, 0, 1);
+    const delayReturn = offline.createGain();
+    delayReturn.gain.value = 1;
+    delayMerge.connect(delayReturn);
+    delayReturn.connect(mixInput);
+
+    const delaySendLead = offline.createGain();
+    delaySendLead.gain.value = 0.1;
+    delaySendLead.channelCount = 1;
+    delaySendLead.channelCountMode = "explicit";
+    delaySendLead.connect(delayL);
+    delaySendLead.connect(delayR);
+
+    // ----- Stem loop with role processing -----
     for (let i = 0; i < stems.length; i++) {
       const role = normRole(stems[i].role, (stems[i] as any).name);
       const src = offline.createBufferSource();
@@ -158,21 +266,60 @@ function StudioInner() {
       }
 
       const g = offline.createGain();
-      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.45 : 0.6;
+      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.22 : 0.28;
+
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
-      hp.frequency.value = 70;
+      hp.frequency.value = role === "lead" ? 70 : role === "adlib" ? 120 : 90;
+
       const lp = offline.createBiquadFilter();
       lp.type = "lowpass";
-      lp.frequency.value = 16000;
+      lp.frequency.value = role === "lead" ? 16000 : role === "adlib" ? 12000 : 14000;
+
       const pan = offline.createStereoPanner();
       pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.25 : 0.25);
 
       src.connect(g);
       g.connect(hp);
       hp.connect(lp);
-      lp.connect(pan);
-      pan.connect(vocalBus);
+
+      if (role === "lead") {
+        const leadComp = offline.createDynamicsCompressor();
+        leadComp.threshold.value = -18;
+        leadComp.ratio.value = 1.8;
+        leadComp.attack.value = 0.01;
+        leadComp.release.value = 0.12;
+        leadComp.knee.value = 8;
+
+        const leadMakeup = offline.createGain();
+        leadMakeup.gain.value = 1.2;
+
+        const leadDeess = offline.createBiquadFilter();
+        leadDeess.type = "peaking";
+        leadDeess.frequency.value = 7600;
+        leadDeess.Q.value = 1;
+        leadDeess.gain.value = -5;
+
+        lp.connect(leadComp);
+        leadComp.connect(leadMakeup);
+        leadMakeup.connect(leadDeess);
+        leadDeess.connect(pan);
+      } else {
+        lp.connect(pan);
+      }
+
+      if (role === "lead") {
+        pan.connect(revSendLead);
+        pan.connect(delaySendLead);
+        pan.connect(vocalGlue);
+      } else if (role === "adlib") {
+        pan.connect(revSendAd);
+        pan.connect(adlibBus);
+      } else {
+        pan.connect(revSendBack);
+        pan.connect(backBus);
+      }
+
       src.start(0);
     }
 
@@ -181,8 +328,8 @@ function StudioInner() {
     for (let c = 0; c < rendered.numberOfChannels; c++) {
       const ch = rendered.getChannelData(c);
       for (let j = 0; j < ch.length; j++) {
-        const a = Math.abs(ch[j]);
-        if (a > peak) peak = a;
+        const abs = Math.abs(ch[j]);
+        if (abs > peak) peak = abs;
       }
     }
     const gainLinear = peak > 0.000001 ? Math.min(0.95 / peak, 64) : 1;
@@ -194,6 +341,7 @@ function StudioInner() {
       }
     }
     return rendered;
+  }, []);
   }, []);
 
   const bakeMix = async () => {
