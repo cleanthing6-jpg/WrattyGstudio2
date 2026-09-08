@@ -8,15 +8,37 @@ import MixUploader from "@/components/MixUploader";
 async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
   const channels = buf.numberOfChannels;
   const length = buf.length;
-  let sum = 0;
+  const channelData: Float32Array[] = [];
+  let sumSq = 0;
+  let peak = 0;
   for (let c = 0; c < channels; c++) {
     const data = buf.getChannelData(c);
-    for (let i = 0; i < length; i++) sum += data[i] * data[i];
+    channelData.push(data);
+    for (let i = 0; i < length; i++) {
+      const v = data[i] || 0;
+      sumSq += v * v;
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+    }
   }
-  const rms = Math.sqrt(sum / (channels * length));
+  const rms = Math.sqrt(sumSq / (channels * length));
   const targetRms = 0.316;
-  let gain = targetRms / Math.max(rms, 1e-6);
-  if (gain > 8) gain = 8;
+  const rmsGain = targetRms / Math.max(rms, 1e-6);
+  let tp = peak;
+  for (let c = 0; c < channels; c++) {
+    const data = channelData[c];
+    for (let i = 0; i < length - 1; i++) {
+      const a = data[i] || 0;
+      const b = data[i + 1] || 0;
+      for (let j = 1; j < 4; j++) {
+        const v = a + (b - a) * (j / 4);
+        const av = Math.abs(v);
+        if (av > tp) tp = av;
+      }
+    }
+  }
+  const peakSafeGain = tp > 0.000001 ? 0.85 / tp : 1;
+  const gain = Math.min(rmsGain, peakSafeGain, 8);
   const out = new OfflineAudioContext(channels, length, buf.sampleRate);
   const src = out.createBufferSource();
   src.buffer = buf;
@@ -32,6 +54,46 @@ async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
   limiter.connect(out.destination);
   src.start(0);
   return await out.startRendering();
+}
+
+
+async function loadSpaceIR(mode: string, ctx: OfflineAudioContext, cfg: { decay: number; damp: number; predelay: number; ret: number }): Promise<ConvolverNode> {
+  const urls: Record<string, string> = {
+    room: "/ir/room.wav",
+    hall: "/ir/hall.wav",
+    cathedral: "/ir/cathedral.wav",
+    plate: "/ir/plate.wav"
+  };
+  const url = urls[mode] || "";
+  let real: AudioBuffer | null = null;
+  if (url) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        real = await ctx.decodeAudioData(await res.arrayBuffer());
+      }
+    } catch {
+      real = null;
+    }
+  }
+  const conv = ctx.createConvolver();
+  conv.normalize = true;
+  if (real) {
+    conv.buffer = real;
+    return conv;
+  }
+  const len = Math.max(1, Math.floor(ctx.sampleRate * cfg.decay));
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const data = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) {
+      const secs = i / ctx.sampleRate;
+      const env = Math.exp(-3.0 * (1.8 / cfg.decay) * secs) * (c === 0 ? 0.9 : 1.0);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  conv.buffer = buf;
+  return conv;
 }
 
 type StudioTab = "beat" | "cover" | "mix";
@@ -224,20 +286,7 @@ function StudioInner() {
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
     const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 1.8, damp: 9000, predelay: 0.030, ret: 0.5 };
-    const reverb = offline.createConvolver();
-    reverb.normalize = true;
-    const irLength = Math.floor(offline.sampleRate * spaceCfg.decay);
-    const irBuffer = offline.createBuffer(2, irLength, offline.sampleRate);
-    for (let c = 0; c < 2; c++) {
-      const data = irBuffer.getChannelData(c);
-      for (let i = 0; i < irLength; i++) {
-        const secs = i / offline.sampleRate;
-        const env = Math.exp(-3.0 * (1.8 / spaceCfg.decay) * secs) * (c === 0 ? 0.9 : 1.0);
-        data[i] = (Math.random() * 2 - 1) * env;
-      }
-    }
-    reverb.buffer = irBuffer;
-
+    const reverb = await loadSpaceIR(sp, offline, spaceCfg);
     const reverbHp = offline.createBiquadFilter();
     reverbHp.type = "highpass";
     reverbHp.frequency.value = 250;
@@ -476,7 +525,8 @@ function StudioInner() {
     for (let i = 0; i < audioBuffer.length; i++) {
       for (let c = 0; c < numChannels; c++) {
         const sample = Math.max(-1, Math.min(1, channels[c][i] || 0));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        const dithered = Math.max(-1, Math.min(1, sample + (Math.random() - 0.5) * (1 / 32768)));
+        view.setInt16(offset, dithered < 0 ? dithered * 0x8000 : dithered * 0x7FFF, true);
         offset += 2;
       }
     }
