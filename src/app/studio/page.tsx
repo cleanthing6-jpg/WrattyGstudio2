@@ -309,11 +309,11 @@ function StudioInner() {
 
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
-      hp.frequency.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
+      hp.frequency.value = role === "lead" ? 70 : role === "adlib" ? 120 : 90;
 
       const lp = offline.createBiquadFilter();
       lp.type = "lowpass";
-      lp.frequency.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
+      lp.frequency.value = role === "lead" ? 16000 : role === "adlib" ? 12000 : 14000;
 
       const pan = offline.createStereoPanner();
       pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.4 : 0.4);
