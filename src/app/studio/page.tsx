@@ -53,7 +53,7 @@ function StudioInner() {
 
   const [activeTab, setActiveTab] = useState<StudioTab>(initialType);
   const [mixMode, setMixMode] = useState<MixMode>("mix");
-  const [spaceMode, setSpaceMode] = useState<SpaceMode>("studio");
+  const [spaceMode, setSpaceMode] = useState<SpaceMode>("plate");
   const spaceRef = useRef<SpaceMode>("studio");
   spaceRef.current = spaceMode;
   const [files, setFiles] = useState<UploadedFile[]>([]);
