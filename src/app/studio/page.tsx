@@ -502,10 +502,10 @@ function StudioInner() {
         } else {
           setStage("Done - preview & download (upload failed)");
         }
-      } catch {
-        setStage("Done - preview & download");
+      } catch (err) {
+        console.error("Auto-save error:", err);
+        setStage("Done - preview & download (auto-save error)");
       }
-      setStage("Done — preview and download");
     } catch (e: any) {
       alert("Mix failed: " + ((e && e.message) ? e.message : "unknown"));
     }
