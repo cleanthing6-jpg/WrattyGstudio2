@@ -277,7 +277,7 @@ function StudioInner() {
 
       if (role === "beat") {
         const g = offline.createGain();
-        g.gain.value = 1.2;
+        g.gain.value = 1.3;
         const hp = offline.createBiquadFilter();
         hp.type = "highpass";
         hp.frequency.value = 28;
@@ -304,15 +304,15 @@ function StudioInner() {
       }
 
       const g = offline.createGain();
-      g.gain.value = role === "lead" ? 1.0 : role === "adlib" ? 0.15 : 0.20;
+      g.gain.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
 
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
-      hp.frequency.value = role === "lead" ? 70 : role === "adlib" ? 120 : 90;
+      hp.frequency.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
 
       const lp = offline.createBiquadFilter();
       lp.type = "lowpass";
-      lp.frequency.value = role === "lead" ? 16000 : role === "adlib" ? 12000 : 14000;
+      lp.frequency.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
 
       const pan = offline.createStereoPanner();
       pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.4 : 0.4);
@@ -347,18 +347,18 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 1.2;
+        leadAir.gain.value = 1.0;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
         leadBody.frequency.value = 160;
-        leadBody.gain.value = 0.5;
+        leadBody.gain.value = 0.8;
 
         const leadPresence = offline.createBiquadFilter();
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.5;
+        leadPresence.gain.value = 1.2;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
