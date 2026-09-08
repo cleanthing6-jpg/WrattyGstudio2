@@ -475,40 +475,50 @@ function StudioInner() {
     const stems = readyStems.length ? readyStems : files.map((f) => ({ url: f.url, name: f.name, role: f.role }));
     if (!stems.length) { alert("Upload at least one vocal or beat first"); return; }
     setProcessing(true);
-    setStage("Loading & analysing stems…");
+    setStage("Loading & analysing stems...");
     try {
       const result = await applyPreset(stems);
       if (!result) { setProcessing(false); return; }
       const wav = encodeWav(result);
       const blob = new Blob([wav], { type: "audio/wav" });
       setMixedBlob(blob);
-      setStage("Saving to dashboard…");
+      setStage("Uploading master...");
+      const beatStem = stems.find((s: any) => s.role === "beat");
+      const first = stems[0] as any;
+      const base = (beatStem && beatStem.name ? String(beatStem.name) : first && first.name ? String(first.name) : "Mix").replace(/\.[^.]+$/, "");
+      const label = base + " - Master";
+      let uploadedUrl = "";
       try {
-        const beatStem = stems.find((s: any) => s.role === "beat");
-        const first = stems[0] as any;
-        const base = (beatStem && beatStem.name ? String(beatStem.name) : first && first.name ? String(first.name) : "Mix").replace(/\.[^.]+$/, "");
-        const label = base + " - Master";
         const up = await startUpload([new File([blob], label + ".wav", { type: "audio/wav" })]);
-        const f = up && up[0];
-        const url = (f && ((f as any).ufsUrl || (f as any).url)) || "";
-        if (url) {
-          const res = await fetch("/api/mixes", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: label, url }),
-          });
-          if (res.ok) setStage("Done - saved to dashboard: " + label);
-          else {
-            let em = "";
-            try { em = (await res.json()).error || ""; } catch {}
-            setStage("Done - preview & download (auto-save failed HTTP " + res.status + (em ? " " + em : "") + ")");
+        const f: any = up && up[0];
+        uploadedUrl = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
+        if (uploadedUrl) {
+          try {
+            await fetch("/api/mixes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: label, url: uploadedUrl }),
+            });
+          } catch (e: any) {
+            console.error("DB save error:", e);
           }
         } else {
-          setStage("Done - preview & download (upload returned no URL)");
+          console.error("Upload response had no URL (server-side save will catch it):", up);
         }
-      } catch (err: any) {
-        setStage("Done - preview & download (auto-save error: " + String((err && err.message) || err).slice(0, 100) + ")");
+      } catch (e: any) {
+        console.error("Upload error:", e);
       }
+      let saved = false;
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 2500));
+        try {
+          const res = await fetch("/api/mixes");
+          const d = await res.json();
+          const list: any[] = d && Array.isArray(d.mixes) ? d.mixes : [];
+          if (list.some((m: any) => m.name === label)) { saved = true; break; }
+        } catch {}
+      }
+      setStage(saved ? "Done - saved to dashboard: " + label : "Master ready - it is saving, check Dashboard > My Mixes in a minute");
     } catch (e: any) {
       alert("Mix failed: " + ((e && e.message) ? e.message : "unknown"));
     }
