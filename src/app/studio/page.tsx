@@ -232,7 +232,7 @@ function StudioInner() {
       const data = irBuffer.getChannelData(c);
       for (let i = 0; i < irLength; i++) {
         const secs = i / offline.sampleRate;
-        const env = Math.exp(-3.0 * secs) * (c === 0 ? 0.9 : 1.0);
+        const env = Math.exp(-3.0 * (1.8 / spaceCfg.decay) * secs) * (c === 0 ? 0.9 : 1.0);
         data[i] = (Math.random() * 2 - 1) * env;
       }
     }
