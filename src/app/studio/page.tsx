@@ -161,7 +161,7 @@ function StudioInner() {
         const glueSat = offline.createWaveShaper();
         glueSat.oversample = "none";
         const glueSatCurve = new Float32Array(1024);
-        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = gx; }
+        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.2 * gx) / Math.tanh(1.2); }
         glueSat.curve = glueSatCurve;
     glueMakeup.connect(glueSat); glueSat.connect(mixInput);
 
@@ -220,7 +220,7 @@ function StudioInner() {
     reverbReturn.connect(mixInput);
 
     const revSendLead = offline.createGain();
-    revSendLead.gain.value = 0.14;
+    revSendLead.gain.value = 0.18;
     revSendLead.connect(reverb);
     const revSendBack = offline.createGain();
     revSendBack.gain.value = 0.08;
@@ -259,7 +259,7 @@ function StudioInner() {
     delayReturn.connect(mixInput);
 
     const delaySendLead = offline.createGain();
-    delaySendLead.gain.value = 0.1;
+    delaySendLead.gain.value = 0.14;
     delaySendLead.channelCount = 1;
     delaySendLead.channelCountMode = "explicit";
     delaySendLead.connect(delayL);
@@ -319,8 +319,8 @@ function StudioInner() {
 
       if (role === "lead") {
         const leadComp = offline.createDynamicsCompressor();
-        leadComp.threshold.value = -18;
-        leadComp.ratio.value = 1.8;
+        leadComp.threshold.value = -20;
+        leadComp.ratio.value = 1.5;
         leadComp.attack.value = 0.01;
         leadComp.release.value = 0.12;
         leadComp.knee.value = 8;
@@ -343,18 +343,18 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 0.5;
+        leadAir.gain.value = 1.2;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
         leadBody.frequency.value = 160;
-        leadBody.gain.value = 0.2;
+        leadBody.gain.value = 0.5;
 
         const leadPresence = offline.createBiquadFilter();
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.0;
+        leadPresence.gain.value = 1.5;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
