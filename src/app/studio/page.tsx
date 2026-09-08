@@ -64,6 +64,7 @@ function StudioInner() {
     setReadyStems(stems);
   };
 
+  const clearSplitResults = () => { setSplitResults([]); };
   // ---- Split mode ----
   const runSplit = async () => {
     if (mixMode !== "split") return;
@@ -560,7 +561,7 @@ function StudioInner() {
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-6 border border-slate-200">
             <h2 className="text-xl font-bold mb-4">Mix & Master</h2>
-            <p className="text-gray-500 text-sm mb-6">Upload your stems or a full song. We split if needed, then apply the professional preset.</p>
+            <p className="text-gray-500 text-sm mb-6">Upload your stems one by one for the best result. Only use the Splitter if you don't have stems.</p>
 
             <div className="space-y-4">
               <div className="flex gap-2">
@@ -572,7 +573,7 @@ function StudioInner() {
                       : "bg-white border-slate-200 text-gray-500 hover:text-slate-900"
                   }`}
                 >
-                  ✂️ Split full song
+                  ✂️ Splitter (only if you don't have stems)
                 </button>
                 <button
                   onClick={() => setMixMode("mix")}
@@ -589,7 +590,7 @@ function StudioInner() {
               <div>
                 <label className="block text-sm text-gray-500 mb-2">
                   {mixMode === "split"
-                    ? "Upload the full song — lead, backups, and beat together. We split it into stems."
+                    ? "Only have a full song? Upload it here — we'll split it (quality is lower than real stems)."
                     : "Upload your stems — lead vocal, backups, ad-libs, and the beat. Label each one."}
                 </label>
                 <MixUploader onReady={addFile} />
@@ -623,7 +624,7 @@ function StudioInner() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-semibold text-green-700">✅ Split complete — {splitResults.reduce((a, r) => a + r.stems.length, 0)} stems</div>
-                      <div className="text-xs text-gray-500">Switch to “Mix & master preset” and the app will assign each stem a role automatically.</div>
+                        <div className="flex items-center justify-between"><div className="text-xs text-gray-500">Switch to Mix & master preset — roles are assigned automatically.</div><button onClick={() => clearSplitResults()} className="text-red-500 hover:text-red-700 text-sm font-semibold ml-2">Clear ✕</button></div>
                     </div>
                     <button onClick={() => { promoteSplitStems(); setMixMode("mix"); }} className="bg-green-500 text-black font-bold px-4 py-2 rounded-xl hover:bg-green-400 transition text-sm">
                       Use stems in mixer
