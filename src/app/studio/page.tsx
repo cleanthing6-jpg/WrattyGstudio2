@@ -63,7 +63,8 @@ async function loadSpaceIR(mode: string, ctx: OfflineAudioContext, cfg: { decay:
     room: "/ir/room.wav",
     hall: "/ir/hall.wav",
     cathedral: "/ir/cathedral.wav",
-    plate: "/ir/plate.wav"
+    plate: "/ir/plate.wav",
+    studio: "/ir/room.wav"
   };
   const url = urls[mode] || "";
   let real: AudioBuffer | null = null;
@@ -306,7 +307,7 @@ function StudioInner() {
     reverbReturn.connect(mixInput);
 
     const revSendLead = offline.createGain();
-    revSendLead.gain.value = 0.18;
+    revSendLead.gain.value = 0.30;
     revSendLead.connect(reverb);
     const revSendBack = offline.createGain();
     revSendBack.gain.value = 0.08;
@@ -345,7 +346,7 @@ function StudioInner() {
     delayReturn.connect(mixInput);
 
     const delaySendLead = offline.createGain();
-    delaySendLead.gain.value = 0.14;
+    delaySendLead.gain.value = 0.22;
     delaySendLead.channelCount = 1;
     delaySendLead.channelCountMode = "explicit";
     delaySendLead.connect(delayL);
@@ -418,7 +419,7 @@ function StudioInner() {
         leadDeess.type = "peaking";
         leadDeess.frequency.value = 7600;
         leadDeess.Q.value = 1;
-        leadDeess.gain.value = -3;
+        leadDeess.gain.value = -4;
 
         const leadDemud = offline.createBiquadFilter();
         leadDemud.type = "peaking";
@@ -429,7 +430,7 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 1.0;
+        leadAir.gain.value = 0.5;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
@@ -440,7 +441,7 @@ function StudioInner() {
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.2;
+        leadPresence.gain.value = -1.0;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
