@@ -5,6 +5,7 @@ import { useState, Suspense, useRef, useCallback } from "react";
 import MixUploader from "@/components/MixUploader";
 
 type StudioTab = "beat" | "cover" | "mix";
+type SpaceMode = "studio" | "room" | "hall" | "cathedral";
 type MixMode = "split" | "mix";
 type StemRole = "lead" | "backup" | "adlib" | "beat";
 type UploadedFile = { url: string; name: string; role: StemRole };
@@ -22,6 +23,9 @@ function StudioInner() {
 
   const [activeTab, setActiveTab] = useState<StudioTab>(initialType);
   const [mixMode, setMixMode] = useState<MixMode>("mix");
+  const [spaceMode, setSpaceMode] = useState<SpaceMode>("studio");
+  const spaceRef = useRef<SpaceMode>("studio");
+  spaceRef.current = spaceMode;
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [splitResults, setSplitResults] = useState<SplitResult[]>([]);
   const [readyStems, setReadyStems] = useState<ReadyStem[]>([]);
@@ -207,14 +211,14 @@ function StudioInner() {
     reverbHp.type = "highpass";
     reverbHp.frequency.value = 250;
     const reverbReturn = offline.createGain();
-    reverbReturn.gain.value = 0.5;
+    reverbReturn.gain.value = spaceCfg.ret;
         const reverbDamp = offline.createBiquadFilter();
         reverbDamp.type = "lowpass";
-        reverbDamp.frequency.value = 9000;
+        reverbDamp.frequency.value = spaceCfg.damp;
         reverbDamp.Q.value = 0.7;
 
         const reverbPredelay = offline.createDelay(1.0);
-        reverbPredelay.delayTime.value = 0.030;
+        reverbPredelay.delayTime.value = spaceCfg.predelay;
     reverb.connect(reverbDamp); reverbDamp.connect(reverbPredelay); reverbPredelay.connect(reverbHp);
     reverbHp.connect(reverbReturn);
     reverbReturn.connect(mixInput);
@@ -593,7 +597,17 @@ function StudioInner() {
                     ? "Upload a full song — we'll split it into Vocals + Instrumental. Backups stay combined inside the vocal stem."
                     : "Upload your stems — lead vocal, backups, ad-libs, and the beat. Label each one."}
                 </label>
-                <MixUploader onReady={addFile} />
+                <div>
+                <label className="block text-sm text-gray-400 mb-2">Vocal space</label>
+                <select value={spaceMode} onChange={(e) => setSpaceMode(e.target.value as SpaceMode)} className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
+                  <option value="studio">Studio — current sound</option>
+                  <option value="room">Room — tight and dry</option>
+                  <option value="hall">Hall — big and open</option>
+                  <option value="cathedral">Cathedral — huge and dark</option>
+                </select>
+              </div>
+
+              <MixUploader onReady={addFile} />
                 {files.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {files.map((f) => (
