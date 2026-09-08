@@ -498,13 +498,16 @@ function StudioInner() {
             body: JSON.stringify({ name: label, url }),
           });
           if (res.ok) setStage("Done - saved to dashboard: " + label);
-          else setStage("Done - preview & download (auto-save failed)");
+          else {
+            let em = "";
+            try { em = (await res.json()).error || ""; } catch {}
+            setStage("Done - preview & download (auto-save failed HTTP " + res.status + (em ? " " + em : "") + ")");
+          }
         } else {
-          setStage("Done - preview & download (upload failed)");
+          setStage("Done - preview & download (upload returned no URL)");
         }
-      } catch (err) {
-        console.error("Auto-save error:", err);
-        setStage("Done - preview & download (auto-save error)");
+      } catch (err: any) {
+        setStage("Done - preview & download (auto-save error: " + String((err && err.message) || err).slice(0, 100) + ")");
       }
     } catch (e: any) {
       alert("Mix failed: " + ((e && e.message) ? e.message : "unknown"));
