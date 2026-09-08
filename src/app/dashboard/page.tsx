@@ -1,6 +1,7 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
 
 const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> = {
@@ -98,6 +99,10 @@ export default function Dashboard() {
               <p className="mt-2 text-xs text-slate-400">Tap to open →</p>
             </Link>
           ))}
+        </section>
+
+        <section className="mt-8">
+          <MixesList />
         </section>
 
         <section className="mt-8 rounded-2xl bg-gradient-to-r from-green-600 to-yellow-500 p-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

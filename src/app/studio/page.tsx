@@ -3,6 +3,7 @@ import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback } from "react";
 import MixUploader from "@/components/MixUploader";
+import { useUploadThing } from "@/utils/uploadthing";
 
 
 async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
@@ -124,6 +125,7 @@ function StudioInner() {
   const [processing, setProcessing] = useState(false);
   const [stage, setStage] = useState("");
   const [mixedBlob, setMixedBlob] = useState<Blob | null>(null);
+  const { startUpload } = useUploadThing("audioUploader");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const addFile = (url: string, name: string) => {
@@ -477,7 +479,32 @@ function StudioInner() {
     try {
       const result = await applyPreset(stems);
       if (!result) { setProcessing(false); return; }
-      setMixedBlob(new Blob([encodeWav(result)], { type: "audio/wav" }));
+      const wav = encodeWav(result);
+      const blob = new Blob([wav], { type: "audio/wav" });
+      setMixedBlob(blob);
+      setStage("Saving to dashboard…");
+      try {
+        const beatStem = stems.find((s: any) => s.role === "beat");
+        const first = stems[0] as any;
+        const base = (beatStem && beatStem.name ? String(beatStem.name) : first && first.name ? String(first.name) : "Mix").replace(/\.[^.]+$/, "");
+        const label = base + " - Master";
+        const up = await startUpload([new File([blob], label + ".wav", { type: "audio/wav" })]);
+        const f = up && up[0];
+        const url = (f && ((f as any).ufsUrl || (f as any).url)) || "";
+        if (url) {
+          const res = await fetch("/api/mixes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: label, url }),
+          });
+          if (res.ok) setStage("Done - saved to dashboard: " + label);
+          else setStage("Done - preview & download (auto-save failed)");
+        } else {
+          setStage("Done - preview & download (upload failed)");
+        }
+      } catch {
+        setStage("Done - preview & download");
+      }
       setStage("Done — preview and download");
     } catch (e: any) {
       alert("Mix failed: " + ((e && e.message) ? e.message : "unknown"));
