@@ -35,7 +35,7 @@ async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
 }
 
 type StudioTab = "beat" | "cover" | "mix";
-type SpaceMode = "studio" | "room" | "hall" | "cathedral";
+type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
 type MixMode = "split" | "mix";
 type StemRole = "lead" | "backup" | "adlib" | "beat";
 type UploadedFile = { url: string; name: string; role: StemRole };
@@ -223,7 +223,7 @@ function StudioInner() {
     adlibBus.connect(vocalGlue);
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
-    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : { decay: 1.8, damp: 9000, predelay: 0.030, ret: 0.5 };
+    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 1.8, damp: 9000, predelay: 0.030, ret: 0.5 };
     const reverb = offline.createConvolver();
     reverb.normalize = true;
     const irLength = Math.floor(offline.sampleRate * spaceCfg.decay);
@@ -620,6 +620,7 @@ function StudioInner() {
                   <option value="room">Room — tight and dry</option>
                   <option value="hall">Hall — big and open</option>
                   <option value="cathedral">Cathedral — huge and dark</option>
+                  <option value="plate">Plate Shine — glassy bright halo</option>
                 </select>
               </div>
 
