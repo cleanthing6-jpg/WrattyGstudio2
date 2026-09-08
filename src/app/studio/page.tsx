@@ -193,6 +193,7 @@ function StudioInner() {
     adlibBus.connect(vocalGlue);
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
+    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : { decay: 1.8, damp: 9000, predelay: 0.030, ret: 0.5 };
     const reverb = offline.createConvolver();
     reverb.normalize = true;
     const irLength = Math.floor(offline.sampleRate * 1.8);
