@@ -4,6 +4,36 @@ import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback } from "react";
 import MixUploader from "@/components/MixUploader";
 
+
+async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
+  const channels = buf.numberOfChannels;
+  const length = buf.length;
+  let sum = 0;
+  for (let c = 0; c < channels; c++) {
+    const data = buf.getChannelData(c);
+    for (let i = 0; i < length; i++) sum += data[i] * data[i];
+  }
+  const rms = Math.sqrt(sum / (channels * length));
+  const targetRms = 0.316;
+  let gain = targetRms / Math.max(rms, 1e-6);
+  if (gain > 8) gain = 8;
+  const out = new OfflineAudioContext(channels, length, buf.sampleRate);
+  const src = out.createBufferSource();
+  src.buffer = buf;
+  const g = out.createGain();
+  g.gain.value = gain;
+  const limiter = out.createDynamicsCompressor();
+  limiter.threshold.value = -1;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.12;
+  src.connect(g);
+  g.connect(limiter);
+  limiter.connect(out.destination);
+  src.start(0);
+  return await out.startRendering();
+}
+
 type StudioTab = "beat" | "cover" | "mix";
 type SpaceMode = "studio" | "room" | "hall" | "cathedral";
 type MixMode = "split" | "mix";
@@ -385,23 +415,8 @@ function StudioInner() {
     }
 
     const rendered = await offline.startRendering();
-    let peak = 0;
-    for (let c = 0; c < rendered.numberOfChannels; c++) {
-      const ch = rendered.getChannelData(c);
-      for (let j = 0; j < ch.length; j++) {
-        const abs = Math.abs(ch[j]);
-        if (abs > peak) peak = abs;
-      }
-    }
-    const gainLinear = peak > 0.000001 ? Math.min(0.95 / peak, 64) : 1;
-    for (let c = 0; c < rendered.numberOfChannels; c++) {
-      const ch = rendered.getChannelData(c);
-      for (let j = 0; j < ch.length; j++) {
-        const v = ch[j] * gainLinear;
-        ch[j] = v > 1 ? 1 : v < -1 ? -1 : v;
-      }
-    }
-    return rendered;
+    const loudRendered = await loudnessNormalize(rendered);
+    return loudRendered;
   }, []);
 
   const bakeMix = async () => {
