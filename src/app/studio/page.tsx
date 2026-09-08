@@ -288,7 +288,12 @@ function StudioInner() {
         beatCarve.frequency.value = 3200;
         beatCarve.Q.value = 1.2;
         beatCarve.gain.value = -2.5;
-        hp.connect(beatWeight); beatWeight.connect(beatCarve); beatCarve.connect(mixInput);
+        const beatCarve2 = offline.createBiquadFilter();
+        beatCarve2.type = "peaking";
+        beatCarve2.frequency.value = 280;
+        beatCarve2.Q.value = 1.4;
+        beatCarve2.gain.value = -2.5;
+        hp.connect(beatWeight); beatWeight.connect(beatCarve); beatCarve.connect(beatCarve2); beatCarve2.connect(mixInput);
         src.start(0);
         continue;
       }
@@ -326,7 +331,7 @@ function StudioInner() {
         leadDeess.type = "peaking";
         leadDeess.frequency.value = 7600;
         leadDeess.Q.value = 1;
-        leadDeess.gain.value = -5;
+        leadDeess.gain.value = -3;
 
         const leadDemud = offline.createBiquadFilter();
         leadDemud.type = "peaking";
@@ -348,7 +353,7 @@ function StudioInner() {
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 0.7;
+        leadPresence.gain.value = 1.5;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
