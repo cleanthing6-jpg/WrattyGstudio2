@@ -282,18 +282,18 @@ function StudioInner() {
         const beatWeight = offline.createBiquadFilter();
         beatWeight.type = "lowshelf";
         beatWeight.frequency.value = 80;
-        beatWeight.gain.value = 0.8;
+        beatWeight.gain.value = 1.5;
 
         const beatCarve = offline.createBiquadFilter();
         beatCarve.type = "peaking";
         beatCarve.frequency.value = 3200;
         beatCarve.Q.value = 1.2;
-        beatCarve.gain.value = -2.5;
+        beatCarve.gain.value = -2.0;
         const beatCarve2 = offline.createBiquadFilter();
         beatCarve2.type = "peaking";
         beatCarve2.frequency.value = 280;
         beatCarve2.Q.value = 1.4;
-        beatCarve2.gain.value = -2.5;
+        beatCarve2.gain.value = -1.5;
         hp.connect(beatWeight); beatWeight.connect(beatCarve); beatCarve.connect(beatCarve2); beatCarve2.connect(mixInput);
         src.start(0);
         continue;
