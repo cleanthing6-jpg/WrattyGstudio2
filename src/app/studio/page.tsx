@@ -54,7 +54,7 @@ function StudioInner() {
       for (const s of r.stems) {
         let role: StemRole = "beat";
         const t = (s.type || "").toLowerCase();
-        if (t.includes("lead")) role = "lead";
+        if (t.includes("lead") || t.includes("vocal")) role = "lead";
         else if (t.includes("back")) role = "backup";
         else if (t.includes("ad")) role = "adlib";
         else if (t.includes("drum") || t.includes("bass") || t.includes("other") || t.includes("music") || t.includes("accompaniment") || t.includes("instrument")) role = "beat";
@@ -161,7 +161,7 @@ function StudioInner() {
         const glueSat = offline.createWaveShaper();
         glueSat.oversample = "none";
         const glueSatCurve = new Float32Array(1024);
-        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.2 * gx) / Math.tanh(1.2); }
+        for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = gx; }
         glueSat.curve = glueSatCurve;
     glueMakeup.connect(glueSat); glueSat.connect(mixInput);
 
@@ -343,7 +343,7 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 1.0;
+        leadAir.gain.value = 0.5;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
@@ -354,7 +354,7 @@ function StudioInner() {
         leadPresence.type = "peaking";
         leadPresence.frequency.value = 3200;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.5;
+        leadPresence.gain.value = 1.0;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
@@ -590,7 +590,7 @@ function StudioInner() {
               <div>
                 <label className="block text-sm text-gray-500 mb-2">
                   {mixMode === "split"
-                    ? "Only have a full song? Upload it here — we'll split it (quality is lower than real stems)."
+                    ? "Upload a full song — we'll split it into Vocals + Instrumental. Backups stay combined inside the vocal stem."
                     : "Upload your stems — lead vocal, backups, ad-libs, and the beat. Label each one."}
                 </label>
                 <MixUploader onReady={addFile} />
