@@ -3,6 +3,7 @@ import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback } from "react";
 import MixUploader from "@/components/MixUploader";
+import AiMixer from "@/components/AiMixer";
 import { useUploadThing } from "@/utils/uploadthing";
 
 
@@ -716,6 +717,7 @@ function StudioInner() {
               </div>
 
               <MixUploader onReady={addFile} />
+              <AiMixer stems={readyStems.length ? readyStems : files} />
                 {files.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {files.map((f) => (
