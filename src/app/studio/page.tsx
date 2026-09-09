@@ -406,20 +406,20 @@ function StudioInner() {
 
       if (role === "lead") {
         const leadComp = offline.createDynamicsCompressor();
-        leadComp.threshold.value = -20;
-        leadComp.ratio.value = 1.5;
+        leadComp.threshold.value = -24;
+        leadComp.ratio.value = 3;
         leadComp.attack.value = 0.01;
         leadComp.release.value = 0.12;
         leadComp.knee.value = 8;
 
         const leadMakeup = offline.createGain();
-        leadMakeup.gain.value = 1.2;
+        leadMakeup.gain.value = 1.5;
 
         const leadDeess = offline.createBiquadFilter();
         leadDeess.type = "peaking";
-        leadDeess.frequency.value = 7600;
-        leadDeess.Q.value = 1;
-        leadDeess.gain.value = -4;
+        leadDeess.frequency.value = 7200;
+        leadDeess.Q.value = 1.6;
+        leadDeess.gain.value = -2.5;
 
         const leadDemud = offline.createBiquadFilter();
         leadDemud.type = "peaking";
@@ -430,7 +430,7 @@ function StudioInner() {
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
         leadAir.frequency.value = 10000;
-        leadAir.gain.value = 0.5;
+        leadAir.gain.value = 2.0;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
@@ -439,9 +439,9 @@ function StudioInner() {
 
         const leadPresence = offline.createBiquadFilter();
         leadPresence.type = "peaking";
-        leadPresence.frequency.value = 3200;
+        leadPresence.frequency.value = 3400;
         leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = -1.0;
+        leadPresence.gain.value = 1.8;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
