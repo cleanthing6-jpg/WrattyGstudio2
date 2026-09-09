@@ -288,7 +288,7 @@ function StudioInner() {
     adlibBus.connect(vocalGlue);
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
-    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 0.45, damp: 9000, predelay: 0, ret: 0 };
+    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 0.45, damp: 9000, predelay: 0, ret: 0.32 };
     const reverb = await loadSpaceIR(sp, offline, spaceCfg);
     const reverbHp = offline.createBiquadFilter();
     reverbHp.type = "highpass";
@@ -323,9 +323,9 @@ function StudioInner() {
     delayR.delayTime.value = 0.34;
 
     const fbLR = offline.createGain();
-    fbLR.gain.value = 0.45;
+    fbLR.gain.value = 0.55;
     const fbRL = offline.createGain();
-    fbRL.gain.value = 0.45;
+    fbRL.gain.value = 0.55;
     delayL.connect(fbLR);
     fbLR.connect(delayR);
     delayR.connect(fbRL);
@@ -333,9 +333,9 @@ function StudioInner() {
 
     const delayMerge = offline.createChannelMerger(2);
     const delayWetL = offline.createGain();
-    delayWetL.gain.value = 0.8;
+    delayWetL.gain.value = 0.9;
     const delayWetR = offline.createGain();
-    delayWetR.gain.value = 0.8;
+    delayWetR.gain.value = 0.9;
     delayL.connect(delayWetL);
     delayWetL.connect(delayMerge, 0, 0);
     delayR.connect(delayWetR);
@@ -346,7 +346,7 @@ function StudioInner() {
     delayReturn.connect(mixInput);
 
     const delaySendLead = offline.createGain();
-    delaySendLead.gain.value = 0.45;
+    delaySendLead.gain.value = 0.25;
     delaySendLead.channelCount = 1;
     delaySendLead.channelCountMode = "explicit";
     delaySendLead.connect(delayL);
