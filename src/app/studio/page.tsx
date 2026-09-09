@@ -23,7 +23,7 @@ async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
     }
   }
   const rms = Math.sqrt(sumSq / (channels * length));
-  const targetRms = 0.22;
+  const targetRms = 0.18;
   const rmsGain = targetRms / Math.max(rms, 1e-6);
   let tp = peak;
   for (let c = 0; c < channels; c++) {
@@ -46,10 +46,10 @@ async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
   const g = out.createGain();
   g.gain.value = gain;
   const limiter = out.createDynamicsCompressor();
-  limiter.threshold.value = -1;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.12;
+  limiter.threshold.value = -6;
+  limiter.ratio.value = 4;
+  limiter.attack.value = 0.005;
+  limiter.release.value = 0.25;
   src.connect(g);
   g.connect(limiter);
   limiter.connect(out.destination);
@@ -234,11 +234,11 @@ function StudioInner() {
     const mixInput = offline.createGain();
     mixInput.gain.value = 1;
         const masterLim = offline.createDynamicsCompressor();
-        masterLim.threshold.value = -1;
-        masterLim.ratio.value = 20;
-        masterLim.attack.value = 0.002;
-        masterLim.release.value = 0.15;
-        masterLim.knee.value = 0;
+        masterLim.threshold.value = -6;
+        masterLim.ratio.value = 4;
+        masterLim.attack.value = 0.005;
+        masterLim.release.value = 0.25;
+        masterLim.knee.value = 6;
     mixInput.connect(masterLim); masterLim.connect(offline.destination);
 
     // Vocal glue bus (lead + backing bus + adlib bus all sum here)
@@ -398,7 +398,7 @@ function StudioInner() {
       lp.frequency.value = role === "lead" ? 16000 : role === "adlib" ? 12000 : 14000;
 
       const pan = offline.createStereoPanner();
-      pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.35 : -0.35) : (i % 2 === 0 ? -0.4 : 0.4);
+      pan.pan.value = role === "lead" ? 0 : role === "adlib" ? (i % 2 === 0 ? 0.25 : -0.25) : (i % 2 === 0 ? -0.3 : 0.3);
 
       src.connect(g);
       g.connect(hp);
