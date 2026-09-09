@@ -64,7 +64,7 @@ async function loadSpaceIR(mode: string, ctx: OfflineAudioContext, cfg: { decay:
     hall: "/ir/hall.wav",
     cathedral: "/ir/cathedral.wav",
     plate: "/ir/plate.wav",
-    studio: "/ir/room.wav"
+    studio: ""
   };
   const url = urls[mode] || "";
   let real: AudioBuffer | null = null;
