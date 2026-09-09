@@ -23,7 +23,7 @@ async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
     }
   }
   const rms = Math.sqrt(sumSq / (channels * length));
-  const targetRms = 0.316;
+  const targetRms = 0.22;
   const rmsGain = targetRms / Math.max(rms, 1e-6);
   let tp = peak;
   for (let c = 0; c < channels; c++) {
@@ -258,7 +258,7 @@ function StudioInner() {
     vocalGlue.connect(glueComp);
     glueComp.connect(glueMakeup);
         const glueSat = offline.createWaveShaper();
-        glueSat.oversample = "none";
+        glueSat.oversample = "2x";
         const glueSatCurve = new Float32Array(1024);
         for (let gi = 0; gi < 1024; gi++) { const gx = (gi / 511.5) - 1; glueSatCurve[gi] = Math.tanh(1.2 * gx) / Math.tanh(1.2); }
         glueSat.curve = glueSatCurve;
@@ -288,7 +288,7 @@ function StudioInner() {
     adlibBus.connect(vocalGlue);
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
-    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 1.8, damp: 9000, predelay: 0.030, ret: 0.5 };
+    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 2.0, damp: 8000, predelay: 0.035, ret: 0.55 };
     const reverb = await loadSpaceIR(sp, offline, spaceCfg);
     const reverbHp = offline.createBiquadFilter();
     reverbHp.type = "highpass";
@@ -307,7 +307,7 @@ function StudioInner() {
     reverbReturn.connect(mixInput);
 
     const revSendLead = offline.createGain();
-    revSendLead.gain.value = 0.30;
+    revSendLead.gain.value = 0.42;
     revSendLead.connect(reverb);
     const revSendBack = offline.createGain();
     revSendBack.gain.value = 0.08;
@@ -323,9 +323,9 @@ function StudioInner() {
     delayR.delayTime.value = 0.34;
 
     const fbLR = offline.createGain();
-    fbLR.gain.value = 0.32;
+    fbLR.gain.value = 0.45;
     const fbRL = offline.createGain();
-    fbRL.gain.value = 0.32;
+    fbRL.gain.value = 0.45;
     delayL.connect(fbLR);
     fbLR.connect(delayR);
     delayR.connect(fbRL);
@@ -333,9 +333,9 @@ function StudioInner() {
 
     const delayMerge = offline.createChannelMerger(2);
     const delayWetL = offline.createGain();
-    delayWetL.gain.value = 0.6;
+    delayWetL.gain.value = 0.8;
     const delayWetR = offline.createGain();
-    delayWetR.gain.value = 0.6;
+    delayWetR.gain.value = 0.8;
     delayL.connect(delayWetL);
     delayWetL.connect(delayMerge, 0, 0);
     delayR.connect(delayWetR);
@@ -346,7 +346,7 @@ function StudioInner() {
     delayReturn.connect(mixInput);
 
     const delaySendLead = offline.createGain();
-    delaySendLead.gain.value = 0.22;
+    delaySendLead.gain.value = 0.45;
     delaySendLead.channelCount = 1;
     delaySendLead.channelCountMode = "explicit";
     delaySendLead.connect(delayL);
@@ -360,7 +360,7 @@ function StudioInner() {
 
       if (role === "beat") {
         const g = offline.createGain();
-        g.gain.value = 1.3;
+        g.gain.value = 1.5;
         const hp = offline.createBiquadFilter();
         hp.type = "highpass";
         hp.frequency.value = 28;
@@ -369,25 +369,25 @@ function StudioInner() {
         const beatWeight = offline.createBiquadFilter();
         beatWeight.type = "lowshelf";
         beatWeight.frequency.value = 80;
-        beatWeight.gain.value = 2.0;
+        beatWeight.gain.value = 3.0;
 
         const beatCarve = offline.createBiquadFilter();
         beatCarve.type = "peaking";
         beatCarve.frequency.value = 3200;
         beatCarve.Q.value = 1.2;
-        beatCarve.gain.value = -1.0;
+        beatCarve.gain.value = -2.5;
         const beatCarve2 = offline.createBiquadFilter();
         beatCarve2.type = "peaking";
         beatCarve2.frequency.value = 280;
         beatCarve2.Q.value = 1.4;
-        beatCarve2.gain.value = -0.5;
+        beatCarve2.gain.value = -1.0;
         hp.connect(beatWeight); beatWeight.connect(beatCarve); beatCarve.connect(beatCarve2); beatCarve2.connect(mixInput);
         src.start(0);
         continue;
       }
 
       const g = offline.createGain();
-      g.gain.value = role === "lead" ? 0.80 : role === "adlib" ? 0.12 : 0.15;
+      g.gain.value = role === "lead" ? 0.65 : role === "adlib" ? 0.12 : 0.15;
 
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
@@ -413,7 +413,7 @@ function StudioInner() {
         leadComp.knee.value = 8;
 
         const leadMakeup = offline.createGain();
-        leadMakeup.gain.value = 1.5;
+        leadMakeup.gain.value = 1.15;
 
         const leadDeess = offline.createBiquadFilter();
         leadDeess.type = "peaking";
@@ -429,8 +429,8 @@ function StudioInner() {
 
         const leadAir = offline.createBiquadFilter();
         leadAir.type = "highshelf";
-        leadAir.frequency.value = 10000;
-        leadAir.gain.value = 2.0;
+        leadAir.frequency.value = 12000;
+        leadAir.gain.value = 1.2;
 
         const leadBody = offline.createBiquadFilter();
         leadBody.type = "lowshelf";
@@ -439,9 +439,9 @@ function StudioInner() {
 
         const leadPresence = offline.createBiquadFilter();
         leadPresence.type = "peaking";
-        leadPresence.frequency.value = 3400;
-        leadPresence.Q.value = 0.8;
-        leadPresence.gain.value = 1.8;
+        leadPresence.frequency.value = 5000;
+        leadPresence.Q.value = 0.7;
+        leadPresence.gain.value = 1.2;
 
         lp.connect(leadComp);
         leadComp.connect(leadMakeup);
