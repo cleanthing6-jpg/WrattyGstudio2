@@ -288,7 +288,7 @@ function StudioInner() {
     adlibBus.connect(vocalGlue);
 
     // ----- Reverb (stereo IR, exp decay, HP) -----
-    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 0.45, damp: 9000, predelay: 0, ret: 0.36 };
+    const sp = spaceRef.current || "studio"; const spaceCfg = sp === "room" ? { decay: 0.9, damp: 12500, predelay: 0.010, ret: 0.45 } : sp === "hall" ? { decay: 2.2, damp: 9000, predelay: 0.032, ret: 0.55 } : sp === "cathedral" ? { decay: 4.0, damp: 6500, predelay: 0.050, ret: 0.35 } : sp === "plate" ? { decay: 1.5, damp: 16000, predelay: 0.015, ret: 0.6 } : { decay: 0.45, damp: 9000, predelay: 0, ret: 0 };
     const reverb = await loadSpaceIR(sp, offline, spaceCfg);
     const reverbHp = offline.createBiquadFilter();
     reverbHp.type = "highpass";
