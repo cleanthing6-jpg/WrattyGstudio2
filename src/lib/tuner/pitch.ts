@@ -135,6 +135,7 @@ export type KeyDetection = {
   runnerUp: KeyCandidate | null;
   voicedSeconds: number;
   occupiedPitchClasses: number;
+  hist: number[];
 };
 
 export function detectKey(
@@ -160,11 +161,15 @@ export function detectKey(
 
   const occupied = hist.filter((v) => v > 0).length;
   if (wSum <= 0) {
-    return { root: 0, mode: "minor", confidence: 0, runnerUp: null, voicedSeconds: 0, occupiedPitchClasses: 0 };
+    return { root: 0, mode: "minor", confidence: 0, runnerUp: null, voicedSeconds: 0, occupiedPitchClasses: 0, hist: [0,0,0,0,0,0,0,0,0,0,0,0] };
   }
 
   const pseudo = (wSum * 0.01) / 12;
   for (let p = 0; p < 12; p++) hist[p] += pseudo;
+
+  let hMax = 0;
+  for (let p = 0; p < 12; p++) if (hist[p] > hMax) hMax = hist[p];
+  const histNorm = hMax > 0 ? hist.map((v) => v / hMax) : hist.slice();
 
   const ranked: KeyCandidate[] = [];
   for (let r = 0; r < 12; r++) {
@@ -192,5 +197,6 @@ export function detectKey(
     runnerUp: second,
     voicedSeconds: wSum,
     occupiedPitchClasses: occupied,
+    hist: histNorm,
   };
 }
