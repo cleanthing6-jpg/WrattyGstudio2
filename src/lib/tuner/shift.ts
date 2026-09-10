@@ -14,16 +14,17 @@ export function applyCurve(
   hop: number,
   curveCents: Float32Array,
   midiHint?: Float32Array,
-  taps = 4
+  taps = 2
 ): Float32Array[] {
   const n = channels[0]?.length ?? 0;
   const out = channels.map(() => new Float32Array(n));
   if (!n) return out;
   const twoPi = Math.PI * 2;
-  const kPeriods = 8;
+  const kPeriods = 4;
   const norm = 2 / taps;
   const offsets = new Float32Array(taps);
   for (let j = 0; j < taps; j++) offsets[j] = j / taps;
+  const glide = 1 - Math.exp(-1 / (sampleRate * 0.025));
   let r = 1;
   let period = sampleRate / 220;
   let grain = period * kPeriods;
@@ -31,20 +32,19 @@ export function applyCurve(
   for (let i = 0; i < n; i++) {
     const frame = Math.max(0, Math.min(curveCents.length - 1, Math.floor(i / hop)));
     const target = Math.pow(2, curveCents[frame] / 1200);
-    r += (target - r) * 0.004;
+    r += (target - r) * glide;
     if (midiHint && frame < midiHint.length) {
       const m = midiHint[frame];
       if (!Number.isNaN(m)) {
         const hz = 440 * Math.pow(2, (m - 69) / 12);
         if (hz > 60 && hz < 1200) {
-          const p = sampleRate / hz;
-          period += (p - period) * 0.05;
-          grain += (period * kPeriods - grain) * 0.05;
-          if (grain < 1024) grain = 1024;
-          if (grain > 8192) grain = 8192;
+          period += (sampleRate / hz - period) * glide;
         }
       }
     }
+    grain = period * kPeriods;
+    if (grain < 1024) grain = 1024;
+    if (grain > 8192) grain = 8192;
     phase += 1 / grain;
     if (phase >= 1) phase -= 1;
     for (let j = 0; j < taps; j++) {
