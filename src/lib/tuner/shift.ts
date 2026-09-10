@@ -1,17 +1,10 @@
 import SignalsmithStretch from "signalsmith-stretch";
 
 type StretchConfig = {
-  output?: number;
-  active?: boolean;
-  input?: number;
-  rate?: number;
-  semitones?: number;
-  tonalityHz?: number;
-  formantSemitones?: number;
-  formantCompensation?: boolean;
-  formantBaseHz?: number;
-  loopStart?: number;
-  loopEnd?: number;
+  output?: number; active?: boolean; input?: number; rate?: number;
+  semitones?: number; tonalityHz?: number; formantSemitones?: number;
+  formantCompensation?: boolean; formantBaseHz?: number;
+  loopStart?: number; loopEnd?: number;
 };
 
 type StretchNode = AudioNode & {
@@ -30,6 +23,13 @@ function padTo(x: Float32Array, n: number): Float32Array {
   const o = new Float32Array(n);
   o.set(x);
   return o;
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(label + " timed out after " + Math.round(ms / 1000) + "s")), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
 }
 
 async function makeNode(ctx: BaseAudioContext, channels: number): Promise<StretchNode> {
@@ -69,19 +69,27 @@ export async function renderTuned(
   sampleRate: number,
   hop: number,
   curveCents: Float32Array,
-  opts?: { formantCompensation?: boolean; tonalityHz?: number }
+  opts?: { formantCompensation?: boolean; tonalityHz?: number; onStage?: (s: string) => void }
 ): Promise<Float32Array[]> {
   const ch = Math.max(1, channels.length);
   const n = channels[0]?.length ?? 0;
   if (!n) return channels;
+  const stage = opts?.onStage;
 
   const safe = channels.map((c) => padTo(c, n));
   const tail = Math.ceil(sampleRate * 0.4);
   const ctx = new OfflineAudioContext(ch, n + tail, sampleRate);
-  const node = await makeNode(ctx, ch);
+
+  stage?.("Engine: loading worklet...");
+  const node = await withTimeout(makeNode(ctx, ch), 25000, "Worklet load");
 
   try { node.configure({ blockMs: 120 }); } catch {}
-  await node.addBuffers(safe);
+
+  stage?.("Engine: worklet ready, loading audio...");
+  await withTimeout(node.addBuffers(safe), 25000, "addBuffers");
+
+  node.connect(ctx.destination);
+  node.start(0);
 
   const first = curveCents.length ? curveCents[0] / 100 : 0;
   node.schedule({
@@ -104,10 +112,8 @@ export async function renderTuned(
     node.schedule({ output: i * step, rate: 1, semitones: Math.max(-6, Math.min(6, c / 100)) });
   }
 
-  node.connect(ctx.destination);
-  node.start(0);
-
-  const rendered = await ctx.startRendering();
+  stage?.("Engine: rendering tuned vocal...");
+  const rendered = await withTimeout(ctx.startRendering(), 180000, "Offline render");
 
   const maxLag = Math.round(sampleRate * 0.05);
   const lag = bestLag(safe[0], rendered.getChannelData(0), maxLag);

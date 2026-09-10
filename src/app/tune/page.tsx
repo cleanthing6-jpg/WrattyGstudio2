@@ -45,6 +45,7 @@ export default function TunePage() {
   const [busy, setBusy] = useState(false);
   const [det, setDet] = useState<KeyDetection | null>(null);
   const [detSource, setDetSource] = useState("");
+  const [manual, setManual] = useState(false);
 
   const decode = async (input: HTMLInputElement | null) => {
     const f = input?.files?.[0];
@@ -65,7 +66,7 @@ export default function TunePage() {
     if (!d) return null;
     const a = analyseTrack(d.channels[0], d.sr);
     const k = detectKey(a, d.sr);
-    setDet(k); setDetSource(label); setRoot(k.root); setMode(k.mode);
+    setDet(k); setDetSource(label); setRoot(k.root); setMode(k.mode); setManual(false);
     return k;
   };
 
@@ -91,7 +92,7 @@ export default function TunePage() {
     }
   };
 
-  const tune = async (o?: { amount?: number; retuneMs?: number; vibrato?: number }) => {
+  const tune = async (o?: { amount?: number; retuneMs?: number; vibrato?: number; force?: boolean }) => {
     if (busy) return;
     setBusy(true); setErr(""); setStatus("");
     try {
@@ -103,12 +104,13 @@ export default function TunePage() {
       const bEl = beatRef.current;
       const hasBeat = !!(bEl && bEl.files && bEl.files[0]);
 
-      if (hasBeat) {
+      const force = o?.force === true;
+      if ((force || !manual) && hasBeat) {
         setStatus("Reading the beat for the key…");
         await new Promise((r) => setTimeout(r, 0));
         const k = await keyFrom(bEl, "beat");
         if (k) { useRoot = k.root; useMode = k.mode; }
-      } else if (!det) {
+      } else if (force || (!manual && !det)) {
         setStatus("Reading the vocal for the key…");
         await new Promise((r) => setTimeout(r, 0));
         const k = await keyFrom(vEl, "vocal");
@@ -128,7 +130,7 @@ export default function TunePage() {
       setStatus("Tuning the vocal in " + NOTE_NAMES[useRoot] + " " + useMode + "…");
       const settings: TuneSettings = { root: useRoot, mode: useMode, amount: amt, retuneMs: rt, vibrato: vib };
       const curve = buildCurve(a, vd.sr, settings);
-      const out = limitPeak(await renderTuned(vd.channels, vd.sr, a.hop, curve));
+      const out = limitPeak(await renderTuned(vd.channels, vd.sr, a.hop, curve, { onStage: setStatus }));
 
       setOrigUrl(URL.createObjectURL(encodeWav(vd.channels, vd.sr)));
       setTunedUrl(URL.createObjectURL(encodeWav(out, vd.sr)));
@@ -145,7 +147,8 @@ export default function TunePage() {
     const rt = DEFAULTS.retuneMs;
     const vib = DEFAULTS.vibrato;
     setAmount(90); setRetuneMs(rt); setVibrato(vib);
-    await tune({ amount: 90, retuneMs: rt, vibrato: vib });
+    setManual(false);
+    await tune({ amount: 90, retuneMs: rt, vibrato: vib, force: true });
   };
 
   return (
@@ -176,25 +179,36 @@ export default function TunePage() {
           </p>
           {detSource ? <p className="text-[11px] text-green-700">Source: the {detSource}</p> : null}
           {det.runnerUp ? <p className="text-[11px] text-green-700">Next best: {NOTE_NAMES[det.runnerUp.root]} {det.runnerUp.mode}</p> : null}
+          <div className="mt-2 grid grid-cols-12 gap-[2px] items-end">
+            {det.hist.map((v, i) => (
+              <div key={i} className="flex flex-col items-center justify-end">
+                <div className="w-full bg-green-500 rounded-t" style={{ height: Math.max(2, Math.round(v * 32)) }} />
+                <span className="text-[9px] text-gray-600 leading-tight">{NOTE_NAMES[i]}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-green-700">Tall bars = notes heard most. Compare F vs F# to settle major vs minor.</p>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Key</label>
-          <select value={root} onChange={(e) => setRoot(Number(e.target.value))} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
+          <select value={root} onChange={(e) => { setRoot(Number(e.target.value)); setManual(true); }} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
             {NOTE_NAMES.map((n, i) => (<option key={n} value={i}>{n}</option>))}
           </select>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Scale</label>
-          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
+          <select value={mode} onChange={(e) => { setMode(e.target.value as Mode); setManual(true); }} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
             <option value="minor">minor</option>
             <option value="major">major</option>
             <option value="chromatic">chromatic</option>
           </select>
         </div>
       </div>
+
+      {manual ? <p className="mb-2 text-[11px] font-semibold text-blue-700">Your key is locked - Auto-Tune will still re-detect.</p> : null}
 
       <label className="block text-xs font-semibold text-gray-600 mb-1">Strength — {amount}%</label>
       <input type="range" min={0} max={100} value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full mb-2" />
