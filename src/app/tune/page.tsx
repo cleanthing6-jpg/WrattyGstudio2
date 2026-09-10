@@ -69,7 +69,7 @@ export default function TunePage() {
 
       setStatus("Tuning — this takes a few seconds…");
       await new Promise((r) => setTimeout(r, 0));
-      const tuned = limitPeak(applyCurve(channels, a.hop, curve));
+      const tuned = limitPeak(applyCurve(channels, sr, a.hop, curve, a.midi));
 
       setStatus("Writing WAVs…");
       if (origUrl) URL.revokeObjectURL(origUrl);
