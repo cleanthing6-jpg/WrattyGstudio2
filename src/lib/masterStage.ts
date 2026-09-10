@@ -338,7 +338,8 @@ export async function masterStage(
   const out = makeBuffer(shaped.sampleRate, shaped.length);
   for (let c = 0; c < out.numberOfChannels; c++) {
     const i = Math.min(c, ch.length - 1);
-    out.copyToChannel(ch[i], c);
+    const dst = out.getChannelData(c);
+    dst.set(ch[i]);
   }
   return out;
 }
