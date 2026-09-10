@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { analyseTrack, buildCurve, detectKey, DEFAULTS, NOTE_NAMES } from "@/lib/tuner/pitch";
-import type { Mode, TuneSettings } from "@/lib/tuner/pitch";
+import type { KeyDetection, Mode, TuneSettings } from "@/lib/tuner/pitch";
 import { applyCurve, limitPeak } from "@/lib/tuner/shift";
 
 function encodeWav(channels: Float32Array[], sampleRate: number): Blob {
@@ -33,6 +33,7 @@ function encodeWav(channels: Float32Array[], sampleRate: number): Blob {
 export default function TunePage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState("");
+  const [err, setErr] = useState("");
   const [origUrl, setOrigUrl] = useState("");
   const [tunedUrl, setTunedUrl] = useState("");
   const [root, setRoot] = useState(DEFAULTS.root);
@@ -41,95 +42,157 @@ export default function TunePage() {
   const [retuneMs, setRetuneMs] = useState(DEFAULTS.retuneMs);
   const [vibrato, setVibrato] = useState(DEFAULTS.vibrato);
   const [busy, setBusy] = useState(false);
+  const [det, setDet] = useState<KeyDetection | null>(null);
 
-  const tune = async () => {
+  const load = async () => {
     const f = fileRef.current?.files?.[0];
-    if (!f) { setStatus("Pick a vocal file first"); return; }
-    setBusy(true);
+    if (!f) throw new Error("Pick a vocal file first");
+    const ab = await f.arrayBuffer();
+    const AC: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AC();
+    const buf: AudioBuffer = await ctx.decodeAudioData(ab.slice(0));
+    const sr = buf.sampleRate;
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < Math.min(2, buf.numberOfChannels); c++) channels.push(Float32Array.from(buf.getChannelData(c)));
+    await ctx.close();
+    return { channels, sr };
+  };
+
+  const detect = async () => {
+    if (busy) return;
+    setBusy(true); setErr(""); setStatus(""); setDet(null);
     try {
       setStatus("Decoding…");
-      const ab = await f.arrayBuffer();
-      const AC: any = (window as any).AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AC();
-      const buf: AudioBuffer = await ctx.decodeAudioData(ab.slice(0));
-      const sr = buf.sampleRate;
-      const channels: Float32Array[] = [];
-      for (let c = 0; c < Math.min(2, buf.numberOfChannels); c++) {
-        channels.push(Float32Array.from(buf.getChannelData(c)));
-      }
-      await ctx.close();
-
-      setStatus("Analysing pitch…");
+      const { channels, sr } = await load();
+      setStatus("Detecting key…");
       await new Promise((r) => setTimeout(r, 0));
       const a = analyseTrack(channels[0], sr);
-
-      setStatus("Building curve…");
-      const detRes = detectKey(a, sr);
-      const keyOk = detRes.confidence >= 0.35;
-      const useRoot = keyOk ? detRes.root : root;
-      const useMode = keyOk ? detRes.mode : mode;
-      setRoot(useRoot); setMode(useMode);
-      setStatus("Auto key: " + NOTE_NAMES[useRoot] + " " + useMode + (keyOk ? " (" + Math.round(detRes.confidence * 100) + "% confident)" : " - low confidence, using your pick"));
-      const settings: TuneSettings = { root: useRoot, mode: useMode, amount: amount / 100, retuneMs, vibrato };
-      const curve = buildCurve(a, sr, settings);
-
-      setStatus("Tuning — this takes a few seconds…");
-      await new Promise((r) => setTimeout(r, 0));
-      const tuned = limitPeak(applyCurve(channels, sr, a.hop, curve, a.midi));
-
-      setStatus("Writing WAVs…");
-      if (origUrl) URL.revokeObjectURL(origUrl);
-      if (tunedUrl) URL.revokeObjectURL(tunedUrl);
-      setOrigUrl(URL.createObjectURL(encodeWav(channels, sr)));
-      setTunedUrl(URL.createObjectURL(encodeWav(tuned, sr)));
-      setStatus("Done — compare below");
+      const d = detectKey(a, sr);
+      setDet(d); setRoot(d.root); setMode(d.mode);
+      setStatus("Detected " + NOTE_NAMES[d.root] + " " + d.mode + " at " + Math.round(d.confidence * 100) + "% confidence");
     } catch (e: any) {
-      setStatus("Failed: " + (e?.message || "unknown error"));
+      setErr(e?.message || "Detect failed");
+      setStatus("");
     } finally {
       setBusy(false);
     }
   };
 
+  const tune = async (o?: { amount?: number; retuneMs?: number; vibrato?: number }) => {
+    if (busy) return;
+    setBusy(true); setErr(""); setStatus("");
+    try {
+      setStatus("Decoding…");
+      const { channels, sr } = await load();
+      setStatus("Analysing pitch…");
+      await new Promise((r) => setTimeout(r, 0));
+      const a = analyseTrack(channels[0], sr);
+
+      let useRoot = root;
+      let useMode: Mode = mode;
+      if (!det) {
+        const d = detectKey(a, sr);
+        setDet(d);
+        if (d.confidence >= 0.35) { useRoot = d.root; useMode = d.mode; setRoot(d.root); setMode(d.mode); }
+      }
+
+      const amt = (o?.amount ?? amount) / 100;
+      const rt = o?.retuneMs ?? retuneMs;
+      const vib = o?.vibrato ?? vibrato;
+      setStatus("Tuning in " + NOTE_NAMES[useRoot] + " " + useMode + "…");
+      const settings: TuneSettings = { root: useRoot, mode: useMode, amount: amt, retuneMs: rt, vibrato: vib };
+      const curve = buildCurve(a, sr, settings);
+      const out = limitPeak(applyCurve(channels, sr, a.hop, curve, a.midi));
+
+      setOrigUrl(URL.createObjectURL(encodeWav(channels, sr)));
+      setTunedUrl(URL.createObjectURL(encodeWav(out, sr)));
+      setStatus("Done — key " + NOTE_NAMES[useRoot] + " " + useMode + ". Compare below.");
+    } catch (e: any) {
+      setErr(e?.message || "Tune failed");
+      setStatus("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const autoTune = async () => {
+    const rt = DEFAULTS.retuneMs;
+    const vib = DEFAULTS.vibrato;
+    setAmount(90); setRetuneMs(rt); setVibrato(vib);
+    await tune({ amount: 90, retuneMs: rt, vibrato: vib });
+  };
+
   return (
-    <div className="mx-auto max-w-xl p-6 space-y-4">
-      <h1 className="text-xl font-bold">Vocal tuner test</h1>
-      <input ref={fileRef} type="file" accept="audio/*" className="block text-sm" />
-      <div className="flex gap-4">
-        <label className="text-sm">Key
-          <select value={root} onChange={(e) => setRoot(Number(e.target.value))} className="ml-2 border rounded px-2 py-1">
+    <div className="mx-auto max-w-xl p-4">
+      <h1 className="text-xl font-bold mb-1">Vocal Tuner</h1>
+      <p className="text-xs text-gray-500 mb-4">Auto-detects the key, then pitch-corrects the lead vocal. Output length matches the input exactly.</p>
+
+      <label className="block text-xs font-semibold text-gray-600 mb-1">Lead vocal file</label>
+      <input ref={fileRef} type="file" accept="audio/*" className="w-full mb-3 text-xs" />
+
+      <div className="flex gap-2 mb-3">
+        <button onClick={detect} disabled={busy} className="flex-1 rounded-lg bg-blue-600 px-3 py-3 text-sm font-semibold text-white disabled:bg-gray-300">
+          🔍 Auto-detect key
+        </button>
+        <button onClick={autoTune} disabled={busy} className="flex-1 rounded-lg bg-black px-3 py-3 text-sm font-semibold text-white disabled:bg-gray-300">
+          ✨ Auto-Tune
+        </button>
+      </div>
+
+      {det && (
+        <div className="mb-3 rounded-lg border border-green-300 bg-green-50 p-3">
+          <p className="text-sm font-bold text-green-800">
+            Detected: {NOTE_NAMES[det.root]} {det.mode} — {Math.round(det.confidence * 100)}% confident
+          </p>
+          {det.runnerUp ? (
+            <p className="text-[11px] text-green-700">Next best: {NOTE_NAMES[det.runnerUp.root]} {det.runnerUp.mode}</p>
+          ) : null}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Key</label>
+          <select value={root} onChange={(e) => setRoot(Number(e.target.value))} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
             {NOTE_NAMES.map((n, i) => (<option key={n} value={i}>{n}</option>))}
           </select>
-        </label>
-        <label className="text-sm">Scale
-          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} className="ml-2 border rounded px-2 py-1">
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Scale</label>
+          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
             <option value="minor">minor</option>
             <option value="major">major</option>
             <option value="chromatic">chromatic</option>
           </select>
-        </label>
+        </div>
       </div>
-      <label className="block text-sm">Strength {amount}%
-        <input type="range" min={0} max={100} value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full" />
-      </label>
-      <label className="block text-sm">Retune {retuneMs} ms
-        <input type="range" min={5} max={120} value={retuneMs} onChange={(e) => setRetuneMs(Number(e.target.value))} className="w-full" />
-      </label>
-      <label className="block text-sm">Vibrato kept {Math.round(vibrato * 100)}%
-        <input type="range" min={0} max={100} value={vibrato * 100} onChange={(e) => setVibrato(Number(e.target.value) / 100)} className="w-full" />
-      </label>
-      <button onClick={tune} disabled={busy} className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300">
-        {busy ? "Working…" : "Tune vocal"}
+
+      <label className="block text-xs font-semibold text-gray-600 mb-1">Strength — {amount}%</label>
+      <input type="range" min={0} max={100} value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full mb-2" />
+
+      <label className="block text-xs font-semibold text-gray-600 mb-1">Retune — {retuneMs} ms</label>
+      <input type="range" min={5} max={120} value={retuneMs} onChange={(e) => setRetuneMs(Number(e.target.value))} className="w-full mb-2" />
+
+      <label className="block text-xs font-semibold text-gray-600 mb-1">Vibrato kept — {Math.round(vibrato * 100)}%</label>
+      <input type="range" min={0} max={100} value={Math.round(vibrato * 100)} onChange={(e) => setVibrato(Number(e.target.value) / 100)} className="w-full mb-3" />
+
+      <button onClick={() => tune()} disabled={busy} className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 mb-3">
+        {busy ? "Working…" : "🎤 Tune vocal"}
       </button>
-      {status && <p className="text-xs text-gray-600">{status}</p>}
+
+      {status && <p className="text-xs text-blue-700 mb-1">{status}</p>}
+      {err && <p className="text-xs font-semibold text-red-600 mb-1">⚠️ {err}</p>}
+      {busy && <p className="text-[11px] text-gray-400 mb-2">Runs on your phone — a long vocal takes a few seconds.</p>}
+
       {origUrl && (
-        <div>
-          <p className="text-xs font-semibold">Original</p>
+        <div className="mt-3">
+          <p className="text-xs font-semibold text-gray-600 mb-1">Original</p>
           <audio controls src={origUrl} className="w-full" />
         </div>
       )}
       {tunedUrl && (
-        <div>
-          <p className="text-xs font-semibold">Tuned</p>
+        <div className="mt-3">
+          <p className="text-xs font-semibold text-gray-600 mb-1">Tuned</p>
           <audio controls src={tunedUrl} className="w-full" />
           <a href={tunedUrl} download="tuned.wav" className="mt-1 inline-block text-xs text-blue-600 underline">Download tuned WAV</a>
         </div>
