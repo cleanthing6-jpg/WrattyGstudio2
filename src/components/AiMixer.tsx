@@ -1,7 +1,7 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
 
-import { useState } from "react";
+import {useState, useRef } from "react";
 import { useUploadThing } from "@/utils/uploadthing";
 
 type Stem = { url: string; name: string; role: string };
@@ -101,7 +101,16 @@ async function convertToWavFile(st: Stem): Promise<File> {
 }
 
 export default function AiMixer({ stems }: { stems: Stem[] }) {
-  const { startUpload } = useUploadThing("audioUploader");
+  const uploadErrorRef = useRef("");
+  const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
+  const { startUpload } = useUploadThing("audioUploader", {
+    onUploadError: (e) => {
+      const msg = (e as any)?.message || String(e);
+      uploadErrorRef.current = msg;
+      console.error("[UploadThing]", e);
+      setErr("UploadThing: " + msg);
+    },
+  });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -124,14 +133,44 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       for (let i = 0; i < list.length; i++) {
         const st = list[i];
         if (isRoexReady(st.url)) { done.push(st); continue; }
+        const cacheKey = (st.role || "") + ":" + (st.url || st.name);
+        const cachedUrl = uploadedUrls[cacheKey];
+        if (cachedUrl) {
+          setMsg("Reusing already-uploaded " + (st.role || st.name));
+          done.push({ url: cachedUrl, name: st.name, role: st.role });
+          continue;
+        }
 
         setMsg("Converting stem " + (i + 1) + " of " + list.length + " — " + (st.role || st.name) + "…");
         const file = await withTimeout(convertToWavFile(st), 150000, "Converting " + st.name);
 
         setMsg("Uploading stem " + (i + 1) + " of " + list.length + " (" + Math.round(file.size / 1048576) + "MB) — " + (st.role || st.name) + "…");
-        const up = await withTimeout(startUpload([file]), 240000, "Uploading " + st.name);
-        const url = (up && up[0] && ((up[0] as any).ufsUrl || up[0].url)) || "";
-        if (!url) throw new Error("Upload returned no URL for " + st.name);
+        let url = "";
+        let why = "";
+        for (let attempt = 1; attempt <= 2 && !url; attempt++) {
+          try {
+            uploadErrorRef.current = "";
+            const up = await withTimeout(startUpload([file]), 240000, "Uploading " + st.name);
+            const item: any = up && up[0];
+            url =
+              (item && (item.ufsUrl || item.url)) ||
+              (item && item.serverData && (item.serverData.ufsUrl || item.serverData.url)) ||
+              "";
+            if (!url) why = uploadErrorRef.current || "no file result returned";
+          } catch (e: any) {
+            why = (e && e.message) || String(e);
+          }
+          if (!url && attempt === 1) {
+            setMsg("Retrying upload for " + (st.role || st.name) + "...");
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+        }
+        if (!url) {
+          throw new Error(
+            "Upload failed for " + st.name + " (" + Math.round(file.size / 1048576) + "MB): " + (why || "unknown")
+          );
+        }
+        setUploadedUrls((prev) => ({ ...prev, [(st.role || "") + ":" + (st.url || st.name)]: url }));
         done.push({ url, name: st.name, role: st.role });
       }
 
