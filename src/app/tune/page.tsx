@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { analyseTrack, buildCurve, DEFAULTS, NOTE_NAMES } from "@/lib/tuner/pitch";
+import { analyseTrack, buildCurve, detectKey, DEFAULTS, NOTE_NAMES } from "@/lib/tuner/pitch";
 import type { Mode, TuneSettings } from "@/lib/tuner/pitch";
 import { applyCurve, limitPeak } from "@/lib/tuner/shift";
 
@@ -37,7 +37,7 @@ export default function TunePage() {
   const [tunedUrl, setTunedUrl] = useState("");
   const [root, setRoot] = useState(DEFAULTS.root);
   const [mode, setMode] = useState<Mode>(DEFAULTS.mode);
-  const [amount, setAmount] = useState(60);
+  const [amount, setAmount] = useState(90);
   const [retuneMs, setRetuneMs] = useState(DEFAULTS.retuneMs);
   const [vibrato, setVibrato] = useState(DEFAULTS.vibrato);
   const [busy, setBusy] = useState(false);
@@ -64,7 +64,13 @@ export default function TunePage() {
       const a = analyseTrack(channels[0], sr);
 
       setStatus("Building curve…");
-      const settings: TuneSettings = { root, mode, amount: amount / 100, retuneMs, vibrato };
+      const detRes = detectKey(a, sr);
+      const keyOk = detRes.confidence >= 0.35;
+      const useRoot = keyOk ? detRes.root : root;
+      const useMode = keyOk ? detRes.mode : mode;
+      setRoot(useRoot); setMode(useMode);
+      setStatus("Auto key: " + NOTE_NAMES[useRoot] + " " + useMode + (keyOk ? " (" + Math.round(detRes.confidence * 100) + "% confident)" : " - low confidence, using your pick"));
+      const settings: TuneSettings = { root: useRoot, mode: useMode, amount: amount / 100, retuneMs, vibrato };
       const curve = buildCurve(a, sr, settings);
 
       setStatus("Tuning — this takes a few seconds…");

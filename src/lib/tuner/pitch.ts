@@ -10,7 +10,7 @@ export type TuneSettings = {
   vibrato: number;   // 0..1 how much natural vibrato survives
 };
 
-export const DEFAULTS: TuneSettings = { root: 2, mode: "minor", amount: 0.75, retuneMs: 40, vibrato: 0.7 };
+export const DEFAULTS: TuneSettings = { root: 2, mode: "minor", amount: 0.9, retuneMs: 15, vibrato: 0.3 };
 
 export const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
@@ -105,4 +105,92 @@ export function buildCurve(a: Analysis, sampleRate: number, s: TuneSettings): Fl
   let cur = 0;
   for (let i = 0; i < n; i++) { cur += alpha * (raw[i] - cur); out[i] = cur; }
   return out;
+}
+
+const KS_MAJOR = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+const KS_MINOR = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+function pearson(a: number[], b: number[]): number {
+  const n = a.length;
+  let ma = 0, mb = 0;
+  for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; }
+  ma /= n; mb /= n;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) {
+    const x = a[i] - ma, y = b[i] - mb;
+    num += x * y; da += x * x; db += y * y;
+  }
+  const den = Math.sqrt(da * db);
+  return den > 0 ? num / den : 0;
+}
+
+export type KeyCandidate = { root: number; mode: Mode; score: number };
+
+export type KeyDetection = {
+  root: number;
+  mode: Mode;
+  confidence: number;
+  runnerUp: KeyCandidate | null;
+  voicedSeconds: number;
+  occupiedPitchClasses: number;
+};
+
+export function detectKey(
+  a: Analysis,
+  sampleRate: number,
+  options?: { clarityFloor?: number; minMidi?: number; maxMidi?: number }
+): KeyDetection {
+  const clarityFloor = options?.clarityFloor ?? 0.55;
+  const minMidi = options?.minMidi ?? 32;
+  const maxMidi = options?.maxMidi ?? 100;
+
+  const hist = [0,0,0,0,0,0,0,0,0,0,0,0];
+  const dur = a.hop / sampleRate;
+  let wSum = 0, wSq = 0;
+  for (let i = 0; i < a.midi.length; i++) {
+    const m = a.midi[i], c = a.clarity[i];
+    if (!Number.isFinite(m) || !Number.isFinite(c)) continue;
+    if (c < clarityFloor || m < minMidi || m > maxMidi) continue;
+    const w = c * c * dur;
+    hist[((Math.round(m) % 12) + 12) % 12] += w;
+    wSum += w; wSq += w * w;
+  }
+
+  const occupied = hist.filter((v) => v > 0).length;
+  if (wSum <= 0) {
+    return { root: 0, mode: "minor", confidence: 0, runnerUp: null, voicedSeconds: 0, occupiedPitchClasses: 0 };
+  }
+
+  const pseudo = (wSum * 0.01) / 12;
+  for (let p = 0; p < 12; p++) hist[p] += pseudo;
+
+  const ranked: KeyCandidate[] = [];
+  for (let r = 0; r < 12; r++) {
+    const maj: number[] = [], min: number[] = [];
+    for (let p = 0; p < 12; p++) {
+      const idx = (p - r + 12) % 12;
+      maj.push(KS_MAJOR[idx]);
+      min.push(KS_MINOR[idx]);
+    }
+    ranked.push({ root: r, mode: "major", score: pearson(hist, maj) });
+    ranked.push({ root: r, mode: "minor", score: pearson(hist, min) });
+  }
+  ranked.sort((x, y) => y.score - x.score);
+  const best = ranked[0], second = ranked[1];
+
+  const margin = clamp01((best.score - second.score) / 0.12);
+  const effFrames = wSq > 0 ? (wSum * wSum / wSq) * (a.hop / a.frame) : 0;
+  const evidence = 1 - Math.exp(-effFrames / 18);
+  const coverage = clamp01(occupied / 5);
+
+  return {
+    root: best.root,
+    mode: best.mode,
+    confidence: clamp01(margin * evidence * coverage),
+    runnerUp: second,
+    voicedSeconds: wSum,
+    occupiedPitchClasses: occupied,
+  };
 }
