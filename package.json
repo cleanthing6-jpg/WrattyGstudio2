@@ -9,14 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@babel/code-frame": "^7.29.7",
     "@clerk/nextjs": "latest",
     "@neondatabase/serverless": "latest",
     "@uploadthing/react": "latest",
+    "mongodb": "^6.9.0",
     "next": "16.3.4",
+    "pitchy": "^4.1.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "uploadthing": "latest",
-    "mongodb": "^6.9.0"
+    "uploadthing": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
