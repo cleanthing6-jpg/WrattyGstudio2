@@ -67,12 +67,12 @@ export async function GET(req: NextRequest) {
 
     // Poll the free preview. retrieveFXSettings=false keeps it free.
     const { ok, status, data } = await tonnPost("/retrievepreviewmix", {
-      multitrackData: { multitrackTaskId: taskId, retrieveFXSettings: false },
+      multitrackData: { multitrackTaskId: taskId, retrieveFXSettings: false, returnStems: true },
     });
 
     if (ok) {
       const url = data?.previewMixTaskResults?.download_url_preview_mixed;
-      if (url) return NextResponse.json({ status: "preview", url });
+      if (url) return NextResponse.json({ status: "preview", url, raw: data });
       return NextResponse.json({ status: "processing" });
     }
     if (status === 202) return NextResponse.json({ status: "processing" });
