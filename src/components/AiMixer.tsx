@@ -1,4 +1,5 @@
 "use client";
+import { useUser } from "@clerk/nextjs";
 
 import { useState } from "react";
 import { useUploadThing } from "@/utils/uploadthing";
@@ -109,6 +110,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [finalUrl, setFinalUrl] = useState("");
+  const { user } = useUser();
+  const isOwner = String(user?.id || "") === "user_3IqTsednC0Bqdk3JMxeGzW6zdGD";
 
   const list = Array.isArray(stems) ? stems : [];
   const ready = list.length >= 2;
@@ -205,7 +208,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         disabled={!ready || busy}
         className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
       >
-        {busy ? "Working…" : "🔊 Generate free 30s AI preview"}
+        {busy ? "Working…" : "🔊 Generate free AI preview"}
       </button>
 
       {!ready && (
@@ -216,9 +219,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       {previewUrl && (
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-1">30s AI preview</p>
-          <audio controls src={previewUrl} className="w-full" />
-          <a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Open preview</a>
+          <p className="text-xs font-semibold text-gray-600 mb-1">AI preview</p>
+          <audio controls src={previewUrl} className="w-full" onTimeUpdate={(e) => { if (isOwner) return; if (e.currentTarget.currentTime > 30) { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } }} />
+          {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
           {!finalUrl && (
             <button
               onClick={unlock}
