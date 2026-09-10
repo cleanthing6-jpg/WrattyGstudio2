@@ -392,7 +392,7 @@ export async function masterStage(
     harshCutDb: harshCutDb,
     glueWet: glueWet,
     glueRatio: glueRatio,
-    monoBassHz: m.lowCorr < 0.40 ? 60 : 20,
+    monoBassHz: 20,
   });
 
   const after = await measure(shaped);
