@@ -1,4 +1,5 @@
 "use client";
+import { masterStage } from "@/lib/masterStage";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback } from "react";
@@ -235,7 +236,7 @@ function StudioInner() {
     const mixInput = offline.createGain();
     mixInput.gain.value = 1;
         const masterLim = offline.createDynamicsCompressor();
-        masterLim.threshold.value = -6;
+        masterLim.threshold.value = -1;
         masterLim.ratio.value = 4;
         masterLim.attack.value = 0.005;
         masterLim.release.value = 0.25;
@@ -468,7 +469,7 @@ function StudioInner() {
     }
 
     const rendered = await offline.startRendering();
-    const loudRendered = await loudnessNormalize(rendered);
+    const loudRendered = await masterStage(rendered, { targetLUFS: -11 });
     return loudRendered;
   }, []);
 
