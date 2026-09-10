@@ -162,6 +162,27 @@ function correlation(buf: AudioBuffer): number {
   return lr / Math.max(Math.sqrt(ll * rr), 1e-12);
 }
 
+function lowCorrOf(buf: AudioBuffer): number {
+  if (buf.numberOfChannels < 2) return 1;
+  const sr = buf.sampleRate;
+  const a = 1 - Math.exp(-2 * Math.PI * 120 / sr);
+  const L = buf.getChannelData(0);
+  const R = buf.getChannelData(1);
+  let lp1 = 0;
+  let lp2 = 0;
+  let lr = 0;
+  let ll = 0;
+  let rr = 0;
+  for (let i = 0; i < buf.length; i++) {
+    lp1 += (L[i] - lp1) * a;
+    lp2 += (R[i] - lp2) * a;
+    lr += lp1 * lp2;
+    ll += lp1 * lp1;
+    rr += lp2 * lp2;
+  }
+  return lr / Math.max(Math.sqrt(ll * rr), 1e-12);
+}
+
 async function measure(buf: AudioBuffer) {
   const kch = await kWeight(buf);
   const ch: Float32Array[] = [];
@@ -180,6 +201,7 @@ async function measure(buf: AudioBuffer) {
     lowRatio: lowR,
     harshRatio: harR,
     corr: correlation(buf),
+    lowCorr: lowCorrOf(buf),
   };
 }
 async function shape(
@@ -342,7 +364,11 @@ function limit(
 
 export async function masterStage(
   buf: AudioBuffer,
-  opts?: { targetLUFS?: number; truePeakDb?: number }
+  opts?: {
+    targetLUFS?: number;
+    truePeakDb?: number;
+    onMetrics?: (m: any) => void;
+  }
 ): Promise<AudioBuffer> {
   const targetLUFS = opts?.targetLUFS ?? -11;
   const ceilDb = opts?.truePeakDb ?? -1;
@@ -350,58 +376,62 @@ export async function masterStage(
   const m = await measure(buf);
 
   let lowShelfDb = 0;
-  if (m.lowRatio < 0.08) lowShelfDb = 1.5;
-  else if (m.lowRatio < 0.12) lowShelfDb = 0.75;
-  else if (m.lowRatio > 0.24) lowShelfDb = -1.0;
+  if (m.lowRatio < 0.08) lowShelfDb = 0.5;
+  else if (m.lowRatio > 0.26) lowShelfDb = -0.5;
 
   let harshCutDb = 0;
-  if (m.harshRatio > 0.18) harshCutDb = -2.0;
-  else if (m.harshRatio > 0.12) harshCutDb = -1.0;
+  if (m.harshRatio > 0.20) harshCutDb = -0.5;
 
-  let glueWet = 0.04;
-  if (m.crestDb > 12) glueWet = 0.16;
-  else if (m.crestDb > 9) glueWet = 0.10;
+  let glueWet = 0;
+  if (m.crestDb > 10) glueWet = 0.04;
 
-  let glueRatio = 1.2;
-  if (m.crestDb > 12) glueRatio = 1.8;
-  else if (m.crestDb > 9) glueRatio = 1.5;
+  const glueRatio = 1.2;
 
   const shaped = await shape(buf, {
     lowShelfDb: lowShelfDb,
     harshCutDb: harshCutDb,
     glueWet: glueWet,
     glueRatio: glueRatio,
-    monoBassHz: 90,
+    monoBassHz: m.lowCorr < 0.40 ? 60 : 20,
   });
 
   const after = await measure(shaped);
-  const makeupDb = clamp(targetLUFS - after.lufs, -6, 12);
+  let makeupDb = clamp(targetLUFS - after.lufs, -2, 3);
+  if (after.lufs >= -12 && after.lufs <= -9) makeupDb = 0;
 
   const ch: Float32Array[] = [];
   for (let c = 0; c < shaped.numberOfChannels; c++) {
     ch.push(shaped.getChannelData(c));
   }
-  applyGain(ch, dbToLin(makeupDb));
-  limit(ch, shaped.sampleRate, ceilDb, 120);
-  softClip(ch, ceilDb, 1.5);
+  const pkDb = linToDb(samplePeak(ch)) + 0.3;
+  const maxSafe = ceilDb - pkDb + 1.5;
+  if (makeupDb > maxSafe) makeupDb = maxSafe;
+  if (makeupDb < 0) makeupDb = 0;
+  if (makeupDb > 0) {
+    applyGain(ch, dbToLin(makeupDb));
+    limit(ch, shaped.sampleRate, ceilDb, 100);
+  }
+  const tpDb = linToDb(truePeak(ch));
+  if (tpDb > ceilDb) {
+    applyGain(ch, dbToLin(ceilDb - tpDb));
+  }
+  if (opts && opts.onMetrics) {
+    opts.onMetrics({
+      inLufs: Math.round(m.lufs * 10) / 10,
+      outLufs: Math.round(after.lufs * 10) / 10,
+      makeupDb: Math.round(makeupDb * 10) / 10,
+      headroomDb: Math.round((ceilDb - pkDb) * 10) / 10,
+      outPeakDb: Math.round(tpDb * 10) / 10,
+      crestDb: Math.round(m.crestDb * 10) / 10,
+      lowCorr: Math.round(m.lowCorr * 100) / 100,
+    });
+  }
 
   const out = makeBuffer(shaped.sampleRate, shaped.length);
   for (let c = 0; c < out.numberOfChannels; c++) {
     const i = Math.min(c, ch.length - 1);
     const dst = out.getChannelData(c);
     dst.set(ch[i]);
-  }
-
-  const cur = await measure(out);
-  const resid = clamp(targetLUFS - cur.lufs, -3, 3);
-  if (Math.abs(resid) > 1) {
-    const oc: Float32Array[] = [];
-    for (let c = 0; c < out.numberOfChannels; c++) {
-      oc.push(out.getChannelData(c));
-    }
-    applyGain(oc, dbToLin(resid));
-    limit(oc, out.sampleRate, ceilDb, 120);
-    softClip(oc, ceilDb, 1.5);
   }
   return out;
 }

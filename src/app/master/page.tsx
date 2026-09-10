@@ -54,6 +54,7 @@ export default function MasterPage() {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("master.wav");
   const [tgt, setTgt] = useState(-10);
+  const [info, setInfo] = useState("");
 
   const run = async (f: File) => {
     setBusy(true);
@@ -68,7 +69,10 @@ export default function MasterPage() {
       const ctx = new AC();
       const buf = await ctx.decodeAudioData(ab);
       setStage("Measuring the song...");
-      const out = await masterStage(buf, { targetLUFS: tgt });
+      const out = await masterStage(buf, {
+        targetLUFS: tgt,
+        onMetrics: (x: any) => setInfo(JSON.stringify(x)),
+      });
       setStage("Writing WAV...");
       const blob = encodeWav(out);
       setUrl(URL.createObjectURL(blob));
@@ -118,6 +122,11 @@ export default function MasterPage() {
 
           {stage && (
             <p className="mt-4 text-sm text-slate-500">{stage}</p>
+          )}
+          {info && (
+            <p className="mt-2 text-xs text-slate-400 break-all">
+              {info}
+            </p>
           )}
         </div>
 
