@@ -53,7 +53,7 @@ export default function MasterPage() {
   const [stage, setStage] = useState("");
   const [url, setUrl] = useState("");
   const [name, setName] = useState("master.wav");
-  const [tgt, setTgt] = useState(-11);
+  const [tgt, setTgt] = useState(-10);
 
   const run = async (f: File) => {
     setBusy(true);
@@ -99,8 +99,9 @@ export default function MasterPage() {
             className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm mb-4"
           >
             <option value={-14}>Streaming (-14 LUFS)</option>
-            <option value={-11}>Club / field (-11 LUFS)</option>
-            <option value={-9}>Very loud (-9 LUFS)</option>
+            <option value={-10}>Club / field (-10 LUFS)</option>
+            <option value={-9}>Loud (-9 LUFS)</option>
+            <option value={-8}>Very loud (-8 LUFS)</option>
           </select>
 
           <input

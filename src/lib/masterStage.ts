@@ -286,6 +286,60 @@ function softClip(ch: Float32Array[], ceilDb: number, kneeDb: number) {
   }
 }
 
+function limit(
+  ch: Float32Array[],
+  sr: number,
+  ceilDb: number,
+  relMs: number
+) {
+  const ceil = dbToLin(ceilDb);
+  const n = ch[0].length;
+  const look = Math.max(1, Math.round(sr * 0.005));
+  const nb = Math.ceil(n / look);
+  const bp = new Float32Array(nb);
+  for (let b = 0; b < nb; b++) {
+    const s0 = b * look;
+    const e = Math.min(n, s0 + look);
+    let mx = 0;
+    for (let c = 0; c < ch.length; c++) {
+      const d = ch[c];
+      for (let i = s0; i < e; i++) {
+        const a = Math.abs(d[i]);
+        if (a > mx) mx = a;
+      }
+    }
+    bp[b] = mx;
+  }
+  const g = new Float32Array(nb);
+  for (let b = 0; b < nb; b++) {
+    const nx = b + 1 < nb ? bp[b + 1] : 0;
+    const pk = Math.max(bp[b], nx);
+    g[b] = pk > ceil ? ceil / pk : 1;
+  }
+  const blockSec = look / sr;
+  const relBlocks = Math.max(1, (relMs / 1000) / blockSec);
+  let curG = 1;
+  for (let b = 0; b < nb; b++) {
+    const t = g[b];
+    if (t < curG) curG = t;
+    else curG += (t - curG) / relBlocks;
+    g[b] = curG;
+  }
+  for (let c = 0; c < ch.length; c++) {
+    const d = ch[c];
+    for (let b = 0; b < nb; b++) {
+      const s0 = b * look;
+      const e = Math.min(n, s0 + look);
+      const g0 = g[b];
+      const g1 = b + 1 < nb ? g[b + 1] : g0;
+      for (let i = s0; i < e; i++) {
+        const t = (i - s0) / look;
+        d[i] *= g0 + (g1 - g0) * t;
+      }
+    }
+  }
+}
+
 export async function masterStage(
   buf: AudioBuffer,
   opts?: { targetLUFS?: number; truePeakDb?: number }
@@ -321,25 +375,33 @@ export async function masterStage(
   });
 
   const after = await measure(shaped);
-  const makeupDb = clamp(targetLUFS - after.lufs, -6, 9);
+  const makeupDb = clamp(targetLUFS - after.lufs, -6, 12);
 
   const ch: Float32Array[] = [];
   for (let c = 0; c < shaped.numberOfChannels; c++) {
     ch.push(shaped.getChannelData(c));
   }
   applyGain(ch, dbToLin(makeupDb));
-  softClip(ch, ceilDb, 3);
-
-  const tpDb = linToDb(truePeak(ch));
-  if (tpDb > ceilDb) {
-    applyGain(ch, dbToLin(ceilDb - tpDb));
-  }
+  limit(ch, shaped.sampleRate, ceilDb, 120);
+  softClip(ch, ceilDb, 1.5);
 
   const out = makeBuffer(shaped.sampleRate, shaped.length);
   for (let c = 0; c < out.numberOfChannels; c++) {
     const i = Math.min(c, ch.length - 1);
     const dst = out.getChannelData(c);
     dst.set(ch[i]);
+  }
+
+  const cur = await measure(out);
+  const resid = clamp(targetLUFS - cur.lufs, -3, 3);
+  if (Math.abs(resid) > 1) {
+    const oc: Float32Array[] = [];
+    for (let c = 0; c < out.numberOfChannels; c++) {
+      oc.push(out.getChannelData(c));
+    }
+    applyGain(oc, dbToLin(resid));
+    limit(oc, out.sampleRate, ceilDb, 120);
+    softClip(oc, ceilDb, 1.5);
   }
   return out;
 }
