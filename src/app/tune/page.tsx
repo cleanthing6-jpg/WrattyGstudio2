@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { analyseTrack, buildCurve, detectKey, DEFAULTS, NOTE_NAMES } from "@/lib/tuner/pitch";
 import type { KeyDetection, Mode, TuneSettings } from "@/lib/tuner/pitch";
-import { applyCurve, limitPeak } from "@/lib/tuner/shift";
+import { limitPeak, renderTuned } from "@/lib/tuner/shift";
 
 function encodeWav(channels: Float32Array[], sampleRate: number): Blob {
   const ch = channels.length;
@@ -128,7 +128,7 @@ export default function TunePage() {
       setStatus("Tuning the vocal in " + NOTE_NAMES[useRoot] + " " + useMode + "…");
       const settings: TuneSettings = { root: useRoot, mode: useMode, amount: amt, retuneMs: rt, vibrato: vib };
       const curve = buildCurve(a, vd.sr, settings);
-      const out = limitPeak(applyCurve(vd.channels, vd.sr, a.hop, curve, a.midi));
+      const out = limitPeak(await renderTuned(vd.channels, vd.sr, a.hop, curve));
 
       setOrigUrl(URL.createObjectURL(encodeWav(vd.channels, vd.sr)));
       setTunedUrl(URL.createObjectURL(encodeWav(out, vd.sr)));

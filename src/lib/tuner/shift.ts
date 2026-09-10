@@ -1,61 +1,127 @@
-const read = (x: Float32Array, pos: number): number => {
-  const len = x.length;
-  if (len === 0) return 0;
-  if (pos <= 0) return x[0];
-  if (pos >= len - 1) return x[len - 1];
-  const i = Math.floor(pos);
-  const f = pos - i;
-  return x[i] * (1 - f) + x[i + 1] * f;
+import SignalsmithStretch from "signalsmith-stretch";
+
+type StretchConfig = {
+  output?: number;
+  active?: boolean;
+  input?: number;
+  rate?: number;
+  semitones?: number;
+  tonalityHz?: number;
+  formantSemitones?: number;
+  formantCompensation?: boolean;
+  formantBaseHz?: number;
+  loopStart?: number;
+  loopEnd?: number;
 };
 
-export function applyCurve(
+type StretchNode = AudioNode & {
+  schedule: (c: StretchConfig) => void;
+  start: (when?: number) => void;
+  stop: (when?: number) => void;
+  addBuffers: (buffers: Float32Array[]) => Promise<number>;
+  dropBuffers: (toSeconds?: number) => Promise<unknown>;
+  latency: () => number;
+  configure: (c: { blockMs?: number; intervalMs?: number; splitComputation?: boolean; preset?: string }) => void;
+  inputTime: number;
+};
+
+function padTo(x: Float32Array, n: number): Float32Array {
+  if (x.length >= n) return x;
+  const o = new Float32Array(n);
+  o.set(x);
+  return o;
+}
+
+async function makeNode(ctx: BaseAudioContext, channels: number): Promise<StretchNode> {
+  const f = SignalsmithStretch as unknown as (
+    c: BaseAudioContext,
+    o?: AudioWorkletNodeOptions
+  ) => Promise<StretchNode>;
+  try {
+    return await f(ctx, { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [channels] });
+  } catch {
+    return await f(ctx);
+  }
+}
+
+function bestLag(a: Float32Array, b: Float32Array, maxLag: number): number {
+  const len = Math.min(a.length, b.length);
+  let best = 0;
+  let bestScore = -Infinity;
+  for (let lag = -maxLag; lag <= maxLag; lag++) {
+    let sum = 0;
+    let cnt = 0;
+    for (let i = 0; i < len; i += 32) {
+      const j = i + lag;
+      if (j < 0 || j >= len) continue;
+      sum += a[i] * b[j];
+      cnt++;
+    }
+    if (!cnt) continue;
+    const s = sum / cnt;
+    if (s > bestScore) { bestScore = s; best = lag; }
+  }
+  return best;
+}
+
+export async function renderTuned(
   channels: Float32Array[],
   sampleRate: number,
   hop: number,
   curveCents: Float32Array,
-  midiHint?: Float32Array,
-  taps = 2
-): Float32Array[] {
+  opts?: { formantCompensation?: boolean; tonalityHz?: number }
+): Promise<Float32Array[]> {
+  const ch = Math.max(1, channels.length);
   const n = channels[0]?.length ?? 0;
-  const out = channels.map(() => new Float32Array(n));
-  if (!n) return out;
-  const twoPi = Math.PI * 2;
-  const kPeriods = 4;
-  const norm = 2 / taps;
-  const offsets = new Float32Array(taps);
-  for (let j = 0; j < taps; j++) offsets[j] = j / taps;
-  const glide = 1 - Math.exp(-1 / (sampleRate * 0.025));
-  let r = 1;
-  let period = sampleRate / 220;
-  let grain = period * kPeriods;
-  let phase = 0;
-  for (let i = 0; i < n; i++) {
-    const frame = Math.max(0, Math.min(curveCents.length - 1, Math.floor(i / hop)));
-    const target = Math.pow(2, curveCents[frame] / 1200);
-    r += (target - r) * glide;
-    if (midiHint && frame < midiHint.length) {
-      const m = midiHint[frame];
-      if (!Number.isNaN(m)) {
-        const hz = 440 * Math.pow(2, (m - 69) / 12);
-        if (hz > 60 && hz < 1200) {
-          period += (sampleRate / hz - period) * glide;
-        }
-      }
+  if (!n) return channels;
+
+  const safe = channels.map((c) => padTo(c, n));
+  const tail = Math.ceil(sampleRate * 0.4);
+  const ctx = new OfflineAudioContext(ch, n + tail, sampleRate);
+  const node = await makeNode(ctx, ch);
+
+  try { node.configure({ blockMs: 120 }); } catch {}
+  await node.addBuffers(safe);
+
+  const first = curveCents.length ? curveCents[0] / 100 : 0;
+  node.schedule({
+    output: 0,
+    active: true,
+    input: 0,
+    rate: 1,
+    semitones: Number.isFinite(first) ? first : 0,
+    tonalityHz: opts?.tonalityHz ?? 8000,
+    formantCompensation: opts?.formantCompensation ?? true,
+    formantBaseHz: 0,
+  });
+
+  const step = hop / sampleRate;
+  const MAX = 20000;
+  const stride = Math.max(1, Math.ceil(curveCents.length / MAX));
+  for (let i = stride; i < curveCents.length; i += stride) {
+    const c = curveCents[i];
+    if (!Number.isFinite(c)) continue;
+    node.schedule({ output: i * step, rate: 1, semitones: Math.max(-6, Math.min(6, c / 100)) });
+  }
+
+  node.connect(ctx.destination);
+  node.start(0);
+
+  const rendered = await ctx.startRendering();
+
+  const maxLag = Math.round(sampleRate * 0.05);
+  const lag = bestLag(safe[0], rendered.getChannelData(0), maxLag);
+  const shift = Math.abs(lag) > 1 ? lag : 0;
+
+  const out: Float32Array[] = [];
+  for (let c = 0; c < ch; c++) {
+    const src = rendered.getChannelData(c);
+    const o = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const j = i + shift;
+      o[i] = j >= 0 && j < src.length ? src[j] : 0;
     }
-    grain = period * kPeriods;
-    if (grain < 1024) grain = 1024;
-    if (grain > 8192) grain = 8192;
-    phase += 1 / grain;
-    if (phase >= 1) phase -= 1;
-    for (let j = 0; j < taps; j++) {
-      let t = phase + offsets[j];
-      if (t >= 1) t -= 1;
-      const d = (1 - r) * t * grain;
-      const w = norm * 0.5 * (1 - Math.cos(twoPi * t));
-      for (let c = 0; c < channels.length; c++) {
-        out[c][i] += w * read(channels[c], i - d);
-      }
-    }
+    out.push(o);
   }
   return out;
 }
