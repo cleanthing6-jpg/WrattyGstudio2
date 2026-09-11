@@ -118,6 +118,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("HIPHOP_GRIME");
   const [lufs, setLufs] = useState(-8);
+  const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -179,7 +180,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       setPrepared(done);
       const beatStem = done.find(isBeat);
-      if (beatStem) {
+      if (beatLockMode && beatStem) {
         setTaskId("");
         const vocals = done.filter((st) => !isBeat(st));
         const vocal = vocals[0];
