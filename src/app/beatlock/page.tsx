@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { beatLockedMix, gateVocal } from "@/lib/beatLock";
+import { masterStage } from "@/lib/masterStage";
+import { useUploadThing } from "@/utils/uploadthing";
 
 function encodeWav(buf: AudioBuffer): Blob {
   const ch = buf.numberOfChannels;
@@ -57,6 +59,7 @@ export default function BeatLockPage() {
   const [stage, setStage] = useState("");
   const [url, setUrl] = useState("");
   const [vdb, setVdb] = useState(-6);
+  const { startUpload } = useUploadThing("audioUploader");
   const [beat, setBeat] = useState<AudioBuffer | null>(null);
   const [voc, setVoc] = useState<AudioBuffer | null>(null);
   const [bName, setBName] = useState("");
@@ -90,9 +93,20 @@ export default function BeatLockPage() {
     try {
       const clean = gateVocal(voc);
       const out = await beatLockedMix(beat, clean, { vocalDb: vdb });
-      setStage("Writing WAV...");
-      setUrl(URL.createObjectURL(encodeWav(out)));
-      setStage("Done - your beat passed through at unity");
+      setStage("Mastering...");
+      const mastered = await masterStage(out, { targetLUFS: -11 });
+      const blob = new Blob([encodeWav(mastered)], { type: "audio/wav" });
+      setUrl(URL.createObjectURL(blob));
+      setStage("Saving to dashboard...");
+      try {
+        const label=(vName||"BeatLock").replace(/\.[^.]+$/,"")+" - Master";
+        const up=await startUpload([new File([blob],label+".wav",{type:"audio/wav"})]);
+        const f:any=up&&up[0];const fileUrl=(f&&(f.ufsUrl||f.url))||"";
+        if(fileUrl){
+          const res=await fetch("/api/mixes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:label,url:fileUrl})});
+          setStage(res.ok?"Done - mastered & saved: "+label:"Done - mastered (save failed, use Download)");
+        }else{setStage("Done - mastered (upload failed, use Download)");}
+      }catch(err:any){setStage("Done - mastered (save error, use Download)");}
     } catch (e: any) {
       setStage("Failed: " + (e?.message || "unknown"));
     }
