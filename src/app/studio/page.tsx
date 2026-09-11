@@ -2,7 +2,7 @@
 import { masterStage } from "@/lib/masterStage";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense, useRef, useCallback } from "react";
+import { useState, Suspense, useRef, useCallback, useEffect } from "react";
 import MixUploader from "@/components/MixUploader";
 import AiMixer from "@/components/AiMixer";
 import { useUploadThing } from "@/utils/uploadthing";
@@ -123,6 +123,28 @@ function StudioInner() {
   const spaceRef = useRef<SpaceMode>("studio");
   spaceRef.current = spaceMode;
   const [files, setFiles] = useState<UploadedFile[]>([]);
+
+  const [wgsStemsHydrated, setWgsStemsHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("wgs:stems");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved)) setFiles(saved as UploadedFile[]);
+      }
+    } catch {}
+    setWgsStemsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !wgsStemsHydrated) return;
+    try {
+      window.localStorage.setItem("wgs:stems", JSON.stringify(files));
+    } catch {}
+  }, [files, wgsStemsHydrated]);
+
   const [splitResults, setSplitResults] = useState<SplitResult[]>([]);
   const [readyStems, setReadyStems] = useState<ReadyStem[]>([]);
   const [processing, setProcessing] = useState(false);
