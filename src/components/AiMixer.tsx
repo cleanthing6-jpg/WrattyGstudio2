@@ -117,6 +117,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("HIPHOP_GRIME");
+  const [lufs, setLufs] = useState(-8);
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -219,7 +220,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setMsg("Beat-Lock mode: mastering protected beat...");
         const combined = await off.startRendering();
         try { await ctx.close(); } catch {}
-        const mastered = await masterStage(combined, { targetLUFS: -11 });
+        const mastered = await masterStage(combined, { targetLUFS: lufs });
         const blob = encodeWav(mastered);
         setPreviewUrl(URL.createObjectURL(blob));
         setMsg("Beat-Lock master ready. Saving to dashboard...");
@@ -301,6 +302,13 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       >
         {STYLES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
       </select>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">Master loudness</label>
+        <select value={lufs} onChange={(e) => setLufs(Number(e.target.value))} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+          <option value={-8}>-8 — Loudest (club)</option>
+          <option value={-10}>-10 — Loud</option>
+          <option value={-11}>-11 — Balanced</option>
+          <option value={-14}>-14 — Streaming calm</option>
+        </select>
 
       <button
         onClick={generate}
