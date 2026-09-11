@@ -19,7 +19,7 @@ const STYLES = [
 const RATE = 44100;
 const MAX_WAV_BYTES = 55 * 1024 * 1024;
 const isVoice = (s: string) => /lead|vocal|back|ad|harmon|main/i.test(s || "");
-const isRoexReady = (u: string) => /\.(wav|flac|aiff?)(\?|#|$)/i.test(u);
+const isRoexReady = (u: string) => /\.(wav|mp3|flac|aiff?)(\?|#|$)/i.test(u);
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -132,7 +132,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const done: Stem[] = [];
       for (let i = 0; i < list.length; i++) {
         const st = list[i];
-        if (isRoexReady(st.url)) { done.push(st); continue; }
+        if (isRoexReady(st.name)) { done.push(st); continue; }
         const cacheKey = (st.role || "") + ":" + (st.url || st.name);
         const cachedUrl = uploadedUrls[cacheKey];
         if (cachedUrl) {
