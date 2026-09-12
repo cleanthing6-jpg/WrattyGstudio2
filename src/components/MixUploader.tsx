@@ -1,13 +1,29 @@
 "use client";
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/utils/uploadthing";
+import { uploadStem } from "@/lib/freeUpload";
+
+async function localStartUpload(files: any[]): Promise<any[]> {
+  const out: any[] = [];
+  const list = Array.isArray(files) ? files : [files];
+  for (let i = 0; i < list.length; i++) {
+    const f: any = list[i];
+    const name = (f && f.name) || "stem.wav";
+    const file = new File([f], name, { type: (f && f.type) || "audio/wav" });
+    const url = await uploadStem(file);
+    out.push({ ufsUrl: url, url, serverData: { ufsUrl: url, url } });
+  }
+  return out;
+}
+
+const startUpload = localStartUpload;
 
 export default function MixUploader({ onReady }: { onReady: (url: string, name: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const { startUpload } = useUploadThing("audioUploader", {
+  void useUploadThing("audioUploader", {
     onClientUploadComplete: (res: any[]) => {
       const f = res && res[0];
       const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";

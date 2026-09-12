@@ -3,6 +3,22 @@ import { useUser } from "@clerk/nextjs";
 
 import {useState, useRef } from "react";
 import { useUploadThing } from "@/utils/uploadthing";
+import { uploadStem } from "@/lib/freeUpload";
+
+async function localStartUpload(files: any[]): Promise<any[]> {
+  const out: any[] = [];
+  const list = Array.isArray(files) ? files : [files];
+  for (let i = 0; i < list.length; i++) {
+    const f: any = list[i];
+    const name = (f && f.name) || "stem.wav";
+    const file = new File([f], name, { type: (f && f.type) || "audio/wav" });
+    const url = await uploadStem(file);
+    out.push({ ufsUrl: url, url, serverData: { ufsUrl: url, url } });
+  }
+  return out;
+}
+
+const startUpload = localStartUpload;
 import { masterStage } from "@/lib/masterStage";
 
 type Stem = { url: string; name: string; role: string };
@@ -106,7 +122,7 @@ async function convertToWavFile(st: Stem): Promise<File> {
 export default function AiMixer({ stems }: { stems: Stem[] }) {
   const uploadErrorRef = useRef("");
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
-  const { startUpload } = useUploadThing("audioUploader", {
+  void useUploadThing("audioUploader", {
     onUploadError: (e) => {
       const msg = (e as any)?.message || String(e);
       uploadErrorRef.current = msg;

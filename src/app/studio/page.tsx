@@ -6,6 +6,22 @@ import { useState, Suspense, useRef, useCallback, useEffect } from "react";
 import MixUploader from "@/components/MixUploader";
 import AiMixer from "@/components/AiMixer";
 import { useUploadThing } from "@/utils/uploadthing";
+import { uploadStem } from "@/lib/freeUpload";
+
+async function localStartUpload(files: any[]): Promise<any[]> {
+  const out: any[] = [];
+  const list = Array.isArray(files) ? files : [files];
+  for (let i = 0; i < list.length; i++) {
+    const f: any = list[i];
+    const name = (f && f.name) || "stem.wav";
+    const file = new File([f], name, { type: (f && f.type) || "audio/wav" });
+    const url = await uploadStem(file);
+    out.push({ ufsUrl: url, url, serverData: { ufsUrl: url, url } });
+  }
+  return out;
+}
+
+const startUpload = localStartUpload;
 
 
 async function loudnessNormalize(buf: AudioBuffer): Promise<AudioBuffer> {
@@ -150,7 +166,7 @@ function StudioInner() {
   const [processing, setProcessing] = useState(false);
   const [stage, setStage] = useState("");
   const [mixedBlob, setMixedBlob] = useState<Blob | null>(null);
-  const { startUpload } = useUploadThing("audioUploader");
+  void useUploadThing("audioUploader");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const addFile = (url: string, name: string) => {
