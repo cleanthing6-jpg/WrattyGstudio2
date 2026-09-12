@@ -1,25 +1,22 @@
 import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Missing MONGODB_URI env var");
-}
 
-const options = {};
-
-let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (process.env.NODE_ENV === "development") {
+if (!uri) {
+  // A missing env var must NOT crash the route at import time.
+  const p = Promise.reject(new Error("Missing MONGODB_URI env var"));
+  p.catch(() => {});
+  clientPromise = p;
+} else if (process.env.NODE_ENV === "development") {
   const g = global as typeof globalThis & { _mongoClientPromise?: Promise<MongoClient> };
   if (!g._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    g._mongoClientPromise = client.connect();
+    g._mongoClientPromise = new MongoClient(uri, {}).connect();
   }
   clientPromise = g._mongoClientPromise;
 } else {
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  clientPromise = new MongoClient(uri, {}).connect();
 }
 
 export default clientPromise;
