@@ -24,11 +24,15 @@ export async function uploadStem(file: File): Promise<string> {
     let done = false;
     for (let a = 1; a <= 3 && !done; a++) {
       try {
+        const ctrl = new AbortController();
+        const kill = setTimeout(() => ctrl.abort(), 90000);
         const r = await fetch("/api/stem-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: body,
+          signal: ctrl.signal,
         });
+        clearTimeout(kill);
         const j: any = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
         if (j && j.url) url = j.url;
