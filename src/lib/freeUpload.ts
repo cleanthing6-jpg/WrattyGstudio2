@@ -1,26 +1,15 @@
-const CHUNK = 3000000;
-const TRIES = 3;
+// Browser -> our own server, in small pieces -> assembled and served back as a URL.
+const CHUNK = 1800000;
 
-async function sendPart(url: string, slice: Blob) {
-  for (let attempt = 1; attempt <= TRIES; attempt++) {
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: slice,
-      });
-      const j: any = await r.json().catch(() => ({}));
-      if (r.ok) return { ok: true, url: (j && j.url) || "", error: "" };
-      const retryable = r.status === 408 || r.status === 429 || r.status >= 500;
-      if (!retryable || attempt === TRIES) {
-        return { ok: false, url: "", error: (j && j.error) || ("HTTP " + r.status) };
-      }
-    } catch (e: any) {
-      if (attempt === TRIES) return { ok: false, url: "", error: (e && e.message) || "network error" };
-    }
-    await new Promise((res) => setTimeout(res, attempt * 1500));
+function toB64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let s = "";
+  const step = 8192;
+  for (let i = 0; i < bytes.length; i += step) {
+    const part = bytes.subarray(i, Math.min(i + step, bytes.length));
+    s += String.fromCharCode.apply(null, Array.prototype.slice.call(part));
   }
-  return { ok: false, url: "", error: "unknown" };
+  return btoa(s);
 }
 
 export async function uploadStem(file: File): Promise<string> {
@@ -30,10 +19,15 @@ export async function uploadStem(file: File): Promise<string> {
   let url = "";
   for (let i = 0; i < total; i++) {
     const slice = file.slice(i * CHUNK, Math.min((i + 1) * CHUNK, size));
-    const qs = new URLSearchParams({ uploadId, name: file.name, index: String(i), total: String(total) });
-    const res = await sendPart("/api/stem-upload?" + qs.toString(), slice);
-    if (!res.ok) throw new Error("Upload failed on part " + (i + 1) + " of " + total + ": " + (res.error || "unknown"));
-    if (res.url) url = res.url;
+    const data = toB64(await slice.arrayBuffer());
+    const r = await fetch("/api/stem-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId, name: file.name, index: i, total, data }),
+    });
+    const j: any = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j && j.error) || ("Upload failed on part " + (i + 1) + " of " + total + " (HTTP " + r.status + ")"));
+    if (j && j.url) url = j.url;
   }
   if (!url) throw new Error("Upload finished but no file URL came back");
   return url;
