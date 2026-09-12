@@ -21,7 +21,7 @@ const STYLES = [
 const RATE = 44100;
 const MAX_WAV_BYTES = 128 * 1024 * 1024;
 const isVoice = (s: string) => /lead|vocal|back|ad|harmon|main/i.test(s || "");
-const isRoexReady = (u: string) => /\.(wav|mp3|flac|aiff?)(\?|#|$)/i.test(u);
+const isRoexReady = (u: string) => /\.(wav|mp3|flac|aiff?)(\s*\(\d+\))?\s*(\?|#|$)/i.test(u);
 const isBeat = (s: Stem) => /beat|instru/i.test(s.role + " " + s.name);
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
