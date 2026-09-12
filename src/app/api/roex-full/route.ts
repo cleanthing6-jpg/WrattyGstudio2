@@ -99,9 +99,14 @@ function buildBody(taskId: string, stems: any[], loudness?: string) {
 }
 
 function pickUrl(r: any) {
-  if (r.ok === false) return "";
+  if (r.ok === false) {
+    console.log("[ROEX-FULL] FAILED status=" + r.status + " body=" + JSON.stringify(r.data).slice(0, 300));
+    return "";
+  }
   const res = r.data && r.data.applyAudioEffectsResults;
-  return (res && res.download_url_mixed) || "";
+  const u = (res && res.download_url_mixed) || "";
+  console.log("[ROEX-FULL] status=" + r.status + " url=" + (u ? u.slice(0, 120) : "NONE"));
+  return u;
 }
 
 export async function POST(req: NextRequest) {
