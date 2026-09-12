@@ -297,8 +297,18 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         body: JSON.stringify({ taskId, stems: prepared, loudness: roexLoudness }),
       }), 300000, "Full mix");
       const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.url) throw new Error(d.error || "Full mix failed");
-      setFinalUrl(d.url);
+      if (!r.ok) throw new Error(d.error || "Full mix failed");
+      let finalR = d && d.url ? d.url : "";
+      for (let i = 0; i < 20 && !finalR; i++) {
+        setMsg("RoEx is mixing and mastering your song... step " + (i + 1) + " of 20");
+        await new Promise((res) => setTimeout(res, 5000));
+        const g = await fetchWithTimeout("/api/roex-full?taskId=" + encodeURIComponent(taskId), 60000);
+        const gd = await g.json().catch(() => ({}));
+        if (gd.error) throw new Error(gd.error);
+        if (gd.status === "done" && gd.url) finalR = gd.url;
+      }
+      if (!finalR) throw new Error("RoEx is taking too long - try again in a minute.");
+      setFinalUrl(finalR);
       setMsg("Full mix ready — download below 🎉");
     } catch (e: any) {
       setErr(e?.message || "Full mix failed");
