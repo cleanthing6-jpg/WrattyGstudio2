@@ -119,6 +119,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("AFROBEAT");
   const [lufs, setLufs] = useState(-8);
+  const [roexLoudness, setRoexLoudness] = useState("MEDIUM");
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
@@ -293,7 +294,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await withTimeout(fetch("/api/roex-full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, stems: prepared }),
+        body: JSON.stringify({ taskId, stems: prepared, loudness: roexLoudness }),
       }), 300000, "Full mix");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.url) throw new Error(d.error || "Full mix failed");
@@ -320,7 +321,13 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       >
         {STYLES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
       </select>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">Master loudness</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">RoEx master loudness (used on unlock)</label>
+        <select value={roexLoudness} onChange={(e) => setRoexLoudness(e.target.value)} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+          <option value="LOW">LOW — quietest, most dynamic</option>
+          <option value="MEDIUM">MEDIUM — balanced, streaming standard</option>
+          <option value="HIGH">HIGH — loudest, most competitive</option>
+        </select>
+<label className="block text-xs font-semibold text-gray-600 mb-1">Beat-Lock loudness (legacy)</label>
         <select value={lufs} onChange={(e) => setLufs(Number(e.target.value))} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value={-8}>-8 — Loudest (club)</option>
           <option value={-10}>-10 — Loud</option>
@@ -357,7 +364,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
               disabled={busy}
               className="mt-3 w-full rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
             >
-              ✨ Unlock full AI mix (uses credits)
+              ✨ Unlock full mix + master (uses credits)
             </button>
           )}
         </div>

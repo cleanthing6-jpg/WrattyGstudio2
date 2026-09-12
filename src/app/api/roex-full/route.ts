@@ -74,7 +74,12 @@ async function release(userId: string) {
 }
 const LOUDNESS = (process.env.ROEX_LOUDNESS || "MEDIUM").toUpperCase();
 
-function buildBody(taskId: string, stems: any[]) {
+function normalizeLoudness(v: any): string | undefined {
+  const s = String(v || "").toUpperCase();
+  return s === "HIGH" || s === "MEDIUM" || s === "LOW" ? s : undefined;
+}
+
+function buildBody(taskId: string, stems: any[], loudness?: string) {
   return {
     applyAudioEffectsData: {
       multitrackTaskId: taskId,
@@ -88,7 +93,7 @@ function buildBody(taskId: string, stems: any[]) {
       }),
       returnStems: false,
     createMaster: true,
-    desiredLoudness: LOUDNESS,
+    desiredLoudness: loudness || LOUDNESS,
     },
   };
 }
@@ -111,6 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = await req.json();
+    const reqLoudness = normalizeLoudness(payload && payload.loudness);
     const taskId = payload.taskId;
     const rawStems = payload.stems;
     const stems = Array.isArray(rawStems) ? rawStems : [];
@@ -144,7 +150,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = buildBody(taskId, stems);
+    const body = buildBody(taskId, stems, reqLoudness);
     const bodyJson = JSON.stringify(body);
     const reserved = isOwner(userId) ? 0 : 1;
 
