@@ -5,7 +5,7 @@ import clientPromise from "@/lib/mongodb";
 const f = createUploadthing();
 
 export const ourFileRouter = {
-  audioUploader: f({ blob: { maxFileSize: "64MB", maxFileCount: 1 } })
+  audioUploader: f({ blob: { maxFileSize: "128MB", maxFileCount: 1 } })
     .middleware(async ({ req }: any) => {
       try {
         const { userId } = getAuth(req as any);

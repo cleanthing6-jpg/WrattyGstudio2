@@ -18,7 +18,7 @@ const STYLES = [
 ];
 
 const RATE = 44100;
-const MAX_WAV_BYTES = 128 * 1024 * 1024;
+const MAX_WAV_BYTES = 55 * 1024 * 1024;
 const isVoice = (s: string) => /lead|vocal|back|ad|harmon|main/i.test(s || "");
 const isRoexReady = (u: string) => /\.(wav|mp3|flac|aiff?)(\?|#|$)/i.test(u);
 const isBeat = (s: Stem) => /beat|instru/i.test(s.role + " " + s.name);
@@ -118,7 +118,6 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("HIPHOP_GRIME");
   const [lufs, setLufs] = useState(-8);
-  const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -180,7 +179,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       setPrepared(done);
       const beatStem = done.find(isBeat);
-      if (beatLockMode && beatStem) {
+      if (beatStem) {
         setTaskId("");
         const vocals = done.filter((st) => !isBeat(st));
         const vocal = vocals[0];
