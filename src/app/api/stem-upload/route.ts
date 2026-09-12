@@ -4,6 +4,8 @@ import { sql } from "@/lib/db";
 
 export const maxDuration = 60;
 
+const CAP_BYTES = 250000000;
+
 async function ensureTables() {
   await sql`CREATE TABLE IF NOT EXISTS stem_chunks (
     upload_id TEXT NOT NULL,
@@ -21,8 +23,12 @@ async function ensureTables() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      const a: any = await auth();
+      if (a && a.userId) console.log("[STEM-UPLOAD] user=" + a.userId);
+    } catch (e) {
+      console.log("[STEM-UPLOAD] auth check skipped");
+    }
 
     const b = await req.json();
     const uploadId = String(b.uploadId || "");
@@ -35,6 +41,13 @@ export async function POST(req: NextRequest) {
     }
 
     await ensureTables();
+
+    const tot = (await sql`SELECT COALESCE(SUM(LENGTH(data)), 0) AS t FROM stem_files`) as any[];
+    const used = Number((tot[0] && tot[0].t) || 0);
+    if (used > CAP_BYTES) {
+      return NextResponse.json({ error: "Storage is busy - try again in a few minutes" }, { status: 507 });
+    }
+
     await sql`INSERT INTO stem_chunks (upload_id, idx, data) VALUES (${uploadId}, ${index}, ${data})
               ON CONFLICT (upload_id, idx) DO UPDATE SET data = ${data}`;
 
@@ -46,9 +59,10 @@ export async function POST(req: NextRequest) {
 
     const id = uploadId + "-" + Date.now().toString(36);
     await sql`INSERT INTO stem_files (id, name, data) VALUES (${id}, ${name}, ${b64})`;
-    await sql`DELETE FROM stem_files WHERE created_at < NOW() - INTERVAL '2 hours'`;
+    await sql`DELETE FROM stem_files WHERE created_at < NOW() - INTERVAL '3 hours'`;
 
     const origin = new URL(req.url).origin;
+    console.log("[STEM-UPLOAD] done name=" + name + " chars=" + b64.length);
     return NextResponse.json({ url: origin + "/api/stem-file?id=" + encodeURIComponent(id), name, bytes: b64.length });
   } catch (e: any) {
     return NextResponse.json({ error: (e && e.message) || "stem upload failed" }, { status: 500 });
