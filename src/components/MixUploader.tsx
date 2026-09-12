@@ -42,7 +42,11 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
     setBusy(true);
     try {
       for (const file of arr) {
-        await startUpload([file]);
+        const res = await startUpload([file]);
+        const f: any = (res && res[0]) || {};
+        const url = f.ufsUrl || f.url || (f.serverData && f.serverData.url) || "";
+        if (!url) throw new Error("No URL returned for " + file.name);
+        onReady(url, file.name);
       }
     } catch (e: any) {
       setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
