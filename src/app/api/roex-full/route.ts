@@ -80,6 +80,8 @@ function buildBody(taskId: string, stems: any[]) {
         return { trackURL: s.url };
       }),
       returnStems: false,
+    createMaster: true,
+    desiredLoudness: "HIGH",
     },
   };
 }
