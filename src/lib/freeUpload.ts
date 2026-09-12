@@ -1,4 +1,4 @@
-const CHUNK = 2000000;
+const CHUNK = 700000;
 
 function b64(buf: ArrayBuffer) {
   const b = new Uint8Array(buf);
