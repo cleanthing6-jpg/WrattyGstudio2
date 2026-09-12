@@ -346,7 +346,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         </select>
 
       <label className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
-        <input type="checkbox" checked={beatLockMode} onChange={(e) => setBeatLockMode(e.target.checked)} disabled={busy} />
+        <input type="checkbox" checked={false} disabled onChange={() => setBeatLockMode(false)} />
         Protect my beat - vocals only go to RoEx
       </label>
       <button
