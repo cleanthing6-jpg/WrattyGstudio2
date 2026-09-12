@@ -72,16 +72,23 @@ async function release(userId: string) {
     WHERE id = ${userId}
   `;
 }
+const LOUDNESS = (process.env.ROEX_LOUDNESS || "MEDIUM").toUpperCase();
+
 function buildBody(taskId: string, stems: any[]) {
   return {
     applyAudioEffectsData: {
       multitrackTaskId: taskId,
       trackData: stems.map((s: any) => {
-        return { trackURL: s.url };
+        const r = String((s && s.role) || (s && s.name) || "").toLowerCase();
+        if (/lead|main/.test(r)) return { trackURL: s.url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", gainDb: -1.5 };
+        if (/ad[-_ ]?lib|adlib|shout/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", gainDb: -3.5 };
+        if (/back|bgv|harm/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", gainDb: -4 };
+        if (/beat|inst|instrumental|prod|music/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: 1 };
+        return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: 0 };
       }),
       returnStems: false,
     createMaster: true,
-    desiredLoudness: "HIGH",
+    desiredLoudness: LOUDNESS,
     },
   };
 }

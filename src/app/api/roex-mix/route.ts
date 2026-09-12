@@ -17,16 +17,16 @@ async function tonnPost(path: string, body: unknown) {
 function toRoEx(role: string, url: string, name: string) {
   const r = String(role || name || "").toLowerCase();
   if (r.includes("lead") || r.includes("vocal") || r.includes("main")) {
-    return { trackURL: url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", panPreference: "CENTRE", reverbPreference: "LOW" };
+    return { trackURL: url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", gainDb: -1.5, panPreference: "CENTRE", reverbPreference: "LOW" };
   }
   if (r.includes("ad") || r.includes("adlib")) {
-    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
+    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", gainDb: -4, panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
   }
   if (r.includes("back") || r.includes("harmony") || r.includes("chorus")) {
-    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
+    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", gainDb: -3.5, panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
   }
   // Full instrumental/beat = backing track, NOT a drum stem
-  return { trackURL: url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", panPreference: "CENTRE", reverbPreference: "NONE" };
+  return { trackURL: url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: 1, panPreference: "CENTRE", reverbPreference: "NONE" };
 }
 
 export async function POST(req: NextRequest) {
