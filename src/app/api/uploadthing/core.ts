@@ -1,6 +1,6 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { getAuth } from "@clerk/nextjs/server";
-import clientPromise from "@/lib/mongodb";
+import { getMongoClient } from "@/lib/mongodb";
 
 const f = createUploadthing();
 
@@ -20,7 +20,7 @@ export const ourFileRouter = {
       const isMaster = / - Master\.wav$/i.test(anyFile.name || "");
       if (metadata && metadata.userId && isMaster && url) {
         try {
-          const client = await clientPromise;
+          const client = await getMongoClient();
           await client
             .db("wrattyg")
             .collection("mixes")

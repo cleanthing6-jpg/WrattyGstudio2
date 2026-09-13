@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { getMongoClient } from "@/lib/mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await getMongoClient();
     const db = client.db("wrattyg");
     const col = db.collection("mixes");
     const probe = await col.insertOne({ userId: "probe", name: "probe", url: "probe", createdAt: new Date() });
