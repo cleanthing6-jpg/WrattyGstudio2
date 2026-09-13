@@ -5,7 +5,7 @@ const KEY = process.env.ROEX_API_KEY || "";
 
 export async function POST(req: Request) {
   try {
-    const { url, style = "AFROBEAT", loudness = "MEDIUM" } = await req.json();
+    const { url, style = "AFROBEAT", loudness = "HIGH" } = await req.json();
     if (!url) return NextResponse.json({ error: "Missing track url" }, { status: 400 });
 
     const shapes = [

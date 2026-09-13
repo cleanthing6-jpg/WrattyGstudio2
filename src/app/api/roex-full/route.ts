@@ -72,7 +72,7 @@ async function release(userId: string) {
     WHERE id = ${userId}
   `;
 }
-const LOUDNESS = (process.env.ROEX_LOUDNESS || "MEDIUM").toUpperCase();
+const LOUDNESS = (process.env.ROEX_LOUDNESS || "HIGH").toUpperCase();
 
 function normalizeLoudness(v: any): string | undefined {
   const s = String(v || "").toUpperCase();
@@ -85,11 +85,11 @@ function buildBody(taskId: string, stems: any[], loudness?: string) {
       multitrackTaskId: taskId,
       trackData: stems.map((s: any) => {
         const r = String((s && s.role) || (s && s.name) || "").toLowerCase();
-        if (/lead|main/.test(r)) return { trackURL: s.url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", gainDb: -1.5 };
-        if (/ad[-_ ]?lib|adlib|shout/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", gainDb: -3.5 };
-        if (/back|bgv|harm/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", gainDb: -4 };
-        if (/beat|inst|instrumental|prod|music/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: 1 };
-        return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: 0 };
+        if (/lead|main/.test(r)) return { trackURL: s.url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", gainDb: 0 };
+        if (/ad[-_ ]?lib|adlib|shout/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", gainDb: -6 };
+        if (/back|bgv|harm/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", gainDb: -9 };
+        if (/beat|inst|instrumental|prod|music/.test(r)) return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: -1.5 };
+        return { trackURL: s.url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: -1.5 };
       }),
       returnStems: false,
     createMaster: true,
