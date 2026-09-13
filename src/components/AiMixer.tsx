@@ -141,8 +141,39 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [finalUrl, setFinalUrl] = useState("");
+  const [masterUrl, setMasterUrl] = useState("");
   const { user } = useUser();
   const isOwner = String(user?.id || "") === "user_3IqTsednC0Bqdk3JMxeGzW6zdGD";
+
+  
+  async function masterTrack(mixUrl: string) {
+    if (!mixUrl || busy) return;
+    setBusy(true); setErr(""); setMasterUrl("");
+    setMsg("Creating mastering preview...");
+    try {
+      const r = await fetch("/api/roex-master", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: mixUrl, style, loudness: roexLoudness }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise((res) => setTimeout(res, 5000));
+        const s2 = await fetch("/api/roex-master?taskId=" + encodeURIComponent(data.taskId));
+        const st = await s2.json().catch(() => ({}));
+        if (!s2.ok) throw new Error(st.error || "Mastering failed");
+        if (/failed|error/i.test(String(st.status))) throw new Error("RoEx mastering failed");
+        if (st.previewUrl) { setMasterUrl(st.previewUrl); setMsg("Mastering preview ready"); return; }
+      }
+      throw new Error("Mastering preview timed out");
+    } catch (e: any) {
+      setErr(e && e.message ? e.message : "Mastering failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const list = Array.isArray(stems) ? stems : [];
   const ready = list.length >= 2;
@@ -403,7 +434,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
               disabled={busy}
               className="mt-3 w-full rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
             >
-              ✨ Unlock full mix + master (uses credits)
+              ✨ Unlock full mix (uses credits)
             </button>
           )}
         </div>
@@ -417,7 +448,25 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         </div>
       )}
 
-      {busy && <p className="mt-3 text-[11px] text-gray-400">If this stalls over ~3 minutes, reload the page and upload WAV stems — those skip conversion entirely.</p>}
+              {finalUrl && !masterUrl && (
+          <button
+            onClick={() => masterTrack(finalUrl)}
+            disabled={busy}
+            className="mt-3 w-full rounded-lg bg-purple-700 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
+          >
+            Master this mix (free preview)
+          </button>
+        )}
+
+        {masterUrl && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold text-gray-600 mb-1">Mastered</p>
+            <audio controls src={masterUrl} className="w-full" />
+            <a href={masterUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block rounded-lg bg-purple-700 px-4 py-2 text-sm font-semibold text-white">Open / save master</a>
+          </div>
+        )}
+
+{busy && <p className="mt-3 text-[11px] text-gray-400">If this stalls over ~3 minutes, reload the page and upload WAV stems — those skip conversion entirely.</p>}
     </div>
   );
 }
