@@ -8,23 +8,27 @@ export async function POST(req: Request) {
     const { url, style = "AFROBEAT", loudness = "MEDIUM" } = await req.json();
     if (!url) return NextResponse.json({ error: "Missing track url" }, { status: 400 });
 
-    const r = await fetch(`${BASE}/masteringpreview`, {
-      method: "POST",
-      headers: { "x-api-key": KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        masteringData: {
-          trackURL: url,
-          musicalStyle: style,
-          desiredLoudness: loudness,
-          sampleRate: "44100",
-        },
-      }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) return NextResponse.json({ error: "RoEx: " + JSON.stringify(data).slice(0, 300) }, { status: r.status || 502 });
+    const shapes = [
+      { trackData: [{ trackURL: url }], musicalStyle: style, desiredLoudness: loudness },
+      { trackData: { trackURL: url }, musicalStyle: style, desiredLoudness: loudness },
+    ];
 
-    const taskId = data.masteringTaskId || data.mastering_task_id || data.taskId;
-    if (!taskId) return NextResponse.json({ error: "RoEx: no mastering task id" }, { status: 502 });
+    let data: any = {};
+    let status = 502;
+    for (const body of shapes) {
+      const r = await fetch(BASE + "/masteringpreview", {
+        method: "POST",
+        headers: { "x-api-key": KEY, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      status = r.status;
+      data = await r.json().catch(() => ({}));
+      if (r.ok) break;
+      if (!/JSON format not valid|required/i.test(JSON.stringify(data || {}))) break;
+    }
+
+    const taskId = data && (data.mastering_task_id || data.masteringTaskId || data.taskId || data.task_id);
+    if (!taskId) return NextResponse.json({ error: "RoEx: " + JSON.stringify(data).slice(0, 300) }, { status: status || 502 });
     return NextResponse.json({ taskId });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Master preview failed" }, { status: 500 });
@@ -36,10 +40,15 @@ export async function GET(req: Request) {
     const id = new URL(req.url).searchParams.get("taskId");
     if (!id) return NextResponse.json({ error: "Missing taskId" }, { status: 400 });
 
-    const s = await fetch(`${BASE}/masteringstatus/${id}`, { headers: { "x-api-key": KEY } });
-    const sd = await s.json().catch(() => ({}));
+    const s = await fetch(BASE + "/masteringstatus/" + id, { headers: { "x-api-key": KEY } });
+    const sd: any = await s.json().catch(() => ({}));
     if (!s.ok) return NextResponse.json({ error: "RoEx: " + JSON.stringify(sd).slice(0, 300) }, { status: s.status || 502 });
-    return NextResponse.json({ status: sd.status, previewUrl: sd.preview_url || sd.previewUrl || "" });
+
+    const td = sd.mastering_task_data || sd;
+    const state = td.state || td.status || "";
+    const masterUrl = td.download_url_mastered || td.download_url || "";
+
+    return NextResponse.json({ status: state, state: state, masterUrl: masterUrl, url: masterUrl });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Master status failed" }, { status: 500 });
   }
