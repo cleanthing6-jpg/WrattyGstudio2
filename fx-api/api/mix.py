@@ -102,12 +102,14 @@ def setjob(jid, status, url=""):
 def do_mix(stems, loud, jid):
     tmp = tempfile.mkdtemp()
     try:
-        tr, sr = [], None
+        sr = None
+        m = np.zeros((2, 0), dtype=np.float32)
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
             p = os.path.join(tmp, "%d.wav" % i)
             grab(s["url"], p)
             a, s0 = load(p)
+            os.remove(p)
             if len(a[0]) / float(s0) > 480:
                 raise ValueError("stem longer than 8 minutes")
             if sr is None:
@@ -116,13 +118,15 @@ def do_mix(stems, loud, jid):
                 a = to_sr(a, s0, sr)
             if a.shape[0] == 1:
                 a = np.repeat(a, 2, axis=0)
-            tr.append(a[:2].copy())
+            a = np.ascontiguousarray(a[:2].astype(np.float32))
+            need = a.shape[1]
+            if m.shape[1] < need:
+                g = np.zeros((2, need), dtype=np.float32)
+                g[:, :m.shape[1]] = m
+                m = g
+            m += a
             del a
-        n = max(t.shape[1] for t in tr)
-        m = np.zeros((2, n), dtype=np.float32)
-        for t in tr:
-            m[:, :t.shape[1]] += t[:2]
-        tr = None
+        n = m.shape[1]
         m = m * (10.0 ** ((-6.0 - peakdb(m)) / 20.0))
         setjob(jid, "glue bus")
         m = BUS(m, sr).astype(np.float32)
