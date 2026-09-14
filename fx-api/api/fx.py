@@ -54,6 +54,23 @@ def board_for(preset, bpm):
             Reverb(room_size=0.50, damping=0.45, wet_level=0.20, dry_level=0.82, width=1.0),
             Limiter(threshold_db=-1.5, release_ms=80),
         ])
+    if p == "bus" or p == "mix":
+        return 10 ** (-3.0 / 20), Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=85),
+            PeakFilter(cutoff_frequency_hz=250, gain_db=1.5, q=0.9),
+            PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
+            Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
+            Distortion(drive_db=2.0),
+            Reverb(room_size=0.30, damping=0.45, wet_level=0.12, dry_level=0.88, width=0.95),
+            Limiter(threshold_db=-1.0, release_ms=80),
+        ])
+    if p == "beat":
+        return 10 ** (-1.0 / 20), Pedalboard([
+            LowShelfFilter(cutoff_frequency_hz=70, gain_db=2.0),
+            HighShelfFilter(cutoff_frequency_hz=9000, gain_db=1.0),
+            Compressor(threshold_db=-12, ratio=2.0, attack_ms=25, release_ms=200),
+            Limiter(threshold_db=-1.0, release_ms=100),
+        ])
     return 10 ** (-3.0 / 20), Pedalboard([
         HighpassFilter(cutoff_frequency_hz=85),
         PeakFilter(cutoff_frequency_hz=250, gain_db=1.5, q=0.9),
@@ -104,7 +121,7 @@ class handler(BaseHTTPRequestHandler):
             bpm = min(max(float(data.get("bpm") or 100), 40.0), 220.0)
         except Exception:
             bpm = 100.0
-        preset = str(data.get("preset") or "lead").lower()
+        preset = str(data.get("preset") or "bus").lower()
 
         token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if not token:
