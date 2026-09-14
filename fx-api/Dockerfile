@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN python -c "import pedalboard, numpy; print('pedalboard', pedalboard.__version__, 'numpy', numpy.__version__)"
 COPY api ./api
 EXPOSE 8080
 CMD ["python", "api/fx.py"]

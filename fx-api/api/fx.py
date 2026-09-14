@@ -10,162 +10,70 @@ MAX_SECONDS = 480.0
 ALLOWED = (".wav", ".wave")
 
 
+ENGINE = "stemfx-pb-1.0"
+
+from pedalboard import (Pedalboard, HighpassFilter, LowShelfFilter, HighShelfFilter,
+                        PeakFilter, Compressor, Limiter, Distortion, Reverb, Delay)
+from pedalboard.io import AudioFile
+
+
 def read_wav(path):
-    with wave.open(path, "rb") as w:
-        ch, sw, sr, n = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
-        raw = w.readframes(n)
-    if sw == 2:
-        a = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
-    elif sw == 1:
-        a = (np.frombuffer(raw, dtype=np.uint8).astype(np.float32) - 128.0) / 127.0
-    elif sw == 4:
-        a = np.frombuffer(raw, dtype="<i4").astype(np.float32) / 2147483648.0
-    else:
-        raise ValueError("Unsupported WAV: %d-bit" % (sw * 8))
-    return a.reshape(-1, ch).T, sr
+    with AudioFile(path) as f:
+        sr = f.samplerate
+        a = f.read(f.frames)
+    return a.astype(np.float32), int(sr)
 
 
-def write_wav(path, a, sr):
-    a = np.clip(a, -1.0, 1.0)
-    d = (a.T * 32767.0).astype("<i2")
-    with wave.open(path, "wb") as w:
-        w.setnchannels(a.shape[0]); w.setsampwidth(2); w.setframerate(sr)
-        w.writeframes(d.tobytes())
+def write_wav(path, a, sr, bit_depth=24):
+    ch = a.shape[0]
+    with AudioFile(path, "w", int(sr), ch, bit_depth=bit_depth) as o:
+        o.write(np.clip(a, -1.0, 1.0))
 
 
-def fft_convolve(x, ir):
-    n_ir = len(ir); blk = 1 << 15; n_fft = 1
-    while n_fft < blk + n_ir:
-        n_fft <<= 1
-    H = np.fft.rfft(ir, n_fft)
-    out = np.zeros(len(x) + n_fft, dtype=np.float32)
-    buf = np.zeros(n_fft, dtype=np.float32)
-    pos = 0
-    while pos < len(x):
-        chunk = x[pos:pos + blk].astype(np.float32)
-        buf[:blk] = 0.0
-        buf[:len(chunk)] = chunk
-        out[pos:pos + n_fft] += np.fft.irfft(np.fft.rfft(buf) * H, n_fft)
-        pos += blk
-    return out[:len(x)]
+def board_for(preset, bpm):
+    d1 = 45.0 / bpm
+    d2 = 30.0 / bpm
+    p = (preset or "lead").lower()
+    if p == "backing":
+        return 10 ** (-6.0 / 20), Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=120),
+            PeakFilter(cutoff_frequency_hz=2800, gain_db=1.0, q=1.0),
+            Compressor(threshold_db=-20, ratio=2.5, attack_ms=15, release_ms=70),
+            Distortion(drive_db=1.0),
+            Delay(delay_seconds=d1, feedback=0.18, mix=0.12),
+            Reverb(room_size=0.45, damping=0.50, wet_level=0.16, dry_level=0.85, width=1.0),
+            Limiter(threshold_db=-1.5, release_ms=80),
+        ])
+    if p == "adlib":
+        return 10 ** (-4.0 / 20), Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=100),
+            PeakFilter(cutoff_frequency_hz=3200, gain_db=2.0, q=1.0),
+            Compressor(threshold_db=-18, ratio=3.0, attack_ms=12, release_ms=50),
+            Distortion(drive_db=3.0),
+            Delay(delay_seconds=d2, feedback=0.28, mix=0.22),
+            Reverb(room_size=0.50, damping=0.45, wet_level=0.20, dry_level=0.82, width=1.0),
+            Limiter(threshold_db=-1.5, release_ms=80),
+        ])
+    return 10 ** (-3.0 / 20), Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=85),
+        PeakFilter(cutoff_frequency_hz=250, gain_db=1.5, q=0.9),
+        PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
+        Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
+        Distortion(drive_db=2.0),
+        Delay(delay_seconds=d1, feedback=0.22, mix=0.15),
+        Delay(delay_seconds=d2, feedback=0.12, mix=0.10),
+        Reverb(room_size=0.30, damping=0.45, wet_level=0.12, dry_level=0.88, width=0.95),
+        Limiter(threshold_db=-1.0, release_ms=80),
+    ])
 
 
-def biquad_ir(b0, b1, b2, a1, a2, n=4096):
-    ir = np.zeros(n, dtype=np.float32)
-    x1 = x2 = y1 = y2 = 0.0
-    for i in range(n):
-        x0 = 1.0 if i == 0 else 0.0
-        y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
-        x2, x1 = x1, x0; y2, y1 = y1, y0
-        ir[i] = y0
-    return ir
-
-
-def coef_hp(f0, sr, q=0.707):
-    w = 2 * np.pi * f0 / sr; c = np.cos(w); s = np.sin(w); al = s / (2 * q)
-    b0, b1, b2 = (1 + c) / 2, -(1 + c), (1 + c) / 2
-    a0, a1, a2 = 1 + al, -2 * c, 1 - al
-    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0]
-
-
-def coef_peak(f0, sr, gain_db, q=1.0):
-    A = 10 ** (gain_db / 40.0)
-    w = 2 * np.pi * f0 / sr; c = np.cos(w); s = np.sin(w); al = s / (2 * q)
-    b0, b1, b2 = 1 + al * A, -2 * c, 1 - al * A
-    a0, a1, a2 = 1 + al / A, -2 * c, 1 - al / A
-    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0]
-
-
-def eq(x, sr, stages):
-    for kind, f0, g, q in stages:
-        co = coef_hp(f0, sr, q) if kind == "hp" else coef_peak(f0, sr, g, q)
-        x = fft_convolve(x, biquad_ir(*co))
-    return x
-
-
-def compress(x, sr, thr_db=-18.0, ratio=3.0, tau_ms=60.0, makeup_db=0.0, knee_db=6.0):
-    tau = max(1e-4, tau_ms / 1000.0)
-    n = max(8, int(tau * sr * 4))
-    t = np.arange(n) / sr
-    k = np.exp(-t / tau); k /= k.sum()
-    env = fft_convolve(np.abs(x), k.astype(np.float32)).astype(np.float32)
-    over = 20.0 * np.log10(env + 1e-9) - thr_db
-    half = knee_db / 2.0
-    if knee_db > 0:
-        g_db = np.where(over <= -half, 0.0,
-               np.where(over >= half, -over * (1.0 - 1.0 / ratio),
-                        -((over + half) ** 2) / (4.0 * half) * (1.0 - 1.0 / ratio)))
-    else:
-        g_db = -np.maximum(over, 0.0) * (1.0 - 1.0 / ratio)
-    return x * (10.0 ** ((g_db + makeup_db) / 20.0)).astype(np.float32)
-
-
-def saturate(x, amount=0.15):
-    return ((1.0 - amount) * x + amount * np.tanh(2.0 * x) / np.tanh(2.0)).astype(np.float32)
-
-
-def delay(x, sr, time_s, feedback=0.2, mix=0.15, repeats=4):
-    d = max(1, int(time_s * sr))
-    wet = np.zeros_like(x); g = 1.0
-    for k in range(repeats):
-        dk = d * (k + 1)
-        if dk >= len(x):
-            break
-        tap = np.zeros_like(x)
-        tap[dk:] = x[:-dk] * g
-        if k:
-            tap = fft_convolve(tap, np.array([0.5, 0.5], dtype=np.float32))
-        wet += tap; g *= feedback
-    return x * (1.0 - mix) + wet * mix
-
-
-def make_ir(sr, decay_s=1.4, predelay_ms=12.0, seed=1, damp=0.55):
-    n = max(64, int(decay_s * sr))
-    rng = np.random.default_rng(seed)
-    t = np.arange(n) / sr
-    ir = (rng.standard_normal(n) * np.exp(-6.9 * t / decay_s)).astype(np.float32)
-    wl = max(3, int(damp * sr / 4000.0))
-    ir = fft_convolve(ir, np.ones(wl, dtype=np.float32) / wl)
-    pre = int(predelay_ms * sr / 1000.0)
-    out = np.zeros(len(ir) + pre, dtype=np.float32)
-    out[pre:] = ir
-    out *= 3.0 / (np.sqrt(np.sum(out ** 2)) + 1e-9)
-    return out
-
-
-def reverb(x, sr, mix=0.12, decay_s=1.4, seed=1):
-    wet = fft_convolve(x, make_ir(sr, decay_s, 12.0, seed))
-    return x * (1.0 - mix) + wet * mix
-
-
-def limit(x, ceiling=0.89):
-    p = float(np.max(np.abs(x)))
-    return (x * (ceiling / p) if p > ceiling else x).astype(np.float32)
-
-
-def chain(x, sr, bpm, preset, chan):
-    d1, d2 = 45.0 / bpm, 30.0 / bpm          # dotted 1/8, 1/8
-    if preset == "backing":
-        x = eq(x, sr, [("hp", 120, 0, 0.707), ("peak", 2800, 1.0, 1.0)])
-        x = compress(x, sr, -20, 2.5, 70, 2.0)
-        x = saturate(x, 0.08)
-        x = delay(x, sr, d1, 0.18, 0.12)
-        x = reverb(x, sr, 0.16, 1.3, 11 + chan)
-        return x * (10 ** (-6.0 / 20))
-    if preset == "adlib":
-        x = eq(x, sr, [("hp", 100, 0, 0.707), ("peak", 3200, 2.0, 1.0)])
-        x = compress(x, sr, -18, 3.0, 50, 2.5)
-        x = saturate(x, 0.20)
-        x = delay(x, sr, d2, 0.28, 0.22)
-        x = reverb(x, sr, 0.20, 1.6, 21 + chan)
-        return x * (10 ** (-4.0 / 20))
-    x = eq(x, sr, [("hp", 80, 0, 0.707), ("peak", 3000, 2.5, 1.0), ("peak", 250, 1.5, 0.9)])
-    x = compress(x, sr, -18, 3.0, 60, 2.0)
-    x = saturate(x, 0.15)
-    x = delay(x, sr, d1, 0.22, 0.15)
-    x = delay(x, sr, d2, 0.12, 0.10)
-    x = reverb(x, sr, 0.12, 1.4, 31 + chan)
-    return x * (10 ** (-3.0 / 20))
+def process_all(a, sr, bpm, preset, ceiling=0.89):
+    g, board = board_for(preset, bpm)
+    out = board(a.astype(np.float32), float(sr)) * g
+    peak = float(np.max(np.abs(out))) if out.size else 0.0
+    if peak > ceiling:
+        out = out * (ceiling / peak)
+    return np.clip(out, -1.0, 1.0).astype(np.float32)
 
 
 class handler(BaseHTTPRequestHandler):
@@ -218,8 +126,7 @@ class handler(BaseHTTPRequestHandler):
             if len(a[0]) / sr > MAX_SECONDS:
                 return self._json(413, {"error": "audio too long"})
 
-            for c in range(a.shape[0]):
-                a[c] = limit(chain(a[c].astype(np.float32), sr, bpm, preset, c))
+            a = process_all(a, sr, bpm, preset)
 
             write_wav(out, a, sr)
 
