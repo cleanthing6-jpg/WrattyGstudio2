@@ -50,9 +50,9 @@ if (!put.ok) { console.error("Byte upload failed: HTTP " + put.status); process.
 console.log("Uploaded. Submitting mastering...");
 
 const shapes = [
-  { trackData: [{ trackURL: readable }], musicalStyle: "AFROBEAT", desiredLoudness: "MEDIUM" },
-  { trackData: { trackURL: readable }, musicalStyle: "AFROBEAT", desiredLoudness: "MEDIUM" },
-  { masteringData: { trackData: [{ trackURL: readable }], musicalStyle: "AFROBEAT", desiredLoudness: "MEDIUM" } },
+  { trackData: [{ trackURL: readable }], musicalStyle: "AFROBEAT", desiredLoudness: "HIGH" },
+  { trackData: { trackURL: readable }, musicalStyle: "AFROBEAT", desiredLoudness: "HIGH" },
+  { masteringData: { trackData: [{ trackURL: readable }], musicalStyle: "AFROBEAT", desiredLoudness: "HIGH" } },
 ];
 let job = null;
 for (const body of shapes) {
