@@ -61,7 +61,16 @@ def board_for(preset, bpm):
             PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
             Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
             Distortion(drive_db=2.0),
-            Reverb(room_size=0.30, damping=0.45, wet_level=0.12, dry_level=0.88, width=0.95),
+            Limiter(threshold_db=-1.0, release_ms=80),
+        ])
+    if p == "bus_space":
+        return 10 ** (-3.0 / 20), Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=85),
+            PeakFilter(cutoff_frequency_hz=250, gain_db=1.5, q=0.9),
+            PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
+            Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
+            Distortion(drive_db=2.0),
+            Reverb(room_size=0.30, damping=0.45, wet_level=0.06, dry_level=0.94, width=0.95),
             Limiter(threshold_db=-1.0, release_ms=80),
         ])
     if p == "beat":
