@@ -241,3 +241,19 @@ class handler(BaseHTTPRequestHandler):
             return self._json(500, {"error": str(e)[:300]})
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+# --- run as a standalone HTTP server (Render / Koyeb) ---
+if __name__ == "__main__":
+    import os as _os
+    from http.server import HTTPServer as _HTTPServer, BaseHTTPRequestHandler as _Base
+    _Handler = next(
+        _v for _v in list(globals().values())
+        if isinstance(_v, type) and issubclass(_v, _Base) and _v is not _Base
+    )
+    if not hasattr(_Handler, "do_GET"):
+        def _do_get(self):
+            self._json(200, {"ok": True})
+        _Handler.do_GET = _do_get
+    _port = int(_os.environ.get("PORT", "8080"))
+    print("fx server listening on 0.0.0.0:%d" % _port, flush=True)
+    _HTTPServer(("0.0.0.0", _port), _Handler).serve_forever()
