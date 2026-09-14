@@ -35,6 +35,14 @@ const STYLES = [
 ];
 
 const RATE = 44100;
+
+const presetFor = (name: string) => {
+  const n = (name || "").toLowerCase();
+  if (/ad[-_ ]?lib|adlib|shout/.test(n)) return "adlib";
+  if (/back|bgv|harmon|double/.test(n)) return "backing";
+  if (/lead|main|vox|vocal/.test(n)) return "lead";
+  return "";
+};
 const MAX_WAV_BYTES = 128 * 1024 * 1024;
 const isVoice = (s: string) => /lead|vocal|back|ad|harmon|main/i.test(s || "");
 const isRoexReady = (u: string) => /\.(wav|mp3|flac|aiff?)(\s*\(\d+\))?\s*(\?|#|$)/i.test(u);
@@ -136,6 +144,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [style, setStyle] = useState("AFROBEAT");
   const [lufs, setLufs] = useState(-8);
   const [roexLoudness, setRoexLoudness] = useState("HIGH");
+  const [bpm, setBpm] = useState(100);
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
@@ -223,7 +232,23 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             "Upload failed for " + st.name + " (" + Math.round(file.size / 1048576) + "MB): " + (why || "unknown")
           );
         }
-        setUploadedUrls((prev) => ({ ...prev, [(st.role || "") + ":" + (st.url || st.name)]: url }));
+        const px = presetFor((st.role || "") + " " + (st.name || ""));
+          if (px) {
+            try {
+              setMsg("Adding afrobeats FX to " + (st.role || st.name) + "...");
+              const fr = await withTimeout(fetch("/api/vocal-fx", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, bpm, preset: px }),
+              }), 240000, "Vocal FX " + st.name);
+              const fj = await fr.json().catch(() => ({}));
+              if (fr.ok && fj.url) url = fj.url;
+              else console.warn("[vocal-fx]", fj.error || fr.status);
+            } catch (e) {
+              console.warn("[vocal-fx] skipped:", e);
+            }
+          }
+          setUploadedUrls((prev) => ({ ...prev, [(st.role || "") + ":" + (st.url || st.name)]: url }));
         done.push({ url, name: st.name, role: st.role });
       }
 
@@ -398,7 +423,17 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           <option value="HIGH">HIGH — loudest, most competitive</option>
         </select>
 <label className="block text-xs font-semibold text-gray-600 mb-1">Beat-Lock loudness (legacy)</label>
-        <select value={lufs} onChange={(e) => setLufs(Number(e.target.value))} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        <input
+            type="number"
+            min={40}
+            max={220}
+            value={bpm}
+            onChange={(e) => setBpm(Number(e.target.value))}
+            disabled={busy}
+            placeholder="BPM"
+            className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <select value={lufs} onChange={(e) => setLufs(Number(e.target.value))} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value={-8}>-8 — Loudest (club)</option>
           <option value={-10}>-10 — Loud</option>
           <option value={-11}>-11 — Balanced</option>

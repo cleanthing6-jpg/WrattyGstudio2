@@ -1,0 +1,4 @@
+curl -s -X POST "https://wratty-gstudio2.vercel.app/api/vocal-fx" \
+ -H 'content-type: application/json' \
+ -d '{"url":"https://download.samplelib.com/wav/sample-6s.wav","bpm":100,"preset":"lead"}'
+echo
