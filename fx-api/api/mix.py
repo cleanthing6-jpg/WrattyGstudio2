@@ -158,7 +158,7 @@ def do_mix(stems, loud, jid, max_sec=0):
         want = str(loud or "MEDIUM").upper()
 
         if mode not in ("two_track", "passthrough", "vocal_only"):
-            mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
+            mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed_full)) / 20.0))
             setjob(jid, "glue bus")
             mixed = BUS(mixed, sr).astype(np.float32)
 
@@ -181,10 +181,10 @@ def do_mix(stems, loud, jid, max_sec=0):
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
         url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
-        got = lufs(mixed, sr)
+        got = lufs(mixed_full, sr)
         report["loudness"] = want
-        return {"url": url, "seconds": round(n / float(sr), 2),
-                "peak_dbfs": round(peakdb(mixed), 2),
+        return {"url": url, "seconds": round(mixed.shape[1] / float(sr), 2),
+                "peak_dbfs": round(peakdb(mixed_full), 2),
                 "lufs": (None if got is None else round(got, 2)),
                 "sample_rate": int(sr),
                 "mode": mode, "report": report}
