@@ -189,6 +189,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
   async function generate() {
     if (!ready || busy) return;
+    fetch("/api/warm").catch(() => {});
     setBusy(true); setErr(""); setMsg(""); setPreviewUrl(""); setFinalUrl(""); setTaskId("");
     try {
       const done: Stem[] = [];
