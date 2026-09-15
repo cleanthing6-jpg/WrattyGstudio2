@@ -60,7 +60,7 @@ BEAT_ROLES = ("beat", "instrumental", "inst", "instrument", "music",
 VOCAL_ROLES = ("vocal", "vox", "lead", "adlib", "backing", "harmony",
                "acapella", "acappella", "dry", "main")
 
-_PLATE = {"ir": {}, "err": ""}
+_PLATE = {"ir": {}, "err": "", "kind": ""}
 
 
 def role_of(role):
@@ -335,7 +335,10 @@ def _plate(voc, sr):
             for mk in (lambda: Convolution(path, mix=1.0),
                        lambda: Convolution(path)):
                 try:
-                    return Pedalboard([mk()])(voc, sr).astype(np.float32)
+                    y = Pedalboard([mk()])(voc, sr).astype(np.float32)
+                    _PLATE["kind"] = "plate"
+                    _PLATE["err"] = ""
+                    return y
                 except Exception as e:
                     _PLATE["err"] = "Convolution: " + str(e)[:160]
         except Exception as e:
@@ -346,9 +349,13 @@ def _plate(voc, sr):
                     os.remove(path)
                 except Exception:
                     pass
+    else:
+        _PLATE["err"] = "Convolution class unavailable"
     try:
-        return Pedalboard([Reverb(room_size=0.45, damping=0.55,
-                                  wet_level=1.0, dry_level=0.0, width=1.0)])(voc, sr).astype(np.float32)
+        y = Pedalboard([Reverb(room_size=0.45, damping=0.55,
+                               wet_level=1.0, dry_level=0.0, width=1.0)])(voc, sr).astype(np.float32)
+        _PLATE["kind"] = "algorithmic"
+        return y
     except Exception:
         return None
 
@@ -403,28 +410,24 @@ def _deess(voc, sr, st):
 def _ambience(voc, sr, bpm):
     beat_s = 60.0 / max(bpm, 40.0)
     d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.35)))
-    slap = None
+    wet = None
     try:
         slap = Pedalboard([
             Delay(delay_seconds=d / float(sr), feedback=0.18, mix=1.0),
             HighpassFilter(cutoff_frequency_hz=300.0),
             LowpassFilter(cutoff_frequency_hz=4000.0),
-        ])
+        ])(voc, sr).astype(np.float32)
+        wet = slap
     except Exception:
-        slap = None
-    plate = None
-    if Convolution is not None:
-        try:
-            plate = Convolution(plate_ir(sr), mix=1.0)
-        except Exception:
-            plate = None
-    wet = _send_sum(voc, sr, [slap, plate])
+        wet = None
+    plate = _plate(voc, sr)
+    if plate is not None:
+        wet = plate if wet is None else (wet + plate).astype(np.float32)
+    kind = _PLATE.get("kind") or "none"
     if wet is None:
-        wet = _plate(voc, sr)
-        if wet is None:
-            return voc, round(d / float(sr) * 1000.0), "none"
+        return voc, round(d / float(sr) * 1000.0), "none"
     out = (voc + SEND_WET * wet).astype(np.float32)
-    return _headroom(out, -1.0), round(d / float(sr) * 1000.0), ("plate" if plate is not None else "algorithmic")
+    return _headroom(out, -1.0), round(d / float(sr) * 1000.0), kind
 
 
 def _double(voc, sr):
@@ -473,6 +476,12 @@ def _role_chain(voc, sr, st, role):
     moves.append(["compress", "%s:1" % t["ratio"]])
     drive = min(3.0, t["sat"] + max(0.0, (2.5 - st["clarity"]) * 0.3))
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
+    _pre = _rms_db(voc)
+    _post = _rms_db(out)
+    makeup = float(np.clip(_pre - _post, 0.0, 9.0))
+    if makeup > 0.05:
+        out = (out * (10.0 ** (makeup / 20.0))).astype(np.float32)
+    moves.append(["makeup", round(makeup, 2)])
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
     try:
