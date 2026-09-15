@@ -376,23 +376,24 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full AI mix — this spends credits…");
-      const r = await withTimeout(fetch("/api/roex-full", {
+      const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, stems: prepared, loudness: roexLoudness }),
-      }), 300000, "Full mix");
+        body: JSON.stringify({ stems: prepared, loudness: roexLoudness }),
+      }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || "Full mix failed");
+      if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
       let finalR = d && d.url ? d.url : "";
-      for (let i = 0; i < 20 && !finalR; i++) {
-        setMsg("RoEx is mixing and mastering your song... step " + (i + 1) + " of 20");
+      for (let i = 0; i < 40 && !finalR; i++) {
+        setMsg("Mixing and mastering your song... step " + (i + 1) + " of 40");
         await new Promise((res) => setTimeout(res, 5000));
-        const g = await fetchWithTimeout("/api/roex-full?taskId=" + encodeURIComponent(taskId), 60000);
+        const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000);
         const gd = await g.json().catch(() => ({}));
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "done" && gd.url) finalR = gd.url;
+        if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
-      if (!finalR) throw new Error("RoEx is taking too long - try again in a minute.");
+      if (!finalR) throw new Error("The mixer is taking too long - check Dashboard > My Mixes, or try again.");
       setFinalUrl(finalR);
       setMsg("Full mix ready — download below 🎉");
     } catch (e: any) {
