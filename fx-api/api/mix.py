@@ -100,10 +100,22 @@ def put(p, name):
     return r.json().get("url", "")
 
 
+def rss_mb():
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return round(int(line.split()[1]) / 1024.0, 1)
+    except Exception:
+        pass
+    return None
+
+
 def setjob(jid, status, url=""):
     with LK:
         j = JOBS.get(jid) or {}
         j["status"] = status
+        j["rss_mb"] = rss_mb()
         if url:
             j["url"] = url
         JOBS[jid] = j
