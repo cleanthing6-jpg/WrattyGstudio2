@@ -1,6 +1,6 @@
 """wratty-fx mixer: sums stems, glue bus, LUFS master. Replaces RoEx."""
 import gc, json, os, shutil, tempfile, threading, uuid
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 import numpy as np
@@ -244,4 +244,4 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
     print("wratty-fx mixer on 0.0.0.0:%d" % port, flush=True)
-    HTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
