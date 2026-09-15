@@ -138,6 +138,10 @@ def do_mix(stems, loud, jid):
         else:
             m = m * (10.0 ** ((tgt - cur) / 20.0))
         m = LIM(m, sr).astype(np.float32)
+        _ceiling = 10.0 ** (-1.0 / 20.0)
+        _pk = float(np.max(np.abs(m)))
+        if _pk > _ceiling:
+            m = m * (_ceiling / _pk)
         out = os.path.join(tmp, "mix.wav")
         save16(out, m, sr)
         url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
