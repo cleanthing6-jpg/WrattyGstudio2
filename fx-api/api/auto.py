@@ -471,9 +471,10 @@ def _role_chain(voc, sr, st, role):
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 0.5 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, g, 0.8)); moves.append(["presence 3k", round(g, 2)])
-    ch.append(Compressor(threshold_db=-20.0, ratio=t["ratio"],
+    _thr = float(np.clip(_rms_db(voc) - 4.0, -45.0, -8.0))
+    ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
-    moves.append(["compress", "%s:1" % t["ratio"]])
+    moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
     drive = min(3.0, t["sat"] + max(0.0, (2.5 - st["clarity"]) * 0.3))
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
     _pre = _rms_db(voc)
