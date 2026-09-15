@@ -3,6 +3,7 @@ a professional release chain. Every stage is capped, guarded and verified, so a
 mix cannot come out harsh, phasing or clipping.
 """
 
+import os
 import numpy as np
 import pedalboard
 from pedalboard import (
@@ -44,6 +45,9 @@ ROLE_TREAT = {
                 "sat": 1.5, "width": 1.10},
 }
 ROLE_VOCALS = ("lead", "adlib", "backing")
+CLARITY_MIN = 2.2
+RAISE_PER_PASS = 1.5
+RAISE_CAP = 4.5
 SEND_WET = 0.11
 DOUBLE_DB = -15.0
 WIDEN = 1.15
@@ -56,7 +60,7 @@ BEAT_ROLES = ("beat", "instrumental", "inst", "instrument", "music",
 VOCAL_ROLES = ("vocal", "vox", "lead", "adlib", "backing", "harmony",
                "acapella", "acappella", "dry", "main")
 
-_PLATE = {}
+_PLATE = {"ir": {}, "err": ""}
 
 
 def role_of(role):
@@ -219,6 +223,23 @@ def _istft(S, length, chunk=512):
 
 # ---------- analysis ----------
 
+def _measures(B, V, freq):
+    v = {b: _avg(V, b, freq) for b in BANDS}
+    q = {b: _avg(B, b, freq) for b in BANDS}
+    return {
+        "body": v[BODY],
+        "presence": v[PRES] - v[BODY],
+        "harsh": v[HARSH] - v[BODY],
+        "mud": v[MUD] - v[BODY],
+        "box": v[BOX] - v[BODY],
+        "sib": v[SIB] - v[BODY],
+        "air": v[AIR] - v[HARSH],
+        "clarity": v[PRES] - q[PRES],
+        "mask_body": v[BODY] - q[BODY],
+        "mask_harsh": v[HARSH] - q[HARSH],
+    }
+
+
 def analyze(beat_mono, voc_mono, sr):
     freq = np.fft.rfftfreq(N, 1.0 / sr)
     B = _stft(beat_mono)
@@ -273,8 +294,8 @@ def detect_tempo(beat_mono, sr):
 
 def plate_ir(sr):
     key = int(sr)
-    if key in _PLATE:
-        return _PLATE[key]
+    if key in _PLATE["ir"]:
+        return _PLATE["ir"][key]
     dur, pre = 1.25, 0.022
     n = int(sr * dur)
     t = np.arange(n, dtype=np.float64) / sr
@@ -287,17 +308,44 @@ def plate_ir(sr):
     ir = x[0].astype(np.float32)
     e = float(np.sqrt(np.sum(np.square(ir.astype(np.float64))))) + 1e-12
     ir = (ir / e) * 0.9
-    _PLATE[key] = ir.astype(np.float32)
-    return _PLATE[key]
+    _PLATE["ir"][key] = ir.astype(np.float32)
+    return _PLATE["ir"][key]
+
+
+def plate_error():
+    return _PLATE.get("err") or None
 
 
 def _plate(voc, sr):
     ir = plate_ir(sr)
     if Convolution is not None:
+        import tempfile as _tf
+        path = None
         try:
-            return Pedalboard([Convolution(ir, mix=1.0)])(voc, sr).astype(np.float32)
-        except Exception:
-            pass
+            from pedalboard.io import AudioFile as _AF
+            fd, path = _tf.mkstemp(suffix=".wav")
+            os.close(fd)
+            stereo = np.stack([ir, (ir * 0.97).astype(np.float32)]).astype(np.float32)
+            with _AF(path, "w", int(sr), 2) as f:
+                try:
+                    f.bit_depth = 32
+                except Exception:
+                    pass
+                f.write(stereo)
+            for mk in (lambda: Convolution(path, mix=1.0),
+                       lambda: Convolution(path)):
+                try:
+                    return Pedalboard([mk()])(voc, sr).astype(np.float32)
+                except Exception as e:
+                    _PLATE["err"] = "Convolution: " + str(e)[:160]
+        except Exception as e:
+            _PLATE["err"] = "ir write: " + str(e)[:160]
+        finally:
+            if path:
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
     try:
         return Pedalboard([Reverb(room_size=0.45, damping=0.55,
                                   wet_level=1.0, dry_level=0.0, width=1.0)])(voc, sr).astype(np.float32)
