@@ -29,6 +29,21 @@ MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 5.0
 DUCK_CAP = {BODY: 1.0, PRES: 3.0, HARSH: 2.0}
 DUCK_TARGET = {BODY: 2.0, PRES: 2.5, HARSH: 2.0}
 
+ROLE_TREAT = {
+    "lead":    {"gain": 0.0,  "hpf": 85.0,  "mud": 2.5, "box": 1.5, "pres": 1.0,
+                "harsh": 3.0, "air": 2.0, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
+                "sat": 1.8, "width": 1.0},
+    "adlib":   {"gain": -5.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
+                "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
+                "sat": 2.6, "width": 1.30},
+    "backing": {"gain": -8.0, "hpf": 160.0, "mud": 2.5, "box": 1.5, "pres": 0.0,
+                "harsh": 2.0, "air": 1.0, "ratio": 3.5, "atk": 10.0, "rel": 130.0,
+                "sat": 1.6, "width": 1.45},
+    "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
+                "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
+                "sat": 1.5, "width": 1.10},
+}
+ROLE_VOCALS = ("lead", "adlib", "backing")
 SEND_WET = 0.11
 DOUBLE_DB = -15.0
 WIDEN = 1.15
@@ -44,18 +59,29 @@ VOCAL_ROLES = ("vocal", "vox", "lead", "adlib", "backing", "harmony",
 _PLATE = {}
 
 
-def kind_of(role):
-    r = str(role or "").lower()
+def role_of(role):
+    r = str(role or "").lower().strip()
     for t in BEAT_ROLES:
         if t in r:
             return "beat"
-    for t in VOCAL_ROLES:
-        if t in r:
-            return "vocal"
+    if any(t in r for t in ("adlib", "ad lib", "ad-lib", "harmon", "stack")):
+        return "adlib"
+    if any(t in r for t in ("back", "backup", "bvox", "b-vox", "double", "group")):
+        return "backing"
+    if any(t in r for t in ("lead", "main", "vocal", "vox", "acap", "dry")):
+        return "lead"
     return "other"
 
 
-# ---------- helpers ----------
+def bucket(role):
+    r = role_of(role)
+    return r if r in ("beat", "lead", "adlib", "backing") else "other"
+
+
+def kind_of(role):
+    r = role_of(role)
+    return "vocal" if r in ("lead", "adlib", "backing") else r
+
 
 def _opt(chain, cls, **kw):
     if cls is None:
@@ -95,7 +121,7 @@ def _sum(arrays):
 
 def plain_sum(groups):
     out = np.zeros((2, 0), dtype=np.float32)
-    for kind in ("beat", "vocal", "other"):
+    for kind in ("beat", "lead", "adlib", "backing", "other"):
         for a in groups.get(kind) or []:
             if out.shape[1] < a.shape[1]:
                 g = np.zeros((2, a.shape[1]), dtype=np.float32)
@@ -374,41 +400,50 @@ def _double(voc, sr):
         return None
 
 
-def vocal_process(voc, sr, st, bpm):
-    moves = [["highpass", 85.0]]
-    ch = [HighpassFilter(cutoff_frequency_hz=85.0)]
-    if st["mud"] > 1.5:
-        g = -min(MAX_MUD_CUT, (st["mud"] - 1.5) * 1.2)
-        ch.append(PeakFilter(220.0, g, 0.9)); moves.append(["mud 220", round(g, 2)])
-    if st["box"] > 1.5:
-        g = -min(MAX_BOX_CUT, (st["box"] - 1.5) * 0.8)
-        ch.append(PeakFilter(650.0, g, 1.0)); moves.append(["box 650", round(g, 2)])
-    if st["harsh"] > 2.0:
-        g = -min(MAX_HARSH_CUT, st["harsh"] - 2.0)
-        ch.append(PeakFilter(4300.0, g, 1.2)); moves.append(["harsh 4.3k", round(g, 2)])
-    if st["presence"] < -3.0 and st["harsh"] < 2.0:
-        g = min(MAX_PRESENCE, (-st["presence"] - 3.0) * 0.5 + 0.5)
+def _role_chain(voc, sr, st, role):
+    t = ROLE_TREAT.get(role, ROLE_TREAT["other"])
+    moves = [["role", role], ["highpass", t["hpf"]]]
+    ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
+    if st["mud"] > 1.0:
+        g = -min(t["mud"], (st["mud"] - 1.0) * 1.1)
+        if g < -0.2:
+            ch.append(PeakFilter(240.0, g, 0.9)); moves.append(["mud 240", round(g, 2)])
+    if st["box"] > 1.0:
+        g = -min(t["box"], (st["box"] - 1.0) * 0.8)
+        if g < -0.2:
+            ch.append(PeakFilter(600.0, g, 1.0)); moves.append(["box 600", round(g, 2)])
+    if st["harsh"] > 1.5:
+        g = -min(t["harsh"], (st["harsh"] - 1.5))
+        if g < -0.2:
+            ch.append(PeakFilter(4400.0, g, 1.2)); moves.append(["harsh 4.4k", round(g, 2)])
+    if st["presence"] < -2.5 and st["harsh"] < 2.0 and t["pres"] > 0:
+        g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 0.5 + 0.4)
         if g > 0.2:
-            ch.append(PeakFilter(2800.0, g, 0.8)); moves.append(["presence 2.8k", round(g, 2)])
-    ch.append(Compressor(threshold_db=-20.0, ratio=3.0, attack_ms=5.0, release_ms=90.0))
-    moves.append(["compress", "3:1 @ -20"])
-    air = min(MAX_AIR, max(0.8, (-st["air"] - 3.0) * 0.3))
-    ch.append(HighShelfFilter(cutoff_frequency_hz=10000.0, gain_db=air, q=0.7))
-    moves.append(["air 10k", round(air, 2)])
-
+            ch.append(PeakFilter(3000.0, g, 0.8)); moves.append(["presence 3k", round(g, 2)])
+    ch.append(Compressor(threshold_db=-20.0, ratio=t["ratio"],
+                         attack_ms=t["atk"], release_ms=t["rel"]))
+    moves.append(["compress", "%s:1" % t["ratio"]])
+    drive = min(3.0, t["sat"] + max(0.0, (2.5 - st["clarity"]) * 0.3))
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
-    drive = min(3.0, 1.2 + max(0.0, (2.5 - st["clarity"]) * 0.6))
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
+    try:
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
+                                          gain_db=min(MAX_AIR, t["air"]), q=0.7)])(out, sr).astype(np.float32)
+    except Exception:
+        pass
+    moves.append(["air 10k", round(min(MAX_AIR, t["air"]), 2)])
     out, dd = _deess(out, sr, st)
     moves.append(["de-ess", dd])
-    out, ms, plate_kind = _ambience(out, sr, bpm)
-    moves.append(["slap ms", ms])
-    moves.append(["plate", plate_kind])
+    out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
+    moves.append(["role gain", t["gain"]])
     return out, moves
 
 
-# ---------- ducking ----------
+def vocal_process(voc, sr, st, bpm):
+    out, moves = _role_chain(voc, sr, st, "lead")
+    return out, moves
+
 
 def _plan(st):
     now = {BODY: st["mask_body"], PRES: st["clarity"], HARSH: st["mask_harsh"]}
@@ -443,11 +478,12 @@ def _duck(beat, voc_eq, freq, st, extra=0.0):
 
 # ---------- width, verify, limit ----------
 
-def _widen(x, sr):
+def _widen(x, sr, amount=None):
+    amt = WIDEN if amount is None else amount
     mid = ((x[0] + x[1]) * 0.5).astype(np.float32)
     side = ((x[0] - x[1]) * 0.5).astype(np.float32)
     low = Pedalboard([LowpassFilter(cutoff_frequency_hz=LOW_MONO_HZ)])(side[None, :], sr)[0]
-    side = ((side - low) * WIDEN + low).astype(np.float32)
+    side = ((side - low) * amt + low).astype(np.float32)
     return np.stack([mid + side, mid - side]).astype(np.float32)
 
 
@@ -524,12 +560,16 @@ def limit(x, sr, ceiling_db=CEILING_DB):
 
 def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])
-    vocs = list(groups.get("vocal") or [])
     others = list(groups.get("other") or [])
     rep = {"sr": int(sr)}
 
     beat = _sum(beats) if beats else None
-    voc = _sum(vocs) if vocs else None
+    ro_map = {}
+    for r in ROLE_VOCALS:
+        arrs = groups.get(r) or []
+        if arrs:
+            ro_map[r] = _sum(arrs)
+    voc = _sum(list(ro_map.values())) if ro_map else None
 
     if beat is None and voc is None:
         rep["mode"] = "sum"
@@ -542,30 +582,79 @@ def mix(groups, sr, loud="MEDIUM"):
 
     if beat is None:
         rep["mode"] = "vocal_only"
-        voc = voc * (10.0 ** (-6.0 / 20.0))
-        st, freq = analyze(voc, voc, sr)
-        voc, moves = vocal_process(voc, sr, st, detect_tempo(voc, sr))
+        st, _f = analyze(voc, voc, sr)
+        parts, moves = [], {}
+        for r in list(ro_map.keys()):
+            y, mv = _role_chain(ro_map[r], sr, st, r)
+            parts.append(y); moves[r] = mv
+        core = _sum(parts)
+        if others:
+            ex = _sum(others)
+            n = max(core.shape[1], ex.shape[1])
+            core = (_pad(core, n) + _pad(ex, n) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
+        core, ms, pk = _ambience(core, sr, detect_tempo(core, sr))
         rep["vocal_chain"] = moves
-        return _headroom(voc), rep
+        rep["slap_ms"] = ms
+        rep["plate"] = pk
+        rep["plate_error"] = plate_error()
+        return _headroom(core), rep
 
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
+    rep["roles"] = {r: len(groups.get(r) or []) for r in ROLE_VOCALS if groups.get(r)}
     bpm = detect_tempo(_mono(beat), sr)
     rep["bpm"] = round(bpm, 1)
 
-    g = float(np.clip(_rms_db(beat) - _rms_db(voc) - 6.0, -18.0, 6.0))
-    voc = (voc * (10.0 ** (g / 20.0))).astype(np.float32)
-    rep["vocal_gain_db"] = round(g, 2)
-
-    st, freq = analyze(_mono(beat), _mono(voc), sr)
+    freq = np.fft.rfftfreq(N, 1.0 / sr)
+    Bst = _stft(_mono(beat))
+    st = _measures(Bst, _stft(_mono(voc)), freq)
     rep["measured"] = {k: round(float(v), 2) for k, v in st.items()}
-    voc_eq, moves = vocal_process(voc, sr, st, bpm)
+
+    parts, moves = [], {}
+    for r in list(ro_map.keys()):
+        y, mv = _role_chain(ro_map[r], sr, st, r)
+        if ROLE_TREAT[r]["width"] != 1.0:
+            y = _widen(y, sr, ROLE_TREAT[r]["width"])
+        parts.append(y); moves[r] = mv
+    core = _sum(parts)
     rep["vocal_chain"] = moves
 
-    ducked, plan, vpres, post = _duck(beat, voc_eq, freq, st)
+    raised = 0.0
+    level_passes = 0
+    while (level_passes < 3 and st["clarity"] < (CLARITY_MIN - 0.3)
+           and raised < RAISE_CAP):
+        add = min(RAISE_PER_PASS, (CLARITY_MIN - st["clarity"]) * 0.7, RAISE_CAP - raised)
+        if add <= 0.05:
+            break
+        raised += add
+        core = (core * (10.0 ** (add / 20.0))).astype(np.float32)
+        st = _measures(Bst, _stft(_mono(core)), freq)
+        level_passes += 1
+    del Bst
+    rep["vocal_raise_db"] = round(raised, 2)
+    rep["level_passes"] = level_passes
+
+    core, ms, pk = _ambience(core, sr, bpm)
+    rep["slap_ms"] = ms
+    rep["plate"] = pk
+    rep["plate_error"] = plate_error()
+
+    side_ids = [r for r in ("adlib", "backing") if r in ro_map]
+    if side_ids:
+        dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
+        if dbl is not None:
+            n = max(core.shape[1], dbl.shape[1])
+            core = (_pad(core, n) + _pad(dbl, n)).astype(np.float32)
+            rep["double"] = True
+        else:
+            rep["double"] = False
+    else:
+        rep["double"] = False
+
+    ducked, plan, vpres, post = _duck(beat, core, freq, st)
     tries = 1
     while (post is not None and (vpres - post) < (DUCK_TARGET[PRES] - 0.5)
            and tries < 2 and any(plan[b] > -DUCK_CAP[b] + 0.05 for b in plan)):
-        ducked, plan, vpres, post = _duck(beat, voc_eq, freq, st, extra=1.0)
+        ducked, plan, vpres, post = _duck(beat, core, freq, st, extra=1.0)
         tries += 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
@@ -573,19 +662,16 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["clarity_after"] = None if post is None else round(float(vpres - post), 2)
     rep["duck_passes"] = tries
 
-    n = max(ducked.shape[1], voc_eq.shape[1])
+    n = max(ducked.shape[1], core.shape[1])
     ducked = _pad(ducked, n)
-    voc_eq = _pad(voc_eq, n)
-
-    dbl = _double(voc_eq, sr)
-    rep["double"] = dbl is not None
-    if dbl is not None:
-        dbl = _pad(dbl, n)
-        mixed = (ducked + voc_eq + dbl).astype(np.float32)
-    else:
-        mixed = (ducked + voc_eq).astype(np.float32)
+    core = _pad(core, n)
+    mixed = (ducked + core).astype(np.float32)
+    if others:
+        ex = _sum(others)
+        n2 = max(mixed.shape[1], ex.shape[1])
+        mixed = (_pad(mixed, n2) + _pad(ex, n2) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
 
     mixed = _widen(mixed, sr)
     mixed = _headroom(mixed)
-    rep["check"] = verify(mixed, sr, voc_eq, ducked)
+    rep["check"] = verify(mixed, sr, core, ducked)
     return mixed, rep

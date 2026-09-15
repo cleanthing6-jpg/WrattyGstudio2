@@ -127,7 +127,7 @@ def do_mix(stems, loud, jid, max_sec=0):
     tmp = tempfile.mkdtemp()
     try:
         sr = None
-        groups = {"beat": [], "vocal": [], "other": []}
+        groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "other": []}
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
             p = os.path.join(tmp, "%d.wav" % i)
@@ -146,7 +146,7 @@ def do_mix(stems, loud, jid, max_sec=0):
                 a = np.repeat(a, 2, axis=0)
             a = np.ascontiguousarray(a[:2].astype(np.float32))
             role = s.get("role") or s.get("name") or "stem"
-            groups[auto.kind_of(role)].append(a)
+            groups[auto.bucket(role)].append(a)
 
         setjob(jid, "analysing")
         try:
