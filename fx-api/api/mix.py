@@ -54,13 +54,10 @@ def load(p, max_sec=0.0):
 
 
 def save16(p, a, sr):
-    a = np.asarray(a, dtype=np.float32)
-    np.clip(a, -1.0, 1.0, out=a)
-    d = np.random.default_rng().random(a.shape, dtype=np.float32)
-    d -= 0.5
-    d /= 16384.0
-    a += d
-    np.clip(a, -1.0, 1.0, out=a)
+    a = np.asarray(a, dtype=np.float64)
+    rng = np.random.default_rng()
+    d = (rng.random(a.shape) - rng.random(a.shape)) / 32768.0
+    a = np.clip(a + d, -1.0, 1.0).astype(np.float32)
     with AudioFile(p, "w", int(sr), a.shape[0]) as f:
         try:
             f.bit_depth = 16
@@ -158,7 +155,7 @@ def do_mix(stems, loud, jid, max_sec=0):
         want = str(loud or "MEDIUM").upper()
 
         if mode not in ("two_track", "passthrough", "vocal_only"):
-            mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed_full)) / 20.0))
+            mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
             mixed = BUS(mixed, sr).astype(np.float32)
 
@@ -166,8 +163,6 @@ def do_mix(stems, loud, jid, max_sec=0):
         cur = lufs(mixed, sr)
         if cur is None:
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
-        elif cur > tgt:
-            mixed = mixed * (10.0 ** ((tgt - cur) / 20.0))
         else:
             mixed = mixed * (10.0 ** (min(2.5, tgt - cur) / 20.0))
 
@@ -175,18 +170,25 @@ def do_mix(stems, loud, jid, max_sec=0):
         if mode not in ("two_track", "passthrough", "vocal_only"):
             mixed = auto.clip(mixed, sr)
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
+        for _ in range(3):
+            f = lufs(mixed, sr)
+            if f is None or abs(tgt - f) < 0.15:
+                break
+            mixed = mixed * (10.0 ** (min(2.5, tgt - f) / 20.0))
+            mixed, tp, brick = auto.limit(mixed, sr, -1.0)
         report["true_peak_dbfs"] = round(tp, 2)
         report["limiter"] = "brickwall" if brick else "fallback"
 
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
+        rel, rel_sr = load(out)
         url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
-        got = lufs(mixed_full, sr)
+        got = lufs(rel, rel_sr)
         report["loudness"] = want
-        return {"url": url, "seconds": round(mixed.shape[1] / float(sr), 2),
-                "peak_dbfs": round(peakdb(mixed_full), 2),
+        return {"url": url, "seconds": round(rel.shape[1] / float(rel_sr), 2),
+                "peak_dbfs": round(peakdb(rel), 2),
                 "lufs": (None if got is None else round(got, 2)),
-                "sample_rate": int(sr),
+                "sample_rate": int(rel_sr),
                 "mode": mode, "report": report}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
