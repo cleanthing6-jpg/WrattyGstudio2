@@ -144,13 +144,34 @@ def _peak_db(x):
     return 20.0 * np.log10(pk + 1e-12)
 
 
-def _true_peak_db(x):
-    if x.size == 0:
+def _true_peak_db(x, oversample=4, chunk=1 << 16, guard=4096):
+    """True peak in dBTP via FFT oversampling (zero-stuff + brick-wall LPF)."""
+    a = np.asarray(x, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[None, :]
+    if a.size == 0:
         return -120.0
-    pk = float(np.max(np.abs(x)))
-    if x.shape[1] > 2:
-        pk = max(pk, float(np.max(np.abs((x[:, :-1] + x[:, 1:]) * 0.5))))
-    return 20.0 * np.log10(pk + 1e-12)
+    u = max(1, int(oversample))
+    total = a.shape[1]
+    peak = 0.0
+    for ch in range(a.shape[0]):
+        for p0 in range(0, total, chunk):
+            q = min(p0 + chunk, total)
+            lo = max(0, p0 - guard)
+            hi = min(total, q + guard)
+            seg = a[ch, lo:hi]
+            m = int(seg.size)
+            N = m * u
+            X = np.fft.rfft(seg)
+            Y = np.zeros(N // 2 + 1, dtype=np.complex128)
+            Y[:X.size] = X * u
+            y = np.fft.irfft(Y, N)
+            s = (p0 - lo) * u
+            e = s + (q - p0) * u
+            mx = float(np.max(np.abs(y[s:e])))
+            if mx > peak:
+                peak = mx
+    return 20.0 * np.log10(peak + 1e-12)
 
 
 def _headroom(x, target_db=-3.0):
@@ -764,7 +785,8 @@ def limit(x, sr, ceiling_db=CEILING_DB):
     lim = 10.0 ** (ceiling_db / 20.0)
     if tp > ceiling_db:
         y = y * (lim / (10.0 ** (tp / 20.0)))
-    return y, float(_true_peak_db(y)), (b is not None)
+        tp = float(ceiling_db)
+    return y, float(tp), (b is not None)
 
 
 # ---------- main ----------
