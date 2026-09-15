@@ -384,13 +384,14 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
       let finalR = d && d.url ? d.url : "";
-      for (let i = 0; i < 40 && !finalR; i++) {
-        setMsg("Mixing and mastering your song... step " + (i + 1) + " of 40");
+      for (let i = 0; i < 120 && !finalR; i++) {
         await new Promise((res) => setTimeout(res, 5000));
         const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000);
         const gd = await g.json().catch(() => ({}));
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "done" && gd.url) finalR = gd.url;
+        if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
+        else setMsg("Mixing… (" + ((i + 1) * 5) + "s since start)");
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
       if (!finalR) throw new Error("The mixer is taking too long - check Dashboard > My Mixes, or try again.");
