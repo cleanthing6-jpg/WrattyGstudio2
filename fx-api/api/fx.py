@@ -119,6 +119,8 @@ class handler(BaseHTTPRequestHandler):
         url = str(data.get("url") or "").strip()
         if not url.startswith("https://"):
             return self._json(400, {"error": "url required"})
+        name_for_check = str(data.get("name") or "")
+        preset = str(data.get("preset") or "bus").lower()
         if not (url.split("?")[0].lower().endswith(ALLOWED) or name_for_check.lower().endswith(ALLOWED)):
             return self._json(400, {"error": "send a WAV (the app converts stems to WAV)"})
 
@@ -126,8 +128,6 @@ class handler(BaseHTTPRequestHandler):
             bpm = min(max(float(data.get("bpm") or 100), 40.0), 220.0)
         except Exception:
             bpm = 100.0
-        name_for_check = str(data.get("name") or "")
-    preset = str(data.get("preset") or "bus").lower()
 
         token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if not token:
