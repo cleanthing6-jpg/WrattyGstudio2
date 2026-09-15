@@ -123,6 +123,8 @@ def setjob(jid, status, url=""):
         if url:
             j["url"] = url
         JOBS[jid] = j
+        _st, _rss = j.get("status"), j.get("rss_mb")
+    print("[job %s] %-18s rss=%s MB" % (jid[:8], _st, _rss), flush=True)
 
 
 def do_mix(stems, loud, jid, max_sec=0):
