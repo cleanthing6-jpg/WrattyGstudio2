@@ -173,7 +173,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const s2 = await fetch("/api/roex-master?taskId=" + encodeURIComponent(data.taskId));
         const st = await s2.json().catch(() => ({}));
         if (!s2.ok) throw new Error(st.error || "Mastering failed");
-        if (/failed|error/i.test(String(st.status))) throw new Error("RoEx mastering failed");
+        if (/failed|error/i.test(String(st.status))) throw new Error("Mastering failed");
         if (st.masterUrl || st.url) { setMasterUrl(st.masterUrl || st.url); setMsg("Master ready"); return; }
       }
       throw new Error("Mastering preview timed out");

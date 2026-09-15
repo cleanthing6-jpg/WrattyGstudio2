@@ -1,55 +1,52 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { POST as mixPOST, GET as mixGET } from "../mix/route";
 
-const BASE = "https://tonn.roexaudio.com";
-const KEY = process.env.ROEX_API_KEY || "";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
-export async function POST(req: Request) {
-  try {
-    const { url, style = "AFROBEAT", loudness = "HIGH" } = await req.json();
-    if (!url) return NextResponse.json({ error: "Missing track url" }, { status: 400 });
+// Old RoEx mastering endpoint. Now: run the finished mix as a single stem
+// through our own master chain (sum -> glue -> LUFS -> limiter).
+const LOUDNESS = ["LOW", "MEDIUM", "HIGH"];
 
-    const shapes = [
-      { trackData: [{ trackURL: url }], musicalStyle: style, desiredLoudness: loudness },
-      { trackData: { trackURL: url }, musicalStyle: style, desiredLoudness: loudness },
-    ];
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const url = String(body?.url || "");
+  if (!/^https:\/\//.test(url)) return NextResponse.json({ error: "url required" }, { status: 400 });
 
-    let data: any = {};
-    let status = 502;
-    for (const body of shapes) {
-      const r = await fetch(BASE + "/masteringpreview", {
-        method: "POST",
-        headers: { "x-api-key": KEY, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      status = r.status;
-      data = await r.json().catch(() => ({}));
-      if (r.ok) break;
-      if (!/JSON format not valid|required/i.test(JSON.stringify(data || {}))) break;
-    }
+  const want = String(body?.loudness || "").toUpperCase();
+  const loudness = LOUDNESS.includes(want) ? want : "HIGH";
 
-    const taskId = data && (data.mastering_task_id || data.masteringTaskId || data.taskId || data.task_id);
-    if (!taskId) return NextResponse.json({ error: "RoEx: " + JSON.stringify(data).slice(0, 300) }, { status: status || 502 });
-    return NextResponse.json({ taskId });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Master preview failed" }, { status: 500 });
+  const headers = new Headers(req.headers);
+  headers.set("content-type", "application/json");
+  headers.delete("content-length");
+
+  const inner = new NextRequest(req.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ stems: [{ url, role: "mix" }], loudness, preview: false }),
+  });
+
+  const r = await mixPOST(inner);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d?.job) {
+    return NextResponse.json({ error: d?.error || "Could not start mastering" }, { status: r.status || 502 });
   }
+  return NextResponse.json({ taskId: d.job });
 }
 
-export async function GET(req: Request) {
-  try {
-    const id = new URL(req.url).searchParams.get("taskId");
-    if (!id) return NextResponse.json({ error: "Missing taskId" }, { status: 400 });
+export async function GET(req: NextRequest) {
+  const taskId = req.nextUrl.searchParams.get("taskId") || "";
+  if (!taskId) return NextResponse.json({ error: "taskId required" }, { status: 400 });
 
-    const s = await fetch(BASE + "/masteringstatus/" + id, { headers: { "x-api-key": KEY } });
-    const sd: any = await s.json().catch(() => ({}));
-    if (!s.ok) return NextResponse.json({ error: "RoEx: " + JSON.stringify(sd).slice(0, 300) }, { status: s.status || 502 });
+  const u = new URL(req.url);
+  u.searchParams.delete("taskId");
+  u.searchParams.set("id", taskId);
 
-    const td = sd.mastering_task_data || sd;
-    const state = td.state || td.status || "";
-    const masterUrl = td.download_url_mastered || td.download_url || "";
+  const inner = new NextRequest(u, { method: "GET", headers: req.headers });
+  const r = await mixGET(inner);
+  const d = await r.json().catch(() => ({}));
 
-    return NextResponse.json({ status: state, state: state, masterUrl: masterUrl, url: masterUrl });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Master status failed" }, { status: 500 });
-  }
+  if (d?.status === "done" && d?.url) return NextResponse.json({ status: "done", previewUrl: d.url });
+  if (d?.status === "failed") return NextResponse.json({ status: "failed", error: d?.error || "Master failed" });
+  return NextResponse.json({ status: d?.status || "queued", previewUrl: "" });
 }
