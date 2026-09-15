@@ -61,9 +61,15 @@ async function mixer(path: string, init: RequestInit, tries: number, retryCodes:
 
 // A job left 'running' too long means Render died mid-mix.
 async function reapStale() {
+  // A job left "running" too long means Render died mid-mix.
   await sql`UPDATE mix_jobs
     SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
     WHERE status='running' AND updated_at < NOW() - INTERVAL '12 minutes'`;
+  // A job left "queued" means the engine call failed before the job was claimed.
+  // Without this, ONE dead job blocks the user forever (MAX_PER_USER = 1).
+  await sql`UPDATE mix_jobs
+    SET status='failed', error='Mixer queue expired - please try again', updated_at=NOW()
+    WHERE status='queued' AND created_at < NOW() - INTERVAL '10 minutes'`;
 }
 
 // Start the oldest queued job, but only if nothing is running.
