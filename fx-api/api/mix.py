@@ -54,10 +54,17 @@ def load(p, max_sec=0.0):
 
 
 def save16(p, a, sr):
-    a = np.asarray(a, dtype=np.float64)
+    a = np.ascontiguousarray(a, dtype=np.float32)
+    np.clip(a, -1.0, 1.0, out=a)
     rng = np.random.default_rng()
-    d = (rng.random(a.shape) - rng.random(a.shape)) / 32768.0
-    a = np.clip(a + d, -1.0, 1.0).astype(np.float32)
+    flat = a.reshape(-1)
+    for i in range(0, flat.size, 1 << 20):
+        part = flat[i:i + (1 << 20)]
+        noise = rng.random(part.size, dtype=np.float32)
+        noise -= rng.random(part.size, dtype=np.float32)
+        noise *= np.float32(1.0 / 32768.0)
+        part += noise
+        np.clip(part, -1.0, 1.0, out=part)
     with AudioFile(p, "w", int(sr), a.shape[0]) as f:
         try:
             f.bit_depth = 16
@@ -170,7 +177,7 @@ def do_mix(stems, loud, jid, max_sec=0):
         if mode not in ("two_track", "passthrough", "vocal_only"):
             mixed = auto.clip(mixed, sr)
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
-        for _ in range(3):
+        for _ in range(1):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
@@ -181,6 +188,8 @@ def do_mix(stems, loud, jid, max_sec=0):
 
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
+        del mixed
+        gc.collect()
         rel, rel_sr = load(out)
         url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
         got = lufs(rel, rel_sr)
