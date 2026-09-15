@@ -8,6 +8,8 @@ import requests
 from pedalboard import Pedalboard, HighpassFilter, PeakFilter, Compressor, Limiter
 from pedalboard.io import AudioFile
 
+import auto
+
 try:
     import pyloudnorm as pyln
 except Exception:
@@ -125,12 +127,12 @@ def do_mix(stems, loud, jid, max_sec=0):
     tmp = tempfile.mkdtemp()
     try:
         sr = None
-        m = np.zeros((2, 0), dtype=np.float32)
+        groups = {"beat": [], "vocal": [], "other": []}
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
             p = os.path.join(tmp, "%d.wav" % i)
             grab(s["url"], p)
-            a, s0 = load(p, max_sec)
+            a, s0 = load(p)
             os.remove(p)
             if len(a[0]) / float(s0) > 480:
                 raise ValueError("stem longer than 8 minutes")
@@ -138,42 +140,56 @@ def do_mix(stems, loud, jid, max_sec=0):
                 sr = s0
             elif s0 != sr:
                 a = to_sr(a, s0, sr)
+            if max_sec:
+                a = a[:, : max(1, int(max_sec * sr))]
             if a.shape[0] == 1:
                 a = np.repeat(a, 2, axis=0)
             a = np.ascontiguousarray(a[:2].astype(np.float32))
-            if max_sec:
-                a = a[:, : max(1, int(max_sec * sr))]
-            need = a.shape[1]
-            if m.shape[1] < need:
-                g = np.zeros((2, need), dtype=np.float32)
-                g[:, :m.shape[1]] = m
-                m = g
-            m += a
-            del a
-        n = m.shape[1]
-        m *= np.float32(10.0 ** ((-6.0 - peakdb(m)) / 20.0))
-        setjob(jid, "glue bus")
-        m = np.asarray(BUS(m, sr), dtype=np.float32)
+            role = s.get("role") or s.get("name") or "stem"
+            groups[auto.kind_of(role)].append(a)
+
+        setjob(jid, "analysing")
+        try:
+            mixed, report = auto.mix(groups, sr)
+        except Exception as e:
+            mixed = auto.plain_sum(groups)
+            report = {"mode": "fallback", "error": str(e)[:300]}
+
+        mode = report.get("mode")
+        n = mixed.shape[1]
         want = str(loud or "MEDIUM").upper()
-        cur = lufs(m, sr)
+
+        if mode not in ("two_track", "passthrough", "vocal_only"):
+            mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
+            setjob(jid, "glue bus")
+            mixed = BUS(mixed, sr).astype(np.float32)
+
         tgt = TARGET.get(want, -14.0)
+        cur = lufs(mixed, sr)
         if cur is None:
-            m = m * (10.0 ** ((tgt + 2.5 - rmsdb(m)) / 20.0))
+            mixed = mixed * (10.0 ** ((tgt + 2.5 - rmsdb(mixed)) / 20.0))
+        elif cur > tgt:
+            mixed = mixed * (10.0 ** ((tgt - cur) / 20.0))
         else:
-            m = m * (10.0 ** ((tgt - cur) / 20.0))
-        m = np.asarray(LIM(m, sr), dtype=np.float32)
-        _ceiling = 10.0 ** (-1.0 / 20.0)
-        _pk = float(np.max(np.abs(m)))
-        if _pk > _ceiling:
-            m = m * (_ceiling / _pk)
+            mixed = mixed * (10.0 ** (min(2.5, tgt - cur) / 20.0))
+
+        setjob(jid, "clip+limit")
+        if mode not in ("two_track", "passthrough", "vocal_only"):
+            mixed = auto.clip(mixed, sr)
+        mixed, tp, brick = auto.limit(mixed, sr, -1.0)
+        report["true_peak_dbfs"] = round(tp, 2)
+        report["limiter"] = "brickwall" if brick else "fallback"
+
         out = os.path.join(tmp, "mix.wav")
-        save16(out, m, sr)
+        save16(out, mixed, sr)
         url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
-        got = lufs(m, sr)
+        got = lufs(mixed, sr)
+        report["loudness"] = want
         return {"url": url, "seconds": round(n / float(sr), 2),
-                "peak_dbfs": round(peakdb(m), 2),
+                "peak_dbfs": round(peakdb(mixed), 2),
                 "lufs": (None if got is None else round(got, 2)),
-                "sample_rate": sr}
+                "sample_rate": int(sr),
+                "mode": mode, "report": report}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
