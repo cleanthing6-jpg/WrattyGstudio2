@@ -252,17 +252,17 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         done.push({ url, name: st.name, role: st.role });
       }
 
-      setMsg("Staging stems with RoEx...");
+      setMsg("Preparing stems...");
       for (let si = 0; si < done.length; si++) {
         const st = done[si];
-        setMsg("Staging " + (st.role || st.name) + " with RoEx (" + (si + 1) + " of " + done.length + ")...");
+        setMsg("Preparing " + (st.role || st.name) + " (" + (si + 1) + " of " + done.length + ")...");
         const sr = await withTimeout(fetch("/api/roex-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: st.url, name: st.name }),
         }), 180000, "Staging " + st.name);
         const sj = await sr.json().catch(() => ({}));
-        if (!sr.ok || !sj.url) throw new Error("RoEx staging failed for " + st.name + ": " + (sj.error || sr.status));
+        if (!sr.ok || !sj.url) throw new Error("Stem staging failed for " + st.name + ": " + (sj.error || sr.status));
         done[si] = { url: sj.url, name: st.name, role: st.role };
       }
       setPrepared(done);
@@ -271,22 +271,22 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setTaskId("");
         const vocals = done.filter((st) => !isBeat(st));
         if (!vocals.length) throw new Error("Beat-Lock needs at least one vocal stem");
-        setMsg("Beat-Lock: sending " + vocals.length + " vocal stem(s) to RoEx...");
-        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stems: vocals, style }) }), 120000, "RoEx vocal request");
+        setMsg("Beat-Lock: sending " + vocals.length + " vocal stem(s) to the mixer...");
+        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stems: vocals, style }) }), 120000, "Vocal request");
         const vdata = await vpost.json().catch(() => ({}));
-        if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "RoEx could not start the vocal mix (code " + vpost.status + ")");
+        if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
         for (let k = 0; k < 30 && !roexVocalUrl; k++) {
-          setMsg("RoEx is mixing your vocals - attempt " + (k + 1) + " of 30");
+          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 30");
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/roex-mix?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
           if (vsd.error) throw new Error(vsd.error);
           if (vsd.status === "preview" && vsd.url) roexVocalUrl = vsd.url;
         }
-        if (!roexVocalUrl) throw new Error("RoEx vocal mix timed out - try again in a minute");
+        if (!roexVocalUrl) throw new Error("Vocal mix timed out - try again in a minute");
         setTaskId("");
-        setMsg("Beat protected - RoEx vocals ready, combining...");
+        setMsg("Beat protected - vocals ready, combining...");
         const AC: any = (window as any).AudioContext || (window as any).webkitAudioContext;
         const ctx: any = new AC();
         const loadAudio = async (url: string, label: string): Promise<AudioBuffer> => {
@@ -294,7 +294,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           if (!res.ok) throw new Error(label + " fetch failed (" + res.status + ")");
           return await withTimeout(ctx.decodeAudioData(await res.arrayBuffer()), 120000, label + " decode");
         };
-        const [beatBuf, vocalBuf] = await Promise.all([loadAudio(beatStem.url, "Beat"), loadAudio(roexVocalUrl, "RoEx vocal mix")]);
+        const [beatBuf, vocalBuf] = await Promise.all([loadAudio(beatStem.url, "Beat"), loadAudio(roexVocalUrl, "Vocal mix")]);
         const sampleRate = ctx.sampleRate;
         const beatLen = Math.max(1, beatBuf.length);
         const off = new OfflineAudioContext(2, beatLen, sampleRate);
@@ -339,7 +339,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setTaskId("");
         setMsg("Done - Beat-Lock mastered & saved: " + label);
       } else {
-        setMsg("Sending stems to the RoEx engine…");
+        setMsg("Sending stems to your engine…");
         const post = await withTimeout(fetch("/api/roex-mix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -350,7 +350,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setTaskId(data.taskId);
 
         for (let i = 0; i < 30; i++) {
-          setMsg("RoEx is mixing your stems… attempt " + (i + 1) + " of 30");
+          setMsg("Mixing your stems… attempt " + (i + 1) + " of 30");
           await new Promise((r) => setTimeout(r, 5000));
           const s = await fetchWithTimeout("/api/roex-mix?taskId=" + encodeURIComponent(data.taskId), 60000);
           const sd = await s.json().catch(() => ({}));
@@ -360,7 +360,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             setMsg("Preview ready — listen below 🎧");
             break;
           }
-          if (i === 29) throw new Error("RoEx is taking too long — try again in a minute.");
+          if (i === 29) throw new Error("The mixer is taking too long — try again in a minute.");
         }
       }
     } catch (e: any) {
@@ -407,7 +407,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   return (
     <div className="rounded-xl border border-blue-200 bg-white p-4">
       <h3 className="text-lg font-bold mb-1">✨ AI Mix &amp; Master (Pro Engine)</h3>
-      <p className="text-xs text-gray-500 mb-3">Powered by the RoEx Tonn engine. Preview is free; the full mix uses 1 AI credit.</p>
+      <p className="text-xs text-gray-500 mb-3">Afrobeats mix and master engine. The 30-second preview is free.</p>
 
       <label className="block text-xs font-semibold text-gray-600 mb-1">Musical style</label>
       <select
@@ -418,7 +418,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       >
         {STYLES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
       </select>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">RoEx master loudness (used on unlock)</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Master loudness</label>
         <select value={roexLoudness} onChange={(e) => setRoexLoudness(e.target.value)} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value="LOW">LOW — quietest, most dynamic</option>
           <option value="MEDIUM">MEDIUM — balanced, streaming standard</option>
@@ -444,7 +444,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       <label className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
         <input type="checkbox" checked={false} disabled onChange={() => setBeatLockMode(false)} />
-        Protect my beat - vocals only go to RoEx
+        Protect my beat - vocals only go to the mixer
       </label>
       <button
         onClick={generate}

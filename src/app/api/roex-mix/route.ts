@@ -1,83 +1,54 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { POST as mixPOST, GET as mixGET } from "../mix/route";
 
-const TONN = "https://tonn.roexaudio.com";
-const KEY = process.env.ROEX_API_KEY || "";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
-async function tonnPost(path: string, body: unknown) {
-  const res = await fetch(TONN + path, {
-    method: "POST",
-    headers: { "X-API-Key": KEY, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data };
-}
-
-function toRoEx(role: string, url: string, name: string) {
-  const r = String(role || name || "").toLowerCase();
-  if (r.includes("lead") || r.includes("vocal") || r.includes("main")) {
-    return { trackURL: url, instrumentGroup: "VOCAL_GROUP", presenceSetting: "LEAD", gainDb: 0, panPreference: "CENTRE", reverbPreference: "LOW" };
-  }
-  if (r.includes("ad") || r.includes("adlib")) {
-    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "BACKGROUND", gainDb: -9, panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
-  }
-  if (r.includes("back") || r.includes("harmony") || r.includes("chorus")) {
-    return { trackURL: url, instrumentGroup: "BACKING_VOX_GROUP", presenceSetting: "NORMAL", gainDb: -6, panPreference: "NO_PREFERENCE", reverbPreference: "LOW" };
-  }
-  // Full instrumental/beat = backing track, NOT a drum stem
-  return { trackURL: url, instrumentGroup: "BACKING_TRACK_GROUP", presenceSetting: "NORMAL", gainDb: -1.5, panPreference: "CENTRE", reverbPreference: "NONE" };
-}
+// The client still calls the old RoEx contract:
+//   POST { stems }        -> { taskId }
+//   GET  ?taskId=<id>     -> { status: "preview", url }
+// It is now served by our OWN mixer as a 30-second preview.
+const LOUDNESS = ["LOW", "MEDIUM", "HIGH"];
 
 export async function POST(req: NextRequest) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = await req.json().catch(() => ({}));
+  const stems = Array.isArray(body?.stems) ? body.stems : [];
+  if (!stems.length) return NextResponse.json({ error: "stems[] required" }, { status: 400 });
 
-    const { stems, style } = await req.json();
-    if (!Array.isArray(stems) || stems.length < 2) {
-      return NextResponse.json({ error: "RoEx needs at least 2 stems (e.g. lead vocal + beat)" }, { status: 400 });
-    }
+  const want = String(body?.loudness || "").toUpperCase();
+  const loudness = LOUDNESS.includes(want) ? want : "HIGH";
 
-    // FREE: creates the 30s preview task — no credits charged
-    const { ok, status, data } = await tonnPost("/mixpreview", {
-      multitrackData: {
-        trackData: stems.map((s) => toRoEx(s.role, s.url, s.name)),
-        musicalStyle: typeof style === "string" && style.trim() ? style.trim().toUpperCase() : "AFROBEAT",
-      },
-    });
-    if (!ok) return NextResponse.json({ error: "RoEx: " + JSON.stringify(data).slice(0, 300) }, { status: status || 502 });
+  const headers = new Headers(req.headers);
+  headers.set("content-type", "application/json");
+  headers.delete("content-length");
 
-    const taskId = data.multitrackTaskId || data.multitrack_task_id;
-    if (!taskId) return NextResponse.json({ error: "RoEx: no task id — " + JSON.stringify(data).slice(0, 300) }, { status: 502 });
+  const inner = new NextRequest(req.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ stems, loudness, preview: true }),
+  });
 
-    return NextResponse.json({ taskId });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "RoEx failed" }, { status: 500 });
+  const r = await mixPOST(inner);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d?.job) {
+    return NextResponse.json({ error: d?.error || "Could not start the preview" }, { status: r.status || 502 });
   }
+  return NextResponse.json({ taskId: d.job });
 }
 
 export async function GET(req: NextRequest) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const taskId = req.nextUrl.searchParams.get("taskId") || "";
+  if (!taskId) return NextResponse.json({ error: "taskId required" }, { status: 400 });
 
-    const taskId = req.nextUrl.searchParams.get("taskId");
-    if (!taskId) return NextResponse.json({ error: "Missing taskId" }, { status: 400 });
+  const u = new URL(req.url);
+  u.searchParams.delete("taskId");
+  u.searchParams.set("id", taskId);
 
-    // Poll the free preview. retrieveFXSettings=false keeps it free.
-    const { ok, status, data } = await tonnPost("/retrievepreviewmix", {
-      multitrackData: { multitrackTaskId: taskId, retrieveFXSettings: false, returnStems: true },
-    });
+  const inner = new NextRequest(u, { method: "GET", headers: req.headers });
+  const r = await mixGET(inner);
+  const d = await r.json().catch(() => ({}));
 
-    if (ok) {
-      const url = data?.previewMixTaskResults?.download_url_preview_mixed;
-      if (url) return NextResponse.json({ status: "preview", url, raw: data });
-      return NextResponse.json({ status: "processing" });
-    }
-    if (status === 202) return NextResponse.json({ status: "processing" });
-    return NextResponse.json({ error: "RoEx: " + JSON.stringify(data).slice(0, 300) }, { status: status || 502 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "RoEx poll failed" }, { status: 500 });
-  }
+  if (d?.status === "done" && d?.url) return NextResponse.json({ status: "preview", url: d.url });
+  if (d?.status === "failed") return NextResponse.json({ status: "failed", error: d?.error || "Preview failed" });
+  return NextResponse.json({ status: d?.status || "queued", url: "", position: d?.position || 0 });
 }

@@ -28,6 +28,7 @@ async function ensureTable() {
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`;
 }
 
 async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[]) {
@@ -82,8 +83,8 @@ async function pump(): Promise<void> {
 
   const r = await mixer("/", {
     method: "POST",
-    body: JSON.stringify({ stems, loudness: job.loudness, preset: job.preset }),
-  }, 3, [502, 503]);
+    body: JSON.stringify({ stems, loudness: job.loudness, preset: job.preset, maxSeconds: job.max_seconds || 0 }),
+  }, 3, [429, 502, 503]);
 
   if (!r.ok || !(r.data && r.data.job)) {
     await sql`UPDATE mix_jobs SET status='failed',
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : null;
+  const maxSeconds = body?.preview === true ? 30 : null;
 
   await ensureTable();
   await reapStale();
@@ -124,8 +126,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "You already have a mix in the queue - wait for it to finish" }, { status: 429 });
 
   const id = crypto.randomUUID();
-  await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset)
-    VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset})`;
+  await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds)
+    VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds})`;
 
   const rows = (await sql`SELECT * FROM mix_jobs WHERE id=${id}`) as any[];
   const row = rows[0] || {};
