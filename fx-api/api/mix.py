@@ -1,5 +1,5 @@
 """wratty-fx mixer: sums stems, glue bus, LUFS master. Replaces RoEx."""
-import json, os, shutil, tempfile, threading, uuid
+import gc, json, os, shutil, tempfile, threading, uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -43,20 +43,30 @@ def lufs(x, sr):
         return None
 
 
-def load(p):
+def load(p, max_sec=0.0):
     with AudioFile(p) as f:
-        return f.read(f.frames), int(f.samplerate)
+        n = int(f.frames)
+        if max_sec:
+            cap = max(1, int(float(max_sec) * float(f.samplerate)))
+            if cap < n:
+                n = cap
+        return f.read(n), int(f.samplerate)
 
 
 def save16(p, a, sr):
-    a = np.clip(a, -1.0, 1.0).astype(np.float32)
-    d = np.random.uniform(-1.0, 1.0, a.shape).astype(np.float32) / 32768.0
-    with AudioFile(p, "w", sr, a.shape[0]) as f:
+    a = np.asarray(a, dtype=np.float32)
+    np.clip(a, -1.0, 1.0, out=a)
+    d = np.random.default_rng().random(a.shape, dtype=np.float32)
+    d -= 0.5
+    d /= 16384.0
+    a += d
+    np.clip(a, -1.0, 1.0, out=a)
+    with AudioFile(p, "w", int(sr), a.shape[0]) as f:
         try:
             f.bit_depth = 16
         except Exception:
             pass
-        f.write(np.clip(a + d, -1.0, 1.0).astype(np.float32))
+        f.write(a)
 
 
 def to_sr(a, si, so):
@@ -108,7 +118,7 @@ def do_mix(stems, loud, jid, max_sec=0):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
             p = os.path.join(tmp, "%d.wav" % i)
             grab(s["url"], p)
-            a, s0 = load(p)
+            a, s0 = load(p, max_sec)
             os.remove(p)
             if len(a[0]) / float(s0) > 480:
                 raise ValueError("stem longer than 8 minutes")
@@ -129,9 +139,9 @@ def do_mix(stems, loud, jid, max_sec=0):
             m += a
             del a
         n = m.shape[1]
-        m = m * (10.0 ** ((-6.0 - peakdb(m)) / 20.0))
+        m *= np.float32(10.0 ** ((-6.0 - peakdb(m)) / 20.0))
         setjob(jid, "glue bus")
-        m = BUS(m, sr).astype(np.float32)
+        m = np.asarray(BUS(m, sr), dtype=np.float32)
         want = str(loud or "MEDIUM").upper()
         cur = lufs(m, sr)
         tgt = TARGET.get(want, -14.0)
@@ -139,7 +149,7 @@ def do_mix(stems, loud, jid, max_sec=0):
             m = m * (10.0 ** ((tgt + 2.5 - rmsdb(m)) / 20.0))
         else:
             m = m * (10.0 ** ((tgt - cur) / 20.0))
-        m = LIM(m, sr).astype(np.float32)
+        m = np.asarray(LIM(m, sr), dtype=np.float32)
         _ceiling = 10.0 ** (-1.0 / 20.0)
         _pk = float(np.max(np.abs(m)))
         if _pk > _ceiling:

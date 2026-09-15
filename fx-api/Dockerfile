@@ -1,4 +1,6 @@
 FROM python:3.12-slim
+
+ENV MALLOC_ARENA_MAX=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 PYTHONUNBUFFERED=1
 ENV PYTHONUNBUFFERED=1 PORT=8080
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libatomic1 libsndfile1 \
