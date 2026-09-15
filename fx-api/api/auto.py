@@ -270,56 +270,118 @@ def _biq(x, b, a):
         z2 = b2 * v - a2 * o
         y[i] = o
     return y
+_FAST_LOUDNESS_BLOCK = 1 << 15
+_FAST_LOUDNESS_IR_LEN = 16384
+_FAST_LOUDNESS_CACHE = {}
 
 
-def integrated_lufs(x, sr):
-    """Gated integrated loudness in LUFS. x = (ch, n) or mono."""
-    a = np.asarray(x, dtype=np.float64)
+def _fast_loudness_ir(b, a, n=_FAST_LOUDNESS_IR_LEN):
+    """Impulse response of one biquad, matching _biq's TDF-II form."""
+    b0, b1, b2 = map(float, b)
+    a1, a2 = float(a[1]), float(a[2])
+    h = np.empty(n, dtype=np.float64)
+    z1 = z2 = 0.0
+    for i in range(n):
+        v = 1.0 if i == 0 else 0.0
+        y = b0 * v + z1
+        z1 = b1 * v - a1 * y + z2
+        z2 = b2 * v - a2 * y
+        h[i] = y
+    return h
+
+
+def _fast_loudness_kernel(sr):
+    """Cached FFT kernel built from the runtime K-weighting coefficients."""
+    key = float(sr)
+    cached = _FAST_LOUDNESS_CACHE.get(key)
+    if cached is not None:
+        return cached
+    sh, hp = _k_weighting(key)
+    h = np.convolve(_fast_loudness_ir(sh[0], sh[1]),
+                    _fast_loudness_ir(hp[0], hp[1]))
+    m = h.size
+    nfft = 1 << (_FAST_LOUDNESS_BLOCK + m - 2).bit_length()
+    H = np.fft.rfft(h, nfft)
+    H.setflags(write=False)
+    cached = (H, nfft, m)
+    _FAST_LOUDNESS_CACHE[key] = cached
+    return cached
+
+
+def _fast_loudness_chunks(x, H, nfft, m):
+    """Overlap-add filtered samples in bounded chunks."""
+    x = np.asarray(x)
+    n = x.size
+    block = _FAST_LOUDNESS_BLOCK
+    tail = np.zeros(m - 1, dtype=np.float64)
+    for p in range(0, n, block):
+        q = min(p + block, n)
+        length = q - p
+        chunk = np.asarray(x[p:q], dtype=np.float64)
+        y = np.fft.irfft(np.fft.rfft(chunk, nfft) * H, nfft)
+        conv = y[:length + m - 1]
+        out = conv[:length].copy()
+        k = min(length, m - 1)
+        out[:k] += tail[:k]
+        new_tail = conv[length:length + m - 1].copy()
+        if length < m - 1:
+            new_tail[:m - 1 - length] += tail[length:]
+        tail = new_tail
+        yield out
+
+
+def _fast_loudness_energy(x, sr, block_seconds, hop_seconds):
+    """Summed per-channel mean-square energy per window."""
+    a = np.asarray(x)
     if a.ndim == 1:
         a = a[None, :]
     if a.shape[0] > a.shape[1]:
         a = a.T
     n = a.shape[1]
-    blk, hop = int(round(0.400 * sr)), int(round(0.100 * sr))
-    if n < blk:
+    block = int(round(block_seconds * sr))
+    hop = int(round(hop_seconds * sr))
+    if n < block:
         return None
-    sh, hp = _k_weighting(float(sr))
-    p = np.zeros(n, dtype=np.float64)
+    H, nfft, m = _fast_loudness_kernel(sr)
+    count = (n - block) // hop + 1
+    energies = np.zeros(count, dtype=np.float64)
     for ch in range(a.shape[0]):
-        y = _biq(_biq(a[ch], sh[0], sh[1]), hp[0], hp[1])
-        p += y * y
-    c = np.concatenate(([0.0], np.cumsum(p)))
-    st = np.arange(0, n - blk + 1, hop)
-    e = (c[st + blk] - c[st]) / (blk / float(sr))
-    e = e[e > 10.0 ** (-70.0 / 10.0)]          # absolute gate -70 LUFS
+        pending = np.empty(0, dtype=np.float64)
+        index = 0
+        for filtered in _fast_loudness_chunks(a[ch], H, nfft, m):
+            pending = np.concatenate((pending, filtered)) if pending.size else filtered
+            while pending.size >= block:
+                window = pending[:block]
+                energies[index] += np.dot(window, window) / float(block)
+                index += 1
+                pending = pending[hop:]
+    return energies
+
+
+
+
+def integrated_lufs(x, sr):
+    """Gated integrated loudness in LUFS. x = (ch, n) or mono."""
+    e = _fast_loudness_energy(x, sr, 0.400, 0.100)
+    if e is None:
+        return None
+    e = e[e > 10.0 ** (-70.0 / 10.0)]
     if e.size == 0:
         return None
     rel = 10.0 ** ((10.0 * np.log10(float(e.mean())) - 10.0) / 10.0)
-    e = e[e >= rel]                            # relative gate -10 LU
+    e = e[e >= rel]
     if e.size == 0:
         return None
     return float(-0.691 + 10.0 * np.log10(float(e.mean())))
 
 
+
+
 def lra_lu(x, sr):
     """Loudness range: 3 s windows, 1 s hop, 10th-95th percentile."""
-    a = np.asarray(x, dtype=np.float64)
-    if a.ndim == 1:
-        a = a[None, :]
-    if a.shape[0] > a.shape[1]:
-        a = a.T
-    n = a.shape[1]
-    blk, hop = int(round(3.0 * sr)), int(round(1.0 * sr))
-    if n < blk:
+    e = _fast_loudness_energy(x, sr, 3.0, 1.0)
+    if e is None:
         return None
-    sh, hp = _k_weighting(float(sr))
-    p = np.zeros(n, dtype=np.float64)
-    for ch in range(a.shape[0]):
-        y = _biq(_biq(a[ch], sh[0], sh[1]), hp[0], hp[1])
-        p += y * y
-    c = np.concatenate(([0.0], np.cumsum(p)))
-    st = np.arange(0, n - blk + 1, hop)
-    e = (c[st + blk] - c[st]) / (blk / float(sr))
     e = e[e > 10.0 ** (-70.0 / 10.0)]
     if e.size < 2:
         return None
