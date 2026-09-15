@@ -16,7 +16,7 @@ except Exception:
     pyln = None
 
 BLOB = "https://blob.vercel-storage.com"
-TARGET = {"LOW": -14.0, "MEDIUM": -11.5, "HIGH": -9.5}
+TARGET = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.5}
 JOBS, LK = {}, threading.Lock()
 
 BUS = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
