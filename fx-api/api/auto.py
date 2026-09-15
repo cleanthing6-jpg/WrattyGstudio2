@@ -240,6 +240,97 @@ def _measures(B, V, freq):
     }
 
 
+def _k_weighting(sr):
+    """BS.1770-4 K-weighting biquads, valid at any sample rate. No scipy."""
+    import math
+    G, Q, fc = 3.999843853973347, 0.7071752369554196, 1681.974450955533
+    K = math.tan(math.pi * fc / sr)
+    Vh = 10.0 ** (G / 20.0)
+    Vb = Vh ** 0.4996667741545416
+    a0 = 1.0 + K / Q + K * K
+    sh = ([ (Vh + Vb*K/Q + K*K)/a0, 2.0*(K*K - Vh)/a0, (Vh - Vb*K/Q + K*K)/a0 ],
+          [ 1.0, 2.0*(K*K - 1.0)/a0, (1.0 - K/Q + K*K)/a0 ])
+    fc, Q = 38.13547087602444, 0.5003270373238773
+    K = math.tan(math.pi * fc / sr)
+    a0 = 1.0 + K / Q + K * K
+    hp = ([1.0, -2.0, 1.0],
+          [1.0, 2.0*(K*K - 1.0)/a0, (1.0 - K/Q + K*K)/a0])
+    return sh, hp
+
+
+def _biq(x, b, a):
+    y = np.empty_like(x, dtype=np.float64)
+    z1 = z2 = 0.0
+    b0, b1, b2 = float(b[0]), float(b[1]), float(b[2])
+    a1, a2 = float(a[1]), float(a[2])
+    for i in range(x.size):
+        v = x[i]
+        o = b0 * v + z1
+        z1 = b1 * v - a1 * o + z2
+        z2 = b2 * v - a2 * o
+        y[i] = o
+    return y
+
+
+def integrated_lufs(x, sr):
+    """Gated integrated loudness in LUFS. x = (ch, n) or mono."""
+    a = np.asarray(x, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[None, :]
+    if a.shape[0] > a.shape[1]:
+        a = a.T
+    n = a.shape[1]
+    blk, hop = int(round(0.400 * sr)), int(round(0.100 * sr))
+    if n < blk:
+        return None
+    sh, hp = _k_weighting(float(sr))
+    p = np.zeros(n, dtype=np.float64)
+    for ch in range(a.shape[0]):
+        y = _biq(_biq(a[ch], sh[0], sh[1]), hp[0], hp[1])
+        p += y * y
+    c = np.concatenate(([0.0], np.cumsum(p)))
+    st = np.arange(0, n - blk + 1, hop)
+    e = (c[st + blk] - c[st]) / (blk / float(sr))
+    e = e[e > 10.0 ** (-70.0 / 10.0)]          # absolute gate -70 LUFS
+    if e.size == 0:
+        return None
+    rel = 10.0 ** ((10.0 * np.log10(float(e.mean())) - 10.0) / 10.0)
+    e = e[e >= rel]                            # relative gate -10 LU
+    if e.size == 0:
+        return None
+    return float(-0.691 + 10.0 * np.log10(float(e.mean())))
+
+
+def lra_lu(x, sr):
+    """Loudness range: 3 s windows, 1 s hop, 10th-95th percentile."""
+    a = np.asarray(x, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[None, :]
+    if a.shape[0] > a.shape[1]:
+        a = a.T
+    n = a.shape[1]
+    blk, hop = int(round(3.0 * sr)), int(round(1.0 * sr))
+    if n < blk:
+        return None
+    sh, hp = _k_weighting(float(sr))
+    p = np.zeros(n, dtype=np.float64)
+    for ch in range(a.shape[0]):
+        y = _biq(_biq(a[ch], sh[0], sh[1]), hp[0], hp[1])
+        p += y * y
+    c = np.concatenate(([0.0], np.cumsum(p)))
+    st = np.arange(0, n - blk + 1, hop)
+    e = (c[st + blk] - c[st]) / (blk / float(sr))
+    e = e[e > 10.0 ** (-70.0 / 10.0)]
+    if e.size < 2:
+        return None
+    rel = 10.0 ** ((10.0 * np.log10(float(e.mean())) - 20.0) / 10.0)
+    e = e[e >= rel]
+    if e.size < 2:
+        return None
+    lv = -0.691 + 10.0 * np.log10(e)
+    return float(np.percentile(lv, 95) - np.percentile(lv, 10))
+
+
 def analyze(beat_mono, voc_mono, sr):
     freq = np.fft.rfftfreq(N, 1.0 / sr)
     B = _stft(beat_mono)

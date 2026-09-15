@@ -36,11 +36,9 @@ def peakdb(x):
 
 
 def lufs(x, sr):
-    if pyln is None or x.shape[1] < int(sr * 0.4):
-        return None
+    """Real gated K-weighted loudness (BS.1770-4), from the engine."""
     try:
-        v = float(pyln.Meter(sr).integrated_loudness(x.T.astype(np.float64)))
-        return v if np.isfinite(v) else None
+        return auto.integrated_lufs(x, sr)
     except Exception:
         return None
 
@@ -167,7 +165,7 @@ def do_mix(stems, loud, jid, max_sec=0):
         tgt = TARGET.get(want, -14.0)
         cur = lufs(mixed, sr)
         if cur is None:
-            mixed = mixed * (10.0 ** ((tgt + 2.5 - rmsdb(mixed)) / 20.0))
+            mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
         elif cur > tgt:
             mixed = mixed * (10.0 ** ((tgt - cur) / 20.0))
         else:
