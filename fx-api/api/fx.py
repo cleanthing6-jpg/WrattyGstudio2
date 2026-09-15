@@ -61,7 +61,6 @@ def board_for(preset, bpm):
             PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
             Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
             Distortion(drive_db=2.0),
-            Limiter(threshold_db=-1.0, release_ms=80),
         ])
     if p == "bus_space":
         return 10 ** (-3.0 / 20), Pedalboard([
@@ -71,14 +70,12 @@ def board_for(preset, bpm):
             Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
             Distortion(drive_db=2.0),
             Reverb(room_size=0.30, damping=0.45, wet_level=0.06, dry_level=0.94, width=0.95),
-            Limiter(threshold_db=-1.0, release_ms=80),
         ])
     if p == "beat":
         return 10 ** (-1.0 / 20), Pedalboard([
             LowShelfFilter(cutoff_frequency_hz=70, gain_db=2.0),
             HighShelfFilter(cutoff_frequency_hz=9000, gain_db=1.0),
             Compressor(threshold_db=-12, ratio=2.0, attack_ms=25, release_ms=200),
-            Limiter(threshold_db=-1.0, release_ms=100),
         ])
     return 10 ** (-3.0 / 20), Pedalboard([
         HighpassFilter(cutoff_frequency_hz=85),
@@ -89,7 +86,6 @@ def board_for(preset, bpm):
         Delay(delay_seconds=d1, feedback=0.22, mix=0.15),
         Delay(delay_seconds=d2, feedback=0.12, mix=0.10),
         Reverb(room_size=0.30, damping=0.45, wet_level=0.12, dry_level=0.88, width=0.95),
-        Limiter(threshold_db=-1.0, release_ms=80),
     ])
 
 
@@ -123,14 +119,15 @@ class handler(BaseHTTPRequestHandler):
         url = str(data.get("url") or "").strip()
         if not url.startswith("https://"):
             return self._json(400, {"error": "url required"})
-        if not url.split("?")[0].lower().endswith(ALLOWED):
+        if not (url.split("?")[0].lower().endswith(ALLOWED) or name_for_check.lower().endswith(ALLOWED)):
             return self._json(400, {"error": "send a WAV (the app converts stems to WAV)"})
 
         try:
             bpm = min(max(float(data.get("bpm") or 100), 40.0), 220.0)
         except Exception:
             bpm = 100.0
-        preset = str(data.get("preset") or "bus").lower()
+        name_for_check = str(data.get("name") or "")
+    preset = str(data.get("preset") or "bus").lower()
 
         token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if not token:
