@@ -852,6 +852,7 @@ def mix(groups, sr, loud="MEDIUM"):
         if _o is not None:
             ro_map["backing"] = _o if "backing" not in ro_map else _sum([ro_map["backing"], _o])
             rep["other_folded_into_backing"] = len(_oth)
+    _match_role_levels(ro_map, sr, rep)
     voc = _sum(list(ro_map.values())) if ro_map else None
 
     if beat is None and voc is None:
@@ -1028,7 +1029,7 @@ def _match_role_levels(ro_map, sr, rep):
                 continue
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 6.0))
+            gain = float(np.clip(min(tgt - cur, head), -6.0, 21.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
