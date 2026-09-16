@@ -35,7 +35,7 @@ def run_mix(job_id: str, stems: list, loudness: str, max_seconds: float):
                     _j.dumps(_v); _safe[_k] = _v
                 except Exception:
                     _safe[_k] = str(_v)[:200]
-            print("MIXREPORT " + _j.dumps(_safe, default=str)[:1800], flush=True)
+            print("MIXREPORT " + _j.dumps(_safe, default=str)[:6000], flush=True)
         except Exception:
             pass
         jobs[job_id] = {

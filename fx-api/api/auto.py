@@ -5,6 +5,11 @@ mix cannot come out harsh, phasing or clipping.
 
 import os
 import numpy as np
+
+try:
+    import polish
+except Exception:
+    polish = None
 import pedalboard
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter,
@@ -37,9 +42,9 @@ ROLE_TREAT = {
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
                 "sat": 1.2, "width": 1.30},
-    "backing": {"gain": -1.5, "hpf": 90.0,  "mud": 2.0, "box": 1.0, "pres": 0.8,
-                "harsh": 2.0, "air": 1.5, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.4},
+    "backing": {"gain": -1.5, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
+                "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
+                "sat": 0.6, "width": 1.2},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -900,6 +905,17 @@ def mix(groups, sr, loud="MEDIUM"):
             y = _widen(y, sr, ROLE_TREAT[r]["width"])
         parts.append(y); moves[r] = mv
     core = _sum(parts)
+    if polish is not None:
+        try:
+            _sh = core.shape
+            _y, _pst = polish.dynamic_eq(core, sr, get_stats=True)
+            if _y.shape != _sh or not np.isfinite(_y).all(): raise ValueError("bad audio")
+            core = _y
+            rep["dynamic_eq"] = [{"band": "%g-%g" % (float(b[0]), float(b[1])),
+                "avg_db": round(float(b[4]), 2), "max_db": round(float(b[5]), 2),
+                "active_pct": round(float(b[6]), 1)} for b in _pst]
+        except Exception as _e:
+            rep["dynamic_eq_error"] = str(_e)[:200]
     rep["vocal_chain"] = moves
 
     raised = 0.0
@@ -1024,7 +1040,7 @@ def _match_role_levels(ro_map, sr, rep):
             if v is None or getattr(v, "shape", (0, 0))[1] == 0:
                 continue
             cur = float(_rms_db(v))
-            if cur < -85.0:
+            if cur < -60.0:
                 rep["level_match"][r] = "SILENT (%.1f dB) - bad file" % cur
                 continue
             pk = float(np.max(np.abs(v))) or 1e-9
