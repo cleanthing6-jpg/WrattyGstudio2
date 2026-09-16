@@ -832,6 +832,20 @@ def mix(groups, sr, loud="MEDIUM"):
         arrs = groups.get(r) or []
         if arrs:
             ro_map[r] = _sum(arrs)
+            if len(arrs) > 1:
+                try:
+                    _ref = arrs[0]
+                    _d = []
+                    for _i, _a in enumerate(arrs):
+                        _mm = min(_a.shape[1], _ref.shape[1])
+                        _x = _a[:, :_mm].mean(0); _y = _ref[:, :_mm].mean(0)
+                        _c = float(np.corrcoef(_x, _y)[0, 1]) if _i else 1.0
+                        _d.append({"i": _i, "rms_db": round(_rms_db(_a), 1),
+                                   "corr_vs_1": round(_c, 3) if np.isfinite(_c) else None})
+                    _d.append({"sum_rms_db": round(_rms_db(ro_map[r]), 1)})
+                    rep.setdefault("bus_diag", {})[r] = _d
+                except Exception as _e:
+                    rep.setdefault("bus_diag", {})[r] = str(_e)[:120]
     _oth = groups.get("other") or []
     if _oth:
         _o = _sum(_oth)
@@ -1014,7 +1028,7 @@ def _match_role_levels(ro_map, sr, rep):
                 continue
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 26.0))
+            gain = float(np.clip(min(tgt - cur, head), -6.0, 6.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
