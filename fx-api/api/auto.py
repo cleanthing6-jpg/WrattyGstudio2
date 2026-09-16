@@ -510,6 +510,12 @@ def _plate(voc, sr):
                        lambda: Convolution(path)):
                 try:
                     y = Pedalboard([mk()])(voc, sr).astype(np.float32)
+                    # Convolution returns far quieter than the dry signal
+                    # (long IR, energy-normalised). Self-calibrate the wet
+                    # level here; the send gain rides on top of this.
+                    _a = float(np.sqrt(np.mean(np.asarray(voc, dtype=np.float64) ** 2))) + 1e-9
+                    _b = float(np.sqrt(np.mean(y.astype(np.float64) ** 2))) + 1e-9
+                    y = (y * (_a / _b)).astype(np.float32)
                     _PLATE["kind"] = "plate"
                     _PLATE["err"] = ""
                     return y
