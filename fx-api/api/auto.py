@@ -70,7 +70,7 @@ def role_of(role):
             return "beat"
     if any(t in r for t in ("adlib", "ad lib", "ad-lib", "harmon", "stack")):
         return "adlib"
-    if any(t in r for t in ("back", "backup", "bvox", "b-vox", "double", "group")):
+    if any(t in r for t in ("back", "backup", "bvox", "b-vox", "bv", "bgv", "bg", "harm", "dub", "dbl", "double", "group", "chorus", "stack", "vocal 2", "vocal 3", "vox 2", "vox 3", "vocal-2", "vocal-3")):
         return "backing"
     if any(t in r for t in ("lead", "main", "vocal", "vox", "acap", "dry")):
         return "lead"
@@ -814,6 +814,17 @@ def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
     rep = {"sr": int(sr)}
+    try:
+        rep["arrived"] = {}
+        for _k in ("beat", "lead", "adlib", "backing", "other"):
+            _g = groups.get(_k) or []
+            if _g:
+                _s = _sum(_g)
+                rep["arrived"][_k] = {"n": len(_g),
+                                      "sec": round(_s.shape[1] / float(sr), 2),
+                                      "rms_db": round(_rms_db(_s), 1)}
+    except Exception as _e:
+        rep["arrived"] = {"error": str(_e)[:120]}
 
     beat = _sum(beats) if beats else None
     ro_map = {}
@@ -821,6 +832,12 @@ def mix(groups, sr, loud="MEDIUM"):
         arrs = groups.get(r) or []
         if arrs:
             ro_map[r] = _sum(arrs)
+    _oth = groups.get("other") or []
+    if _oth:
+        _o = _sum(_oth)
+        if _o is not None:
+            ro_map["backing"] = _o if "backing" not in ro_map else _sum([ro_map["backing"], _o])
+            rep["other_folded_into_backing"] = len(_oth)
     voc = _sum(list(ro_map.values())) if ro_map else None
 
     if beat is None and voc is None:
