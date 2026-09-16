@@ -39,7 +39,7 @@ ROLE_TREAT = {
                 "sat": 1.2, "width": 1.30},
     "backing": {"gain": -1.5, "hpf": 90.0,  "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.0, "air": 1.5, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.0},
+                "sat": 0.6, "width": 1.4},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -999,12 +999,12 @@ def _exciter(x, sr):
         if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
             return x
         air = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=7500.0),
+            HighpassFilter(cutoff_frequency_hz=9000.0),
             Distortion(drive_db=1.5),
             LowpassFilter(cutoff_frequency_hz=14000.0),
             Gain(gain_db=-9.0),
         ])(a, int(sr)).astype(np.float32)
-        y = (a + air * 0.22).astype(np.float32)
+        y = (a + air * 0.18).astype(np.float32)
         return _headroom(y, -1.0).astype(np.float32)
     except Exception:
         return x
