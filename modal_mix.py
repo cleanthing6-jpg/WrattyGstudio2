@@ -27,6 +27,17 @@ def run_mix(job_id: str, stems: list, loudness: str, max_seconds: float):
     jobs[job_id] = {"status": "running"}
     try:
         res = mix.do_mix(stems, loudness, job_id, max_seconds)
+        try:
+            import json as _j
+            _safe = {}
+            for _k, _v in (res or {}).items():
+                try:
+                    _j.dumps(_v); _safe[_k] = _v
+                except Exception:
+                    _safe[_k] = str(_v)[:200]
+            print("MIXREPORT " + _j.dumps(_safe, default=str)[:1800], flush=True)
+        except Exception:
+            pass
         jobs[job_id] = {
             "status": "done",
             "url": res.get("url", ""),
