@@ -649,18 +649,18 @@ def _role_chain(voc, sr, st, role):
     moves = [["role", role], ["highpass", t["hpf"]]]
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     if st["mud"] > 1.0:
-        g = -min(t["mud"], (st["mud"] - 1.0) * 1.1)
+        g = -min(t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
         if g < -0.2:
             ch.append(PeakFilter(240.0, g, 0.9)); moves.append(["mud 240", round(g, 2)])
     if st["box"] > 1.0:
-        g = -min(t["box"], (st["box"] - 1.0) * 0.8)
+        g = -min(t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
         if g < -0.2:
             ch.append(PeakFilter(600.0, g, 1.0)); moves.append(["box 600", round(g, 2)])
     if st["harsh"] > 1.5:
-        g = -min(t["harsh"], (st["harsh"] - 1.5))
+        g = -min(t["harsh"], (st["harsh"] - 1.5) * 2.0)
         if g < -0.2:
             ch.append(PeakFilter(4400.0, g, 1.2)); moves.append(["harsh 4.4k", round(g, 2)])
-    if st["presence"] < -2.5 and st["harsh"] < 2.0 and t["pres"] > 0:
+    if st["presence"] < -2.5 and t["pres"] > 0:
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 0.5 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, g, 0.8)); moves.append(["presence 3k", round(g, 2)])
@@ -672,7 +672,7 @@ def _role_chain(voc, sr, st, role):
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
     _pre = _rms_db(voc)
     _post = _rms_db(out)
-    makeup = float(np.clip(_pre - _post, 0.0, 9.0))
+    makeup = float(np.clip(_pre - _post, 0.0, 4.0))
     if makeup > 0.05:
         out = (out * (10.0 ** (makeup / 20.0))).astype(np.float32)
     moves.append(["makeup", round(makeup, 2)])
