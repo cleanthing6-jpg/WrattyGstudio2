@@ -31,7 +31,7 @@ DUCK_CAP = {BODY: 0.75, PRES: 1.5, HARSH: 1.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 1.5, HARSH: 1.0}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -3.0,  "hpf": 100.0, "mud": 3.5, "box": 3.0, "pres": 1.2,
+    "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 3.5, "box": 3.0, "pres": 1.2,
                 "harsh": 3.0, "air": 2.5, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
                 "sat": 0.6, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
@@ -47,7 +47,7 @@ ROLE_TREAT = {
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 1.8
 RAISE_PER_PASS = 0.5
-RAISE_CAP = 0.5
+RAISE_CAP = 0.0
 SEND_WET = 0.11
 DOUBLE_DB = -15.0
 WIDEN = 1.15
@@ -861,7 +861,7 @@ def mix(groups, sr, loud="MEDIUM"):
             ex = _sum(others)
             n = max(core.shape[1], ex.shape[1])
             core = (_pad(core, n) + _pad(ex, n) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
-        core, ms, pk = _ambience(_glue(core, sr), sr, detect_tempo(core, sr))
+        core, ms, pk = _ambience(_exciter(_parallel(_glue(core, sr), sr), sr), sr, detect_tempo(core, sr))
         rep["vocal_chain"] = moves
         rep["slap_ms"] = ms
         rep["plate"] = pk
@@ -902,7 +902,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["vocal_raise_db"] = round(raised, 2)
     rep["level_passes"] = level_passes
 
-    core, ms, pk = _ambience(_glue(core, sr), sr, bpm)
+    core, ms, pk = _ambience(_exciter(_parallel(_glue(core, sr), sr), sr), sr, bpm)
     rep["slap_ms"] = ms
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
@@ -956,3 +956,40 @@ def _glue(x, sr, thr=-10.0, ratio=1.5, atk=30.0, rel=250.0):
         except Exception:
             continue
     return x
+
+
+# ---------- polish additions ----------
+
+def _parallel(x, sr):
+    """Gentle parallel vocal density; keeps the dry vocal intact."""
+    try:
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
+            return x
+        crushed = Pedalboard([
+            Compressor(threshold_db=-24.0, ratio=6.0,
+                       attack_ms=8.0, release_ms=90.0),
+            Gain(gain_db=3.0),
+        ])(a, int(sr)).astype(np.float32)
+        y = (a * 0.70 + crushed * 0.30).astype(np.float32)
+        return _headroom(y, -1.0).astype(np.float32)
+    except Exception:
+        return x
+
+
+def _exciter(x, sr):
+    """Low-level high-frequency harmonic air without distorting the body."""
+    try:
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
+            return x
+        air = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=7500.0),
+            Distortion(drive_db=1.5),
+            LowpassFilter(cutoff_frequency_hz=14000.0),
+            Gain(gain_db=-9.0),
+        ])(a, int(sr)).astype(np.float32)
+        y = (a + air * 0.22).astype(np.float32)
+        return _headroom(y, -1.0).astype(np.float32)
+    except Exception:
+        return x
