@@ -74,7 +74,7 @@ async function reapStale() {
 
 // Start the oldest queued job, but only if nothing is running.
 // Single atomic statement, so two callers cannot start two jobs.
-async function pump(): Promise<void> {
+async function pump(depth = 0): Promise<void> {
   const started = (await sql`
     UPDATE mix_jobs SET status='running', updated_at=NOW()
     WHERE id = (SELECT id FROM mix_jobs WHERE status='queued' ORDER BY created_at ASC LIMIT 1)
@@ -95,6 +95,7 @@ async function pump(): Promise<void> {
   if (!r.ok || !(r.data && r.data.job)) {
     await sql`UPDATE mix_jobs SET status='failed',
               error=${String(r.error || "mixer did not start")}, updated_at=NOW() WHERE id=${job.id}`;
+    if (depth < 5) await pump(depth + 1);   // never stall the queue
     return;
   }
   await sql`UPDATE mix_jobs SET runner_job=${String(r.data.job)}, updated_at=NOW() WHERE id=${job.id}`;

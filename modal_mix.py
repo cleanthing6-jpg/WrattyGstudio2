@@ -1,4 +1,5 @@
 import uuid
+import time
 
 import modal
 
@@ -83,13 +84,22 @@ def api():
                 return JSONResponse(
                     {"error": "each stem needs an https url"}, status_code=400
                 )
-        if jobs.get("busy"):
+        busy = jobs.get("busy")
+        if busy:
+            started = float(jobs.get("busy_at") or 0)
+            if time.time() - started < 900:
+                return JSONResponse(
+                    {"error": "engine busy - try again in a minute"},
+                    status_code=429,
+                )
+            jobs["busy"] = None   # engine died mid-mix - reclaim it
             return JSONResponse(
                 {"error": "engine busy - try again in a minute"}, status_code=429
             )
 
         jid = uuid.uuid4().hex
         jobs["busy"] = jid
+        jobs["busy_at"] = time.time()
         jobs[jid] = {"status": "queued"}
         run_mix.spawn(
             jid,
