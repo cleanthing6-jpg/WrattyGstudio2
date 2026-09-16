@@ -49,6 +49,47 @@ ROLE_TREAT = {
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
 }
+
+# ---------- genre presets (Deploy 1: neutral + afrobeats) ----------
+PRESETS = {
+    "neutral": {},
+    "afrobeats": {
+        "target_lufs": -12.0, "glue_ratio": 1.5, "glue_gr_db": 0.8,
+        "width": 1.12, "plate_db": -15.0, "slap_db": -18.0,
+    },
+}
+ROLE_DELTAS = {
+    "afrobeats": {"lead": {"air": 0.5, "sat": 0.4}, "backing": {"pres": -0.2}},
+}
+_PRESET = {}
+
+
+def preset_config(name):
+    p = str(name or "neutral").lower()
+    if p not in PRESETS:
+        p = "neutral"
+    return p, dict(PRESETS[p])
+
+
+def apply_preset(name):
+    """Activate a preset. Returns its config dict."""
+    global _PRESET, SEND_PLATE, SEND_SLAP
+    p, cfg = preset_config(name)
+    _PRESET = dict(cfg)
+    _PRESET["_deltas"] = ROLE_DELTAS.get(p, {})
+    SEND_PLATE = 10.0 ** (float(cfg.get("plate_db", -14.0)) / 20.0)
+    SEND_SLAP = 10.0 ** (float(cfg.get("slap_db", -14.0)) / 20.0)
+    return _PRESET
+
+
+def _treat_for(role):
+    t = dict(ROLE_TREAT.get(role, ROLE_TREAT["other"]))
+    d = _PRESET.get("_deltas", {}).get(role)
+    if d:
+        for _k, _v in d.items():
+            t[_k] = t.get(_k, 0.0) + float(_v)
+    return t
+
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 1.8
 RAISE_PER_PASS = 0.5
@@ -650,7 +691,7 @@ def _double(voc, sr):
 
 
 def _role_chain(voc, sr, st, role):
-    t = ROLE_TREAT.get(role, ROLE_TREAT["other"])
+    t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     if st["mud"] > 1.0:
@@ -769,7 +810,7 @@ def verify(mixed, sr, voc_eq, ducked):
 
 def clip(x, sr):
     try:
-        return Pedalboard([Clipping(threshold_db=-2.0)])(x, sr).astype(np.float32)
+        return Pedalboard([Clipping(threshold_db=-1.0)])(x, sr).astype(np.float32)
     except Exception:
         return x
 
@@ -971,7 +1012,7 @@ def mix(groups, sr, loud="MEDIUM"):
         n2 = max(mixed.shape[1], ex.shape[1])
         mixed = (_pad(mixed, n2) + _pad(ex, n2) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
 
-    mixed = _widen(mixed, sr)
+    mixed = _widen(mixed, sr, _PRESET.get("width") or None)
     mixed = _headroom(mixed)
     rep["check"] = verify(mixed, sr, core, ducked)
     return mixed, rep

@@ -17,7 +17,7 @@ jobs = modal.Dict.from_name("wratty-mix-jobs", create_if_missing=True)
 
 
 @app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET])
-def run_mix(job_id: str, stems: list, loudness: str, max_seconds: float):
+def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0):
     import sys
     import traceback
 
@@ -26,7 +26,7 @@ def run_mix(job_id: str, stems: list, loudness: str, max_seconds: float):
 
     jobs[job_id] = {"status": "running"}
     try:
-        res = mix.do_mix(stems, loudness, job_id, max_seconds)
+        res = mix.do_mix(stems, loudness, job_id, max_seconds, preset)
         try:
             import json as _j
             _safe = {}
@@ -116,6 +116,7 @@ def api():
             jid,
             stems,
             str(body.get("loudness") or "MEDIUM"),
+            str(body.get("preset") or "neutral"),
             float(body.get("maxSeconds") or 0),
         )
         return {"job": jid}

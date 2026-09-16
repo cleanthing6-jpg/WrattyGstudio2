@@ -127,9 +127,10 @@ def setjob(jid, status, url=""):
     print("[job %s] %-18s rss=%s MB" % (jid[:8], _st, _rss), flush=True)
 
 
-def do_mix(stems, loud, jid, max_sec=0):
+def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
     tmp = tempfile.mkdtemp()
     try:
+        cfg = auto.apply_preset(preset)
         sr = None
         groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "other": []}
         for i, s in enumerate(stems):
@@ -166,13 +167,18 @@ def do_mix(stems, loud, jid, max_sec=0):
         if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
-            _thr = float(np.clip(rmsdb(mixed) - 3.0, -40.0, -6.0))
+            _gr = float(cfg.get("glue_gr_db", 1.0))
+            _rat = float(cfg.get("glue_ratio", 1.5))
+            _over = _gr * _rat / max(0.1, _rat - 1.0)
+            _thr = float(np.clip(rmsdb(mixed) - _over, -40.0, -6.0))
             mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
-                                Compressor(threshold_db=_thr, ratio=1.5,
+                                Compressor(threshold_db=_thr, ratio=_rat,
                                            attack_ms=30.0, release_ms=130.0)])(mixed, sr).astype(np.float32)
             report["glue_thr_db"] = round(_thr, 2)
 
-        tgt = TARGET.get(want, -14.0)
+        tgt = TARGET.get(want)
+        if tgt is None:
+            tgt = float(cfg.get("target_lufs", -14.0))
         cur = lufs(mixed, sr)
         if cur is None:
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
@@ -204,15 +210,15 @@ def do_mix(stems, loud, jid, max_sec=0):
                 "peak_dbfs": round(peakdb(rel), 2),
                 "lufs": (None if got is None else round(got, 2)),
                 "sample_rate": int(rel_sr),
-                "mode": mode, "report": report}
+                "mode": mode, "report": report, "preset": preset}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def worker(jid, stems, loud, max_sec=0):
+def worker(jid, stems, loud, max_sec=0, preset="neutral"):
     try:
         setjob(jid, "running")
-        res = do_mix(stems, loud, jid, max_sec)
+        res = do_mix(stems, loud, jid, max_sec, preset)
         with LK:
             JOBS[jid] = {"status": "done", "url": res["url"], "result": res}
     except Exception as e:
@@ -266,7 +272,7 @@ class Handler(BaseHTTPRequestHandler):
         jid = uuid.uuid4().hex
         with LK:
             JOBS[jid] = {"status": "queued"}
-        t = threading.Thread(target=worker, args=(jid, stems, str(data.get("loudness") or "MEDIUM"), float(data.get("maxSeconds") or 0)))
+        t = threading.Thread(target=worker, args=(jid, stems, str(data.get("loudness") or "MEDIUM"), str(data.get("preset") or "neutral"), float(data.get("maxSeconds") or 0)))
         t.daemon = True
         t.start()
         return self.json_out(202, {"job": jid})
