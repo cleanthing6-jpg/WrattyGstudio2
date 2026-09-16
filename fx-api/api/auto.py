@@ -27,27 +27,27 @@ SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 2.5, 1.5
 MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 5.0
-DUCK_CAP = {BODY: 1.0, PRES: 3.0, HARSH: 2.0}
-DUCK_TARGET = {BODY: 2.0, PRES: 2.5, HARSH: 2.0}
+DUCK_CAP = {BODY: 0.75, PRES: 1.5, HARSH: 1.0}
+DUCK_TARGET = {BODY: 1.0, PRES: 1.5, HARSH: 1.0}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -1.5,  "hpf": 90.0,  "mud": 2.5, "box": 1.5, "pres": 1.0,
-                "harsh": 3.0, "air": 2.5, "ratio": 3.0, "atk": 12.0, "rel": 80.0,
+    "lead":    {"gain": -2.5,  "hpf": 90.0,  "mud": 2.5, "box": 1.5, "pres": 1.2,
+                "harsh": 3.0, "air": 2.5, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
                 "sat": 1.2, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
                 "sat": 1.2, "width": 1.30},
-    "backing": {"gain": -5.0, "hpf": 120.0, "mud": 2.5, "box": 1.5, "pres": 0.0,
+    "backing": {"gain": -3.0, "hpf": 120.0, "mud": 2.5, "box": 1.5, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 3.5, "atk": 10.0, "rel": 130.0,
-                "sat": 0.8, "width": 1.20},
+                "sat": 0.8, "width": 1.0},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
 }
 ROLE_VOCALS = ("lead", "adlib", "backing")
-CLARITY_MIN = 2.2
-RAISE_PER_PASS = 1.5
-RAISE_CAP = 3.0
+CLARITY_MIN = 1.8
+RAISE_PER_PASS = 0.5
+RAISE_CAP = 0.5
 SEND_WET = 0.11
 DOUBLE_DB = -15.0
 WIDEN = 1.15
@@ -587,10 +587,15 @@ def _deess(voc, sr, st):
     return out, round(mx, 2)
 
 
+SEND_PLATE = 10.0 ** (-14.0 / 20.0)   # plate send
+SEND_SLAP  = 10.0 ** (-20.0 / 20.0)   # slap send
+
+
 def _ambience(voc, sr, bpm):
     beat_s = 60.0 / max(bpm, 40.0)
     d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.35)))
     wet = None
+    slap = None
     try:
         slap = Pedalboard([
             Delay(delay_seconds=d / float(sr), feedback=0.18, mix=1.0),
@@ -606,7 +611,14 @@ def _ambience(voc, sr, bpm):
     kind = _PLATE.get("kind") or "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
-    out = (voc + SEND_WET * wet).astype(np.float32)
+    w = None
+    if slap is not None:
+        w = SEND_SLAP * slap
+    if plate is not None:
+        w = SEND_PLATE * plate if w is None else (w + SEND_PLATE * plate)
+    if w is None:
+        return voc, round(d / float(sr) * 1000.0), "none"
+    out = (voc + w).astype(np.float32)
     return _headroom(out, -1.0), round(d / float(sr) * 1000.0), kind
 
 
