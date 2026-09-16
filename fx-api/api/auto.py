@@ -852,7 +852,6 @@ def mix(groups, sr, loud="MEDIUM"):
         if _o is not None:
             ro_map["backing"] = _o if "backing" not in ro_map else _sum([ro_map["backing"], _o])
             rep["other_folded_into_backing"] = len(_oth)
-    _match_role_levels(ro_map, sr, rep)
     voc = _sum(list(ro_map.values())) if ro_map else None
 
     if beat is None and voc is None:
@@ -883,6 +882,7 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["plate_error"] = plate_error()
         return _headroom(core), rep
 
+    _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
     rep["roles"] = {r: len(groups.get(r) or []) for r in ROLE_VOCALS if groups.get(r)}
     bpm = detect_tempo(_mono(beat), sr)
@@ -1013,7 +1013,7 @@ def _exciter(x, sr):
 def _match_role_levels(ro_map, sr, rep):
     """Lift quiet vocal roles toward the lead so they survive the mix."""
     try:
-        if not ro_map.get("lead"):
+        if ro_map.get("lead") is None:
             rep["level_match"] = "no lead - skipped"
             return
         lead = float(_rms_db(ro_map["lead"]))
@@ -1034,4 +1034,4 @@ def _match_role_levels(ro_map, sr, rep):
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
     except Exception as e:
-        rep["level_match_error"] = str(e)[:120]
+        rep["level_match_error"] = str(e)[:300]
