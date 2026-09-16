@@ -22,8 +22,8 @@ def _rss():
     return 0.0
 
 
-@app.function(image=image, cpu=2.0, memory=4096, timeout=1800)
-def mixer_mem(seconds: int = 30):
+@app.function(image=image, cpu=2.0, memory=8192, timeout=3600)
+def mixer_mem(seconds: int = 180, nstem: int = 8):
     import sys, threading, time
 
     sys.path.insert(0, "/root/api")
@@ -41,7 +41,7 @@ def mixer_mem(seconds: int = 30):
 
     threading.Thread(target=sampler, daemon=True).start()
 
-    out = {"base_mb": round(_rss(), 1), "seconds": seconds}
+    out = {"base_mb": round(_rss(), 1), "seconds": seconds, "nstem": nstem}
     try:
         import auto
 
@@ -58,12 +58,10 @@ def mixer_mem(seconds: int = 30):
             a += 0.01 * rng.standard_normal((2, n))
             return a.astype(np.float32)
 
-        groups = {
-            "beat": [mk(60, 0.5)],
-            "lead": [mk(440, 0.25)],
-            "adlib": [mk(660, 0.15)],
-            "backing": [mk(330, 0.12)],
-        }
+        roles = ["beat", "lead", "adlib", "backing"]
+        groups = {r: [] for r in roles}
+        for i in range(nstem):
+            groups[roles[i % 4]].append(mk(60.0 + 40 * i, 0.5 / (1 + i)))
         out["loaded_mb"] = round(_rss(), 1)
 
         mixed, report = auto.mix(groups, sr)
@@ -91,5 +89,5 @@ def mixer_mem(seconds: int = 30):
 
 
 @app.local_entrypoint()
-def main(seconds: int = 30):
-    print(mixer_mem.remote(seconds))
+def main(seconds: int = 180, nstem: int = 8):
+    print(mixer_mem.remote(seconds, nstem))
