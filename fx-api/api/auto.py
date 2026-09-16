@@ -588,7 +588,7 @@ def _deess(voc, sr, st):
     return out, round(mx, 2)
 
 
-SEND_PLATE = 10.0 ** (-17.0 / 20.0)   # plate send
+SEND_PLATE = 10.0 ** (-14.0 / 20.0)   # plate send
 SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
