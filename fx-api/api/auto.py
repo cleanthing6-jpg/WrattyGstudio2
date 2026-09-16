@@ -32,14 +32,14 @@ DUCK_TARGET = {BODY: 2.0, PRES: 2.5, HARSH: 2.0}
 
 ROLE_TREAT = {
     "lead":    {"gain": -1.5,  "hpf": 90.0,  "mud": 2.5, "box": 1.5, "pres": 1.0,
-                "harsh": 3.0, "air": 1.5, "ratio": 3.0, "atk": 12.0, "rel": 80.0,
-                "sat": 1.8, "width": 1.0},
+                "harsh": 3.0, "air": 2.5, "ratio": 3.0, "atk": 12.0, "rel": 80.0,
+                "sat": 1.2, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
-                "sat": 2.6, "width": 1.30},
+                "sat": 1.2, "width": 1.30},
     "backing": {"gain": -5.0, "hpf": 120.0, "mud": 2.5, "box": 1.5, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 3.5, "atk": 10.0, "rel": 130.0,
-                "sat": 1.6, "width": 1.20},
+                "sat": 0.8, "width": 1.20},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -831,7 +831,7 @@ def mix(groups, sr, loud="MEDIUM"):
             ex = _sum(others)
             n = max(core.shape[1], ex.shape[1])
             core = (_pad(core, n) + _pad(ex, n) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
-        core, ms, pk = _ambience(core, sr, detect_tempo(core, sr))
+        core, ms, pk = _ambience(_glue(core, sr), sr, detect_tempo(core, sr))
         rep["vocal_chain"] = moves
         rep["slap_ms"] = ms
         rep["plate"] = pk
@@ -872,7 +872,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["vocal_raise_db"] = round(raised, 2)
     rep["level_passes"] = level_passes
 
-    core, ms, pk = _ambience(core, sr, bpm)
+    core, ms, pk = _ambience(_glue(core, sr), sr, bpm)
     rep["slap_ms"] = ms
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
@@ -914,3 +914,15 @@ def mix(groups, sr, loud="MEDIUM"):
     mixed = _headroom(mixed)
     rep["check"] = verify(mixed, sr, core, ducked)
     return mixed, rep
+
+
+def _glue(x, sr, thr=-20.0, ratio=2.0, atk=30.0, rel=150.0):
+    """Vocal-bus glue: slow, gentle, 1-2 dB of gain reduction.
+    Softens peaks and seats lead + backups together - the 'polished record' step."""
+    for kw in ({"threshold_db": thr, "ratio": ratio, "attack_ms": atk, "release_ms": rel},
+               {"threshold_db": thr, "ratio": ratio}):
+        try:
+            return np.asarray(Pedalboard([Compressor(**kw)])(x, sr), dtype=np.float32)
+        except Exception:
+            continue
+    return x
