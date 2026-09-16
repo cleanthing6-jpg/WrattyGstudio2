@@ -31,15 +31,15 @@ DUCK_CAP = {BODY: 0.75, PRES: 1.5, HARSH: 1.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 1.5, HARSH: 1.0}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -2.5,  "hpf": 90.0,  "mud": 2.5, "box": 1.5, "pres": 1.2,
+    "lead":    {"gain": -2.5,  "hpf": 100.0, "mud": 3.5, "box": 3.0, "pres": 1.2,
                 "harsh": 3.0, "air": 2.5, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
-                "sat": 1.2, "width": 1.0},
+                "sat": 0.6, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
                 "sat": 1.2, "width": 1.30},
-    "backing": {"gain": -3.0, "hpf": 120.0, "mud": 2.5, "box": 1.5, "pres": 0.0,
-                "harsh": 2.0, "air": 1.0, "ratio": 3.5, "atk": 10.0, "rel": 130.0,
-                "sat": 0.8, "width": 1.0},
+    "backing": {"gain": -1.5, "hpf": 90.0,  "mud": 2.0, "box": 1.0, "pres": 0.8,
+                "harsh": 2.0, "air": 1.5, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
+                "sat": 0.6, "width": 1.0},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -470,15 +470,15 @@ def plate_ir(sr):
     key = int(sr)
     if key in _PLATE["ir"]:
         return _PLATE["ir"][key]
-    dur, pre = 1.25, 0.022
+    dur, pre = 0.95, 0.020
     n = int(sr * dur)
     t = np.arange(n, dtype=np.float64) / sr
     env = np.exp(-6.91 * np.maximum(t - pre, 0.0) / dur)
     ir = np.random.default_rng(7).normal(0.0, 1.0, n) * env
     ir[:int(sr * pre)] *= np.linspace(0.0, 1.0, int(sr * pre)) ** 2
     x = ir.astype(np.float32)[None, :]
-    x = Pedalboard([HighpassFilter(cutoff_frequency_hz=180.0),
-                    LowpassFilter(cutoff_frequency_hz=6500.0)])(x, sr)
+    x = Pedalboard([HighpassFilter(cutoff_frequency_hz=300.0),
+                    LowpassFilter(cutoff_frequency_hz=9000.0)])(x, sr)
     ir = x[0].astype(np.float32)
     e = float(np.sqrt(np.sum(np.square(ir.astype(np.float64))))) + 1e-12
     ir = (ir / e) * 0.9
@@ -499,7 +499,8 @@ def _plate(voc, sr):
             from pedalboard.io import AudioFile as _AF
             fd, path = _tf.mkstemp(suffix=".wav")
             os.close(fd)
-            stereo = np.stack([ir, (ir * 0.97).astype(np.float32)]).astype(np.float32)
+            _r = np.concatenate([np.zeros(int(sr * 0.011), np.float32), ir])[:ir.shape[0]]
+            stereo = np.stack([ir, (_r * 0.97).astype(np.float32)]).astype(np.float32)
             with _AF(path, "w", int(sr), 2) as f:
                 try:
                     f.bit_depth = 32
@@ -587,8 +588,8 @@ def _deess(voc, sr, st):
     return out, round(mx, 2)
 
 
-SEND_PLATE = 10.0 ** (-14.0 / 20.0)   # plate send
-SEND_SLAP  = 10.0 ** (-20.0 / 20.0)   # slap send
+SEND_PLATE = 10.0 ** (-17.0 / 20.0)   # plate send
+SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
 def _ambience(voc, sr, bpm):
@@ -889,7 +890,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
 
-    side_ids = [r for r in ("adlib", "backing") if r in ro_map]
+    side_ids = [r for r in ("adlib",) if r in ro_map]
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
         if dbl is not None:
@@ -928,7 +929,7 @@ def mix(groups, sr, loud="MEDIUM"):
     return mixed, rep
 
 
-def _glue(x, sr, thr=-20.0, ratio=2.0, atk=30.0, rel=150.0):
+def _glue(x, sr, thr=-10.0, ratio=1.5, atk=30.0, rel=250.0):
     """Vocal-bus glue: slow, gentle, 1-2 dB of gain reduction.
     Softens peaks and seats lead + backups together - the 'polished record' step."""
     for kw in ({"threshold_db": thr, "ratio": ratio, "attack_ms": atk, "release_ms": rel},
