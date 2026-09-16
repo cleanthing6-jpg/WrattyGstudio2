@@ -20,8 +20,8 @@ TARGET = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.5}
 JOBS, LK = {}, threading.Lock()
 
 BUS = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
-                  PeakFilter(cutoff_frequency_hz=250, gain_db=1.0, q=0.9),
-                  PeakFilter(cutoff_frequency_hz=3000, gain_db=1.5, q=1.0),
+                  PeakFilter(cutoff_frequency_hz=250, gain_db=0.0, q=0.9),
+                  PeakFilter(cutoff_frequency_hz=3000, gain_db=0.0, q=1.0),
                   Compressor(threshold_db=-16, ratio=1.8, attack_ms=25, release_ms=150)])
 LIM = Limiter(threshold_db=-1.0, release_ms=100)
 
@@ -163,27 +163,31 @@ def do_mix(stems, loud, jid, max_sec=0):
         n = mixed.shape[1]
         want = str(loud or "MEDIUM").upper()
 
-        if mode not in ("two_track", "passthrough", "vocal_only"):
+        if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
-            mixed = BUS(mixed, sr).astype(np.float32)
+            _thr = float(np.clip(rmsdb(mixed) - 3.0, -40.0, -6.0))
+            mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
+                                Compressor(threshold_db=_thr, ratio=1.5,
+                                           attack_ms=30.0, release_ms=130.0)])(mixed, sr).astype(np.float32)
+            report["glue_thr_db"] = round(_thr, 2)
 
         tgt = TARGET.get(want, -14.0)
         cur = lufs(mixed, sr)
         if cur is None:
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
         else:
-            mixed = mixed * (10.0 ** (min(2.5, tgt - cur) / 20.0))
+            mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
 
         setjob(jid, "clip+limit")
-        if mode not in ("two_track", "passthrough", "vocal_only"):
+        if mode not in ("passthrough", "two_track"):
             mixed = auto.clip(mixed, sr)
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
-        for _ in range(1):
+        for _ in range(4):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
-            mixed = mixed * (10.0 ** (min(2.5, tgt - f) / 20.0))
+            mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - f)) / 20.0))
             mixed, tp, brick = auto.limit(mixed, sr, -1.0)
         report["true_peak_dbfs"] = round(tp, 2)
         report["limiter"] = "brickwall" if brick else "fallback"
