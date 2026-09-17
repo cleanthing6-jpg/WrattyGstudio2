@@ -155,20 +155,20 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const isOwner = String(user?.id || "") === "user_3IqTsednC0Bqdk3JMxeGzW6zdGD";
 
   
-  async function masterTrack(mixUrl: string) {
+  async function masterTrack(mixUrl: string, full = false) {
     if (!mixUrl || busy) return;
     setBusy(true); setErr(""); setMasterUrl("");
-    setMsg("Creating mastering preview...");
+    setMsg(full ? "Creating your full master - this can take a few minutes..." : "Creating mastering preview...");
     try {
       const r = await fetch("/api/roex-master", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: mixUrl, style, loudness: roexLoudness }),
+        body: JSON.stringify({ url: mixUrl, style, loudness: roexLoudness, preview: !full }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
 
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < (full ? 120 : 30); i++) {
         await new Promise((res) => setTimeout(res, 5000));
         const s2 = await fetch("/api/roex-master?taskId=" + encodeURIComponent(data.taskId));
         const st = await s2.json().catch(() => ({}));
@@ -177,7 +177,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const got = st.masterUrl || st.url || st.previewUrl;
         if (got) { setMasterUrl(got); setMsg("Master ready"); return; }
       }
-      throw new Error("Mastering preview timed out");
+      throw new Error(full ? "Full master timed out - try again" : "Mastering preview timed out");
     } catch (e: any) {
       setErr(e && e.message ? e.message : "Mastering failed");
     } finally {
@@ -489,7 +489,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
               {finalUrl && !masterUrl && (
           <button
-            onClick={() => masterTrack(finalUrl)}
+            onClick={() => masterTrack(finalUrl, true)}
             disabled={busy}
             className="mt-3 w-full rounded-lg bg-purple-700 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
           >
