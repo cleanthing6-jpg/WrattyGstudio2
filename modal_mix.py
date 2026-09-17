@@ -74,7 +74,7 @@ def api():
         jid = request.query_params.get("id")
         if not jid:
             return {"ok": True}
-        return jobs.get(jid) or {"status": "none"}
+        return (await jobs.get.aio(jid)) or {"status": "none"}
 
     @web.post("/")
     async def start(request: Request):
@@ -95,24 +95,24 @@ def api():
                 return JSONResponse(
                     {"error": "each stem needs an https url"}, status_code=400
                 )
-        busy = jobs.get("busy")
+        busy = await jobs.get.aio("busy")
         if busy:
-            started = float(jobs.get("busy_at") or 0)
+            started = float((await jobs.get.aio("busy_at")) or 0)
             if time.time() - started < 900:
                 return JSONResponse(
                     {"error": "engine busy - try again in a minute"},
                     status_code=429,
                 )
-            jobs["busy"] = None   # engine died mid-mix - reclaim it
+            await jobs.put.aio("busy", None)   # engine died mid-mix - reclaim it
             return JSONResponse(
                 {"error": "engine busy - try again in a minute"}, status_code=429
             )
 
         jid = uuid.uuid4().hex
-        jobs["busy"] = jid
-        jobs["busy_at"] = time.time()
-        jobs[jid] = {"status": "queued"}
-        run_mix.spawn(
+        await jobs.put.aio("busy", jid)
+        await jobs.put.aio("busy_at", time.time())
+        await jobs.put.aio(jid, {"status": "queued"})
+        await run_mix.spawn.aio(
             jid,
             stems,
             str(body.get("loudness") or "MEDIUM"),
