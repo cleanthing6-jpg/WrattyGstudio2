@@ -31,8 +31,8 @@ BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 2.5, 1.5
-MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 3.0
-DEESS_OFFSET_DB = 6.0   # trigger this far above the band's own median
+MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 2.5
+DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
 DUCK_CAP = {BODY: 1.5, PRES: 3.0, HARSH: 2.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
@@ -737,7 +737,7 @@ def _role_chain(voc, sr, st, role):
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
     moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
-    drive = min(3.0, t["sat"] + max(0.0, (2.5 - st["clarity"]) * 0.3))
+    drive = min(1.2, t["sat"])
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
     _pre = _rms_db(voc)
     _post = _rms_db(out)
