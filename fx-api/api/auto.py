@@ -44,7 +44,7 @@ ROLE_TREAT = {
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
                 "sat": 1.2, "width": 1.30},
-    "backing": {"gain": -8.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
+    "backing": {"gain": -3.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
                 "sat": 0.6, "width": 1.2},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
@@ -1176,15 +1176,15 @@ def _match_role_levels(ro_map, sr, rep):
             if v is None or getattr(v, "shape", (0, 0))[1] == 0:
                 continue
             cur = float(_rms_db(v))
-            if cur < -48.0:
+            if cur < -60.0:
                 rep["level_match"][r] = "SILENT (%.1f dB) - bad file" % cur
                 continue
             if (lead - cur) > 18.0:
                 rep["level_match"][r] = "TOO QUIET (%.1f dB under lead) - not boosted" % (lead - cur)
-                continue
+                pass
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 12.0))
+            gain = float(np.clip(min(tgt - cur, head), -6.0, 18.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
