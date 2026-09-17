@@ -186,10 +186,12 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
 
         setjob(jid, "clip+limit")
-        if mode not in ("passthrough", "two_track"):
+        if mode != "passthrough" and (
+            mode != "two_track" or bool(cfg.get("clip"))
+        ):
             mixed = auto.clip(mixed, sr)
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
-        for _ in range(4):
+        for _ in range(8):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
