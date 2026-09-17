@@ -31,20 +31,20 @@ BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 2.5, 1.5
-MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 2.5
+MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
 DUCK_CAP = {BODY: 1.5, PRES: 3.0, HARSH: 2.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 3.5, "box": 3.0, "pres": 1.2,
-                "harsh": 3.0, "air": 2.5, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
+    "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
+                "harsh": 1.5, "air": 2.0, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
                 "sat": 0.6, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
                 "sat": 1.2, "width": 1.30},
-    "backing": {"gain": -1.5, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
+    "backing": {"gain": -8.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
                 "sat": 0.6, "width": 1.2},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
@@ -54,9 +54,9 @@ ROLE_TREAT = {
 
 # ---------- genre presets (Deploy 1: neutral + afrobeats) ----------
 PRESETS = {
-    "neutral": {},
+    "neutral": {"width": 1.0},
     "afrobeats": {
-        "target_lufs": -12.0, "glue_ratio": 1.5, "glue_gr_db": 0.8,
+        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
         "width": 1.12, "plate_db": -15.0, "slap_db": -18.0,
     },
     "pop": {
@@ -1040,7 +1040,7 @@ def mix(groups, sr, loud="MEDIUM"):
         n2 = max(mixed.shape[1], ex.shape[1])
         mixed = (_pad(mixed, n2) + _pad(ex, n2) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
 
-    mixed = _widen(mixed, sr, _PRESET.get("width") or None)
+    mixed = _widen(mixed, sr, float(_PRESET.get("width") or 1.0))
     mixed = _headroom(mixed)
     rep["check"] = verify(mixed, sr, core, ducked)
     return mixed, rep

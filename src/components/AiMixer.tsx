@@ -278,8 +278,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const vdata = await vpost.json().catch(() => ({}));
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
-        for (let k = 0; k < 30 && !roexVocalUrl; k++) {
-          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 30");
+        for (let k = 0; k < 120 && !roexVocalUrl; k++) {
+          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/roex-mix?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
@@ -302,7 +302,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const off = new OfflineAudioContext(2, beatLen, sampleRate);
         const beatCopy = off.createBuffer(2, beatLen, sampleRate);
         const vocalCopy = off.createBuffer(2, beatLen, sampleRate);
-        for (let c = 0; c < 2; c++) {
+        for (let c = 0; c < 120; c++) {
           const beatSrc = beatBuf.getChannelData(Math.min(c, beatBuf.numberOfChannels - 1));
           const beatDst = beatCopy.getChannelData(c);
           for (let i = 0; i < beatLen; i++) beatDst[i] = beatSrc[i] || 0;
@@ -351,8 +351,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!post.ok || !data.taskId) throw new Error(data.error || "RoEx could not start the mix (code " + post.status + ")");
         setTaskId(data.taskId);
 
-        for (let i = 0; i < 30; i++) {
-          setMsg("Mixing your stems… attempt " + (i + 1) + " of 30");
+        for (let i = 0; i < 120; i++) {
+          setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
           const s = await fetchWithTimeout("/api/roex-mix?taskId=" + encodeURIComponent(data.taskId), 60000);
           const sd = await s.json().catch(() => ({}));
