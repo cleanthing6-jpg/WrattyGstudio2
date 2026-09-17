@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { beatLockedMix, gateVocal } from "@/lib/beatLock";
 import { masterStage } from "@/lib/masterStage";
-import { useUploadThing } from "@/utils/uploadthing";
+import { uploadStem } from "@/lib/freeUpload";
 
 function encodeWav(buf: AudioBuffer): Blob {
   const ch = buf.numberOfChannels;
@@ -59,7 +59,14 @@ export default function BeatLockPage() {
   const [stage, setStage] = useState("");
   const [url, setUrl] = useState("");
   const [vdb, setVdb] = useState(-6);
-  const { startUpload } = useUploadThing("audioUploader");
+  const startUpload = async (files: File[]): Promise<any[]> => {
+    const out: any[] = [];
+    for (const f of files) {
+      const url = await uploadStem(f);
+      out.push({ ufsUrl: url, url, name: f.name, serverData: { url, ufsUrl: url } });
+    }
+    return out;
+  };
   const [beat, setBeat] = useState<AudioBuffer | null>(null);
   const [voc, setVoc] = useState<AudioBuffer | null>(null);
   const [bName, setBName] = useState("");

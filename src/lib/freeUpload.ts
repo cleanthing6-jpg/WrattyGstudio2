@@ -1,4 +1,6 @@
-import { uploadFiles } from "@/utils/uploadthing";
+"use client";
+
+import { upload } from "@vercel/blob/client";
 
 function sanitizeName(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -18,13 +20,11 @@ export async function uploadStem(file: File): Promise<string> {
   if (!file || file.size === 0) {
     throw new Error("Cannot upload an empty file");
   }
-
-  const safeFile = new File([file], sanitizeName(file.name), { type: file.type });
-
-  const res = await uploadFiles("audioUploader", { files: [safeFile] });
-  const f: any = res && res[0];
-  const sd: any = (f && f.serverData) || {};
-  const url = (f && (f.url || f.ufsUrl || sd.url || sd.ufsUrl)) || "";
-  if (!url) throw new Error("UploadThing returned no file URL");
-  return url;
+  const name = sanitizeName(file.name) || "stem.wav";
+  const blob = await upload(`stems/${Date.now()}-${name}`, file, {
+    access: "public",
+    handleUploadUrl: "/api/blob-upload",
+    multipart: true,
+  });
+  return blob.url; // callers expect a string
 }
