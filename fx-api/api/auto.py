@@ -34,8 +34,8 @@ MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
 MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
-DUCK_CAP = {BODY: 1.0, PRES: 2.0, HARSH: 1.5}
-DUCK_TARGET = {BODY: 0.5, PRES: 1.5, HARSH: 1.0}
+DUCK_CAP = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
+DUCK_TARGET = {BODY: 0.5, PRES: 2.0, HARSH: 1.0}
 
 ROLE_TREAT = {
     "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
@@ -1034,10 +1034,6 @@ def mix(groups, sr, loud="MEDIUM"):
 
     ducked, plan, vpres, post = _duck(beat, core, freq, st)
     tries = 1
-    while (post is not None and (vpres - post) < (DUCK_TARGET[PRES] - 0.5)
-           and tries < 2 and any(plan[b] > -DUCK_CAP[b] + 0.05 for b in plan)):
-        ducked, plan, vpres, post = _duck(beat, core, freq, st, extra=1.0)
-        tries += 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
     rep["clarity_before"] = round(float(st["clarity"]), 2)
@@ -1156,14 +1152,17 @@ def _match_role_levels(ro_map, sr, rep):
             if v is None or getattr(v, "shape", (0, 0))[1] == 0:
                 continue
             cur = float(_rms_db(v))
-            if cur < -60.0:
+            if cur < -48.0:
                 rep["level_match"][r] = "SILENT (%.1f dB) - bad file" % cur
+                continue
+            if (lead - cur) > 18.0:
+                rep["level_match"][r] = "TOO QUIET (%.1f dB under lead) - not boosted" % (lead - cur)
                 continue
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 21.0))
+            gain = float(np.clip(min(tgt - cur, head), -6.0, 12.0))
             if abs(gain) >= 0.1:
-                ro_map[r] = (v * (10.0 ** (float(np.clip(gain, 0.0, 6.0)) / 20.0))).astype(np.float32)
+                ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
     except Exception as e:
         rep["level_match_error"] = str(e)[:300]
