@@ -1021,6 +1021,7 @@ def mix(groups, sr, loud="MEDIUM"):
         except Exception as _e:
             rep["dynamic_eq_error"] = str(_e)[:200]
     rep["vocal_chain"] = moves
+    rep["clarity_before"] = round(float(st["clarity"]), 2)
 
     raised = 0.0
     level_passes = 0
@@ -1058,8 +1059,9 @@ def mix(groups, sr, loud="MEDIUM"):
     tries = 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
-    rep["clarity_before"] = round(float(st["clarity"]), 2)
-    rep["clarity_after"] = None if post is None else round(float(vpres - post), 2)
+    rep["clarity_after_raise"] = round(float(st["clarity"]), 2)
+    rep["clarity_after"] = None if post is None else round(float(
+        _avg(_stft(_mono(core)), PRES, freq) - _avg(_stft(_mono(ducked)), PRES, freq)), 2)
     rep["duck_passes"] = tries
 
     n = max(ducked.shape[1], core.shape[1])
