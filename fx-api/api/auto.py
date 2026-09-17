@@ -34,8 +34,8 @@ MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
 MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
-DUCK_CAP = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
-DUCK_TARGET = {BODY: 0.5, PRES: 2.0, HARSH: 1.0}
+DUCK_CAP = {BODY: 1.0, PRES: 3.0, HARSH: 1.5}
+DUCK_TARGET = {BODY: 0.5, PRES: 2.5, HARSH: 1.0}
 
 ROLE_TREAT = {
     "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
@@ -121,9 +121,9 @@ def _treat_for(role):
     return t
 
 ROLE_VOCALS = ("lead", "adlib", "backing")
-CLARITY_MIN = 1.8
-RAISE_PER_PASS = 0.5
-RAISE_CAP = 0.0
+CLARITY_MIN = 2.0
+RAISE_PER_PASS = 0.75
+RAISE_CAP = 2.5
 SEND_WET = 0.11
 DOUBLE_DB = -15.0
 WIDEN = 1.15
