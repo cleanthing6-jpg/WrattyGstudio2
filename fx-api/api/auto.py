@@ -924,8 +924,8 @@ def mix(groups, sr, loud="MEDIUM"):
     if _oth:
         _o = _sum(_oth)
         if _o is not None:
-            ro_map["backing"] = _o if "backing" not in ro_map else _sum([ro_map["backing"], _o])
-            rep["other_folded_into_backing"] = len(_oth)
+            beat = _o if beat is None else _sum([beat, _o])
+            rep["other_folded_into_beat"] = len(_oth)
     voc = _sum(list(ro_map.values())) if ro_map else None
 
     if beat is None and voc is None:
