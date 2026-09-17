@@ -489,7 +489,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
               {finalUrl && !masterUrl && (
           <button
-            onClick={() => masterTrack(finalUrl, true)}
+            onClick={() => masterTrack(finalUrl, isOwner)}
             disabled={busy}
             className="mt-3 w-full rounded-lg bg-purple-700 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
           >
