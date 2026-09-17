@@ -94,10 +94,32 @@ ROLE_DELTAS = {
 _PRESET = {}
 
 
+PRESET_ALIASES = {
+    "afrobeats": "afrobeats", "afrobeats recommended": "afrobeats", "afrobeat": "afrobeats",
+    "hip hop": "rap", "hip hop rap": "rap", "hiphop": "rap", "rap": "rap",
+    "reggae dancehall": "rnb", "reggae": "rnb", "dancehall": "rnb",
+    "pop": "pop", "rnb": "rnb", "r b": "rnb",
+    "electronic amapiano": "amapiano", "electronic": "amapiano", "amapiano": "amapiano",
+    "acoustic": "neutral", "rock indie": "neutral", "rock": "neutral",
+    "other": "neutral", "neutral": "neutral",
+}
+
+
+def normalize_preset(name):
+    q = str(name or "neutral").strip().lower()
+    for ch in ("—", "–", "-", "/", "_", "."):
+        q = q.replace(ch, " ")
+    q = " ".join(q.split())
+    return PRESET_ALIASES.get(q, q)
+
+
 def preset_config(name):
-    p = str(name or "neutral").lower()
+    requested = str(name or "neutral")
+    p = normalize_preset(requested)
     if p not in PRESETS:
+        print("[preset] requested=%r -> UNKNOWN, falling back to neutral" % requested)
         p = "neutral"
+    print("[preset] requested=%r resolved=%r" % (requested, p))
     return p, dict(PRESETS[p])
 
 
