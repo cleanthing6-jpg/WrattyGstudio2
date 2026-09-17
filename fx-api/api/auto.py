@@ -272,9 +272,12 @@ def _activity(lev):
 
 def _stft(x, chunk=512):
     w = _win()
-    if len(x) < N:
-        x = np.pad(x, (0, N - len(x)))
-    n = 1 + (len(x) - N) // HOP
+    x = np.asarray(x, dtype=np.float32)
+    if x.ndim > 1:
+        x = x.mean(axis=0)
+    if x.shape[0] < N:
+        x = np.pad(x, (0, N - x.shape[0]))
+    n = 1 + (x.shape[0] - N) // HOP
     idx = np.arange(N)
     out = np.empty((n, N // 2 + 1), dtype=np.complex64)
     for s in range(0, n, chunk):
@@ -908,6 +911,11 @@ def mix(groups, sr, loud="MEDIUM"):
                 except Exception as _e:
                     rep.setdefault("bus_diag", {})[r] = str(_e)[:120]
     _oth = groups.get("other") or []
+    if (beat is None and _oth
+            and not any(groups.get(r) for r in ROLE_VOCALS)):
+        rep["mode"] = "master"
+        rep["note"] = "single full-mix stem - master bus, no vocal chain"
+        return _master(_sum(_oth), sr, rep, loud)
     if _oth:
         _o = _sum(_oth)
         if _o is not None:
@@ -1043,6 +1051,40 @@ def _glue(x, sr, thr=-10.0, ratio=1.5, atk=30.0, rel=250.0):
         except Exception:
             continue
     return x
+
+
+# ---------- full-mix master bus ----------
+
+WIDEN_MASTER = 1.10
+
+
+def _master(x, sr, rep, loud="MEDIUM"):
+    """Master a finished stereo mix. No vocal EQ, no role chain, no low-cut
+    below 20 Hz. Rumble guard -> tone polish -> modest width. mix.py adds the
+    glue, the LUFS normalise and the true-peak limiter on top."""
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    moves = []
+    try:
+        a = Pedalboard([HighpassFilter(cutoff_frequency_hz=20.0)])(a, sr).astype(np.float32)
+        moves.append(["hpf", 20.0])
+    except Exception:
+        pass
+    try:
+        a2, pst = polish.dynamic_eq(a, sr, get_stats=True)
+        a = np.asarray(a2, dtype=np.float32)
+        rep["polish"] = pst
+        moves.append(["polish_eq", "on"])
+    except Exception as e:
+        rep["polish_error"] = str(e)[:160]
+    try:
+        a = _widen(a, sr, WIDEN_MASTER)
+        moves.append(["width", WIDEN_MASTER])
+    except Exception:
+        pass
+    rep["master_chain"] = moves
+    return _headroom(a, -1.0), rep
 
 
 # ---------- polish additions ----------
