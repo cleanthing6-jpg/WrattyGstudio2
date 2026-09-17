@@ -16,12 +16,15 @@ function sanitizeName(name: string): string {
   return `${base || "stem"}${ext}`;
 }
 
-export async function uploadStem(file: File): Promise<string> {
+export async function uploadStem(
+  file: File,
+  folder: "stems" | "masters" = "stems",
+): Promise<string> {
   if (!file || file.size === 0) {
     throw new Error("Cannot upload an empty file");
   }
   const name = sanitizeName(file.name) || "stem.wav";
-  const blob = await upload(`stems/${Date.now()}-${name}`, file, {
+  const blob = await upload(`${folder}/${Date.now()}-${name}`, file, {
     access: "public",
     handleUploadUrl: "/api/blob-upload",
     multipart: true,
