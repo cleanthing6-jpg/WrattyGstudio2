@@ -30,12 +30,12 @@ BANDS = [(80, 150), (150, 300), (300, 800), (800, 2000),
 BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
-MAX_MUD_CUT, MAX_BOX_CUT = 2.5, 1.5
+MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
 MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
-DUCK_CAP = {BODY: 1.5, PRES: 3.0, HARSH: 2.0}
-DUCK_TARGET = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
+DUCK_CAP = {BODY: 1.0, PRES: 2.0, HARSH: 1.5}
+DUCK_TARGET = {BODY: 0.5, PRES: 1.5, HARSH: 1.0}
 
 ROLE_TREAT = {
     "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
@@ -59,6 +59,10 @@ PRESETS = {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
         "width": 1.12, "plate_db": -15.0, "slap_db": -18.0,
     },
+    "amapiano": {
+        "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
+        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
+    },
     "pop": {
         "target_lufs": -11.5, "glue_ratio": 1.6, "glue_gr_db": 1.0,
         "width": 1.10, "plate_db": -16.0, "slap_db": -20.0,
@@ -73,7 +77,16 @@ PRESETS = {
     },
 }
 ROLE_DELTAS = {
-    "afrobeats": {"lead": {"air": 0.5, "sat": 0.4}, "backing": {"pres": -0.2}},
+    "afrobeats": {
+        "lead": {"air": 0.5, "sat": 0.4},
+        "adlib": {"air": 0.2, "sat": 0.2, "pres": -0.2},
+        "backing": {"pres": -0.2},
+    },
+    "amapiano": {
+        "lead": {"air": 0.2, "sat": 0.1},
+        "adlib": {"air": 0.1, "sat": 0.1, "pres": -0.1},
+        "backing": {"pres": -0.2},
+    },
     "pop": {"lead": {"air": 1.0, "sat": 0.2}},
     "rnb": {"lead": {"air": 0.5, "sat": -0.1}},
     "rap": {"lead": {"air": -0.5, "sat": 0.6}, "backing": {"pres": -0.2}},
@@ -718,15 +731,15 @@ def _role_chain(voc, sr, st, role):
     moves = [["role", role], ["highpass", t["hpf"]]]
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     if st["mud"] > 1.0:
-        g = -min(t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
+        g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
         if g < -0.2:
             ch.append(PeakFilter(240.0, g, 0.9)); moves.append(["mud 240", round(g, 2)])
     if st["box"] > 1.0:
-        g = -min(t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
+        g = -min(MAX_BOX_CUT, t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
         if g < -0.2:
             ch.append(PeakFilter(600.0, g, 1.0)); moves.append(["box 600", round(g, 2)])
     if st["harsh"] > 1.5:
-        g = -min(t["harsh"], (st["harsh"] - 1.5) * 2.0)
+        g = -min(MAX_HARSH_CUT, t["harsh"], (st["harsh"] - 1.5) * 2.0)
         if g < -0.2:
             ch.append(PeakFilter(4400.0, g, 1.2)); moves.append(["harsh 4.4k", round(g, 2)])
     if st["presence"] < -2.5 and t["pres"] > 0:
@@ -1150,7 +1163,7 @@ def _match_role_levels(ro_map, sr, rep):
             head = 20.0 * np.log10(0.9 / pk)
             gain = float(np.clip(min(tgt - cur, head), -6.0, 21.0))
             if abs(gain) >= 0.1:
-                ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
+                ro_map[r] = (v * (10.0 ** (float(np.clip(gain, 0.0, 6.0)) / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
     except Exception as e:
         rep["level_match_error"] = str(e)[:300]
