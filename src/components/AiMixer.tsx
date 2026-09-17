@@ -24,14 +24,14 @@ import { masterStage } from "@/lib/masterStage";
 type Stem = { url: string; name: string; role: string };
 
 const STYLES = [
-  { value: "AFROBEAT", label: "Afrobeats — recommended" },
-  { value: "HIPHOP_GRIME", label: "Afrobeats / Urban — recommended" },
-  { value: "REGGAE_DUB", label: "Reggae / Dancehall" },
-  { value: "POP", label: "Pop" },
-  { value: "ELECTRONIC", label: "Electronic / Amapiano" },
-  { value: "ACOUSTIC", label: "Acoustic" },
-  { value: "ROCK_INDIE", label: "Rock / Indie" },
-  { value: "OTHER", label: "Other" },
+  { value: "afrobeats", label: "Afrobeats — recommended" },
+  { value: "rap", label: "Hip-Hop / Rap" },
+  { value: "afrobeats", label: "Reggae / Dancehall" },
+  { value: "pop", label: "Pop" },
+  { value: "pop", label: "Electronic / Amapiano" },
+  { value: "rnb", label: "Acoustic" },
+  { value: "rnb", label: "Rock / Indie" },
+  { value: "neutral", label: "Other" },
 ];
 
 const RATE = 44100;
@@ -141,7 +141,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  const [style, setStyle] = useState("AFROBEAT");
+  const [style, setStyle] = useState("afrobeats");
   const [lufs, setLufs] = useState(-8);
   const [roexLoudness, setRoexLoudness] = useState("HIGH");
   const [bpm, setBpm] = useState(100);
@@ -381,7 +381,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stems: prepared, loudness: roexLoudness }),
+        body: JSON.stringify({ stems: prepared, loudness: roexLoudness, preset: style }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
