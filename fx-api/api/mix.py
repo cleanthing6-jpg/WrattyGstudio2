@@ -157,6 +157,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         try:
             mixed, report = auto.mix(groups, sr)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print("MIXFAIL " + str(e)[:300], flush=True)
             mixed = auto.plain_sum(groups)
             report = {"mode": "fallback", "error": str(e)[:300]}
 

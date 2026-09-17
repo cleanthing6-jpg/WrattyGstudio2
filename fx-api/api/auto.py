@@ -31,9 +31,11 @@ BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 2.5, 1.5
-MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 5.0
-DUCK_CAP = {BODY: 0.75, PRES: 1.5, HARSH: 1.0}
-DUCK_TARGET = {BODY: 1.0, PRES: 1.5, HARSH: 1.0}
+MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.5, 3.0
+DEESS_OFFSET_DB = 6.0   # trigger this far above the band's own median
+DEESS_ATK, DEESS_REL = 1.0, 4.0
+DUCK_CAP = {BODY: 1.5, PRES: 3.0, HARSH: 2.0}
+DUCK_TARGET = {BODY: 1.0, PRES: 2.5, HARSH: 1.5}
 
 ROLE_TREAT = {
     "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 3.5, "box": 3.0, "pres": 1.2,
@@ -635,16 +637,19 @@ def _saturate(x, sr, drive_db):
 
 
 def _deess(voc, sr, st):
-    if st["sib"] < 3.0:
-        return voc, 0.0
+    """Sibilance control calibrated off the band's own level so it fires when
+    sibilance is actually present. Runs BEFORE the air shelf in _role_chain."""
     freq = np.fft.rfftfreq(N, 1.0 / sr)
     k = (freq >= 5500) & (freq < 9000)
+    if not np.any(k):
+        return voc, 0.0
     out = np.empty_like(voc)
     mx = 0.0
     for c in range(voc.shape[0]):
         S = _stft(voc[c])
         lev = _level_db(S, k)
-        red = _smooth(np.clip((lev - np.percentile(lev, 75)) * 0.6, 0.0, MAX_DEESS))
+        thr = float(np.median(lev)) + DEESS_OFFSET_DB
+        red = _smooth(np.clip(lev - thr, 0.0, MAX_DEESS), atk=DEESS_ATK, rel=DEESS_REL)
         mx = max(mx, float(np.max(red)))
         S[:, k] *= (10.0 ** (-red / 20.0))[:, None]
         out[c] = _istft(S, voc.shape[1])
@@ -742,14 +747,14 @@ def _role_chain(voc, sr, st, role):
     moves.append(["makeup", round(makeup, 2)])
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
+    out, dd = _deess(out, sr, st)
+    moves.append(["de-ess", dd])
     try:
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
                                           gain_db=min(MAX_AIR, t["air"]), q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
     moves.append(["air 10k", round(min(MAX_AIR, t["air"]), 2)])
-    out, dd = _deess(out, sr, st)
-    moves.append(["de-ess", dd])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
     return out, moves

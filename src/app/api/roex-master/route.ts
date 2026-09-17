@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
 
   const want = String(body?.loudness || "").toUpperCase();
   const loudness = LOUDNESS.includes(want) ? want : "HIGH";
+  // default is the 30s preview; client sends preview:false for the full render
+  const preview = body?.preview !== false;
 
   const headers = new Headers(req.headers);
   headers.set("content-type", "application/json");
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
   const inner = new NextRequest(req.url, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stems: [{ url, role: "mix" }], loudness, preview: true }),
+    body: JSON.stringify({ stems: [{ url, role: "mix" }], loudness, preview: preview }),
   });
 
   const r = await mixPOST(inner);
