@@ -234,7 +234,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             "Upload failed for " + st.name + " (" + Math.round(file.size / 1048576) + "MB): " + (why || "unknown")
           );
         }
-        const px = presetFor((st.role || "") + " " + (st.name || ""));
+        const px = isBeat(st) ? "" : presetFor((st.role || "") + " " + (st.name || ""));
           if (px) {
             try {
               setMsg("Adding afrobeats FX to " + (st.role || st.name) + "...");
