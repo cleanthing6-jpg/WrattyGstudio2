@@ -31,7 +31,7 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`;
 }
 
-async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[]) {
+async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[], ms = 45000) {
   let last = "unknown";
   for (let k = 0; k < tries; k++) {
     try {
@@ -43,7 +43,7 @@ async function mixer(path: string, init: RequestInit, tries: number, retryCodes:
           "Content-Type": "application/json",
           ...(init.headers || {}),
         },
-        signal: AbortSignal.timeout(120000),
+        signal: AbortSignal.timeout(ms),
       });
       const text = await r.text();
       let data: any = null;
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...row, position: 0 });
   }
 
-  const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 4, [502, 503, 504]);
+  const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 1, [502, 503, 504], 20000);
   const d = r.ok ? r.data : null;
 
   if (d && d.status === "done" && d.url) {

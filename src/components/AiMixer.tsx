@@ -174,7 +174,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const st = await s2.json().catch(() => ({}));
         if (!s2.ok) throw new Error(st.error || "Mastering failed");
         if (/failed|error/i.test(String(st.status))) throw new Error("Mastering failed");
-        if (st.masterUrl || st.url) { setMasterUrl(st.masterUrl || st.url); setMsg("Master ready"); return; }
+        const got = st.masterUrl || st.url || st.previewUrl;
+        if (got) { setMasterUrl(got); setMsg("Master ready"); return; }
       }
       throw new Error("Mastering preview timed out");
     } catch (e: any) {
