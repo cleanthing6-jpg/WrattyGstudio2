@@ -26,11 +26,11 @@ type Stem = { url: string; name: string; role: string };
 const STYLES = [
   { value: "afrobeats", label: "Afrobeats — recommended" },
   { value: "rap", label: "Hip-Hop / Rap" },
-  { value: "afrobeats", label: "Reggae / Dancehall" },
+  { value: "rnb", label: "Reggae / Dancehall" },
   { value: "pop", label: "Pop" },
-  { value: "pop", label: "Electronic / Amapiano" },
-  { value: "rnb", label: "Acoustic" },
-  { value: "rnb", label: "Rock / Indie" },
+  { value: "amapiano", label: "Electronic / Amapiano" },
+  { value: "neutral", label: "Acoustic" },
+  { value: "neutral", label: "Rock / Indie" },
   { value: "neutral", label: "Other" },
 ];
 
