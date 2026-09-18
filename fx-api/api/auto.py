@@ -43,10 +43,10 @@ ROLE_TREAT = {
                 "sat": 0.6, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
-                "sat": 1.2, "width": 1.30},
+                "sat": 1.2, "width": 1.45},
     "backing": {"gain": -3.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.2},
+                "sat": 0.6, "width": 1.35},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -692,18 +692,25 @@ def _deess(voc, sr, st):
     return out, round(mx, 2)
 
 
-SEND_PLATE = 10.0 ** (-14.0 / 20.0)   # plate send
-SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
+SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
+SEND_SLAP  = 10.0 ** (-11.0 / 20.0)   # slap send
 
 
 def _ambience(voc, sr, bpm):
-    beat_s = 60.0 / max(bpm, 40.0)
-    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.35)))
+    try:
+        bpm = float(bpm)
+    except (TypeError, ValueError):
+        bpm = 100.0
+    if not np.isfinite(bpm) or bpm <= 0:
+        bpm = 100.0
+    bpm = float(min(max(bpm, 40.0), 240.0))
+    beat_s = 60.0 / bpm
+    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.60)))
     wet = None
     slap = None
     try:
         slap = Pedalboard([
-            Delay(delay_seconds=d / float(sr), feedback=0.18, mix=1.0),
+            Delay(delay_seconds=d / float(sr), feedback=0.22, mix=1.0),
             HighpassFilter(cutoff_frequency_hz=300.0),
             LowpassFilter(cutoff_frequency_hz=4000.0),
         ])(voc, sr).astype(np.float32)
@@ -1169,7 +1176,7 @@ def _match_role_levels(ro_map, sr, rep):
             rep["level_match"] = "no lead - skipped"
             return
         lead = float(_rms_db(ro_map["lead"]))
-        target = {"adlib": lead - 8.0, "backing": lead - 10.0}
+        target = {"adlib": lead - 8.0, "backing": lead - 8.0}
         rep["level_match"] = {"lead_rms": round(lead, 1)}
         for r, tgt in target.items():
             v = ro_map.get(r)
@@ -1184,7 +1191,7 @@ def _match_role_levels(ro_map, sr, rep):
                 pass
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 18.0))
+            gain = float(np.clip(min(tgt - cur, head), -6.0, 22.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
