@@ -189,6 +189,21 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         n = mixed.shape[1]
         want = str(loud or "MEDIUM").upper()
 
+        # Low-mid stereo narrowing. Against two commercial references our
+        # side energy was 6-8 dB high at 80-600 Hz while 0-80 Hz and
+        # 1.5-4 kHz already matched. Halving the side below ~600 Hz puts the
+        # kick/bass body back on centre and restores mono compatibility.
+        # Skipped on master: its input is already a narrowed mix.
+        if mode not in ("master", "passthrough") and mixed.shape[0] >= 2:
+            _mid = (mixed[0] + mixed[1]) * 0.5
+            _side = (mixed[0] - mixed[1]) * 0.5
+            _hi = Pedalboard([HighpassFilter(cutoff_frequency_hz=600.0)])(
+                _side[None, :], sr)[0]
+            _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
+            mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
+            report["low_mid_guard_hz"] = 600.0
+            report["low_mid_side_trim_db"] = -6.0
+
         if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
