@@ -192,10 +192,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
-            if mode == "two_track":
-                # beat is already mastered - keep 30 Hz rumble guard, skip the compressor
+            if mode in ("two_track", "master"):
+                # input is already a finished mix - keep 30 Hz guard, skip the compressor
                 mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30)])(mixed, sr).astype(np.float32)
-                report["glue_thr_db"] = "off (two_track)"
+                report["glue_thr_db"] = "off (%s)" % mode
             else:
                 _gr = float(cfg.get("glue_gr_db", 1.0))
                 _rat = float(cfg.get("glue_ratio", 1.5))
