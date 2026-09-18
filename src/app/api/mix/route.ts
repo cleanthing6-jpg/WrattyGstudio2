@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUser, consumeCredit } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -122,7 +123,23 @@ export async function POST(req: NextRequest) {
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : null;
-  const maxSeconds = body?.preview === true ? 30 : null;
+  const wantsPreview = body?.preview === true;
+  const user = await getUser(userId);
+  const tier = String(user.tier || "free");
+
+  let maxSeconds: number | null;
+  if (wantsPreview || tier === "free") {
+    maxSeconds = 30;
+  } else {
+    const ok = await consumeCredit(userId, "mix");
+    if (!ok) {
+      return NextResponse.json(
+        { error: "No full-mix credits remaining" },
+        { status: 403 }
+      );
+    }
+    maxSeconds = null;
+  }
 
   await ensureTable();
   await reapStale();
