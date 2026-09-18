@@ -204,6 +204,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         tgt = TARGET.get(want)
         if tgt is None:
             tgt = float(cfg.get("target_lufs", -14.0))
+        if mode == "master":
+            tgt = tgt + float(cfg.get("master_lift_db", 2.5))
+        else:
+            tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
         if cur is None:
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
