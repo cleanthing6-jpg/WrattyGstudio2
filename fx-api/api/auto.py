@@ -1100,7 +1100,7 @@ def _glue(x, sr, thr=-10.0, ratio=1.5, atk=30.0, rel=250.0):
 
 # ---------- full-mix master bus ----------
 
-WIDEN_MASTER = 1.10
+WIDEN_MASTER = 1.0
 
 
 def _master(x, sr, rep, loud="MEDIUM"):

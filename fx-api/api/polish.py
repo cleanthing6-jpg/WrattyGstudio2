@@ -135,7 +135,7 @@ def two_band_deess(x, sr, get_stats=False):
     return dynamic_eq(x, sr, (SIB_LOW, SIB_HI), get_stats=get_stats)
 
 
-def ms_width(x, sr, mono_below=120.0, air_hz=5000.0, air_boost=1.35):
+def ms_width(x, sr, mono_below=120.0, air_hz=5000.0, air_boost=1.15):
     x = np.asarray(x, dtype=np.float32)
     if x.ndim < 2 or x.shape[0] < 2:
         return x
