@@ -8,7 +8,7 @@ app = modal.App("wratty-mix")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("libsndfile1")
-    .pip_install("numpy", "pedalboard", "requests", "fastapi")
+    .pip_install("numpy", "pedalboard", "requests", "fastapi", "soundfile")
     .add_local_dir("fx-api/api", remote_path="/root/api")
 )
 

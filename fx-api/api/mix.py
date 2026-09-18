@@ -90,15 +90,37 @@ def grab(u, dst):
                 fh.write(c)
 
 
-def put(p, name):
+_ENCODE_ERR = None
+
+
+def encode_out(src, tmp, is_preview):
+    """MP3 for previews, FLAC for full renders. Falls back to the WAV."""
+    global _ENCODE_ERR
+    try:
+        import soundfile as sf
+        data, sr = sf.read(src, dtype="float32", always_2d=True)
+        if is_preview:
+            dst = os.path.join(tmp, "mix.mp3")
+            sf.write(dst, data, sr, format="MP3", subtype="MPEG_LAYER_III",
+                     compression_level=0.6)
+            return dst, "audio/mpeg", ".mp3", None
+        dst = os.path.join(tmp, "mix.flac")
+        sf.write(dst, data, sr, format="FLAC", subtype="PCM_16", compression_level=5)
+        return dst, "audio/flac", ".flac", None
+    except Exception as e:
+        _ENCODE_ERR = str(e)[:200]
+        return src, "audio/wav", ".wav", _ENCODE_ERR
+
+
+def put(p, name, ctype="audio/wav"):
     t = os.environ.get("BLOB_READ_WRITE_TOKEN")
     if not t:
         raise RuntimeError("BLOB_READ_WRITE_TOKEN missing")
     with open(p, "rb") as fh:
         r = requests.put(BLOB + "/" + name, data=fh, timeout=600,
                          headers={"authorization": "Bearer " + t,
-                                  "x-api-version": "7", "x-content-type": "audio/wav",
-                                  "x-add-random-suffix": "1", "Content-Type": "audio/wav"})
+                                  "x-api-version": "7", "x-content-type": ctype,
+                                  "x-add-random-suffix": "1", "Content-Type": ctype})
     if r.status_code >= 300:
         raise RuntimeError("blob " + r.text[:150])
     return r.json().get("url", "")
@@ -208,9 +230,14 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         del mixed
         gc.collect()
         rel, rel_sr = load(out)
-        url = put(out, "fx/%s-mix-%s.wav" % (uuid.uuid4().hex, want.lower()))
+        secs = rel.shape[1] / float(rel_sr)
+        upl, ctype, ext, enc_err = encode_out(out, tmp, secs <= 65.0)
+        url = put(upl, "fx/%s-mix-%s%s" % (uuid.uuid4().hex, want.lower(), ext), ctype)
         got = lufs(rel, rel_sr)
         report["loudness"] = want
+        report["format"] = ext.lstrip(".")
+        if enc_err:
+            report["encode_error"] = enc_err
         return {"url": url, "seconds": round(rel.shape[1] / float(rel_sr), 2),
                 "peak_dbfs": round(peakdb(rel), 2),
                 "lufs": (None if got is None else round(got, 2)),
