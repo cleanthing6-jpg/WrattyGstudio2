@@ -33,3 +33,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.bak*
+
+# local secrets and caches
+.cron-secret
+__pycache__/
+*.pyc
