@@ -1176,7 +1176,7 @@ def _match_role_levels(ro_map, sr, rep):
             rep["level_match"] = "no lead - skipped"
             return
         lead = float(_rms_db(ro_map["lead"]))
-        target = {"adlib": lead - 8.0, "backing": lead - 8.0}
+        target = {"adlib": lead - 8.0, "backing": lead - 6.0}
         rep["level_match"] = {"lead_rms": round(lead, 1)}
         for r, tgt in target.items():
             v = ro_map.get(r)
