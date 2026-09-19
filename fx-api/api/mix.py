@@ -199,6 +199,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             _side = (mixed[0] - mixed[1]) * 0.5
             _hi = Pedalboard([HighpassFilter(cutoff_frequency_hz=600.0)])(
                 _side[None, :], sr)[0]
+            try:
+                from pedalboard import LowShelfFilter as _LSF
+                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=4.0)])(
+                    _mid[None, :], sr)[0], dtype=np.float32)
+                report["low_mid_mid_shelf"] = {"hz": 80.0, "gain_db": 4.0}
+            except Exception as _e:
+                report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
             mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
             report["low_mid_guard_hz"] = 600.0
