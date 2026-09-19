@@ -207,6 +207,25 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
+            # 5.5-9 kHz side trim. Side energy measured ~9 dB high vs
+            # Boi Chase / Omalicha / Pain (they sit -14 to -16; we were -6.0).
+            # Same M/S method as the low-mid guard above, band-limited via
+            # two highpasses (no LowpassFilter imported).
+            try:
+                # Exact FFT band trim. HP5500-HP9000 is not a flat bandpass
+                # (effective gain ~0.28, and it leaked into 1.5-4 kHz), so the
+                # original split could never exceed -2.9 dB. Brickwall instead.
+                _SIDE_TRIM = 0.86   # 1.0 = off | 0.86 = -1.3 dB (sounded right)
+                _n = _side.shape[-1]
+                _F = np.fft.rfft(_side.astype(np.float64))
+                _f = np.fft.rfftfreq(_n, 1.0 / sr)
+                _m = (_f >= 5500.0) & (_f < 9000.0)
+                _F[_m] *= _SIDE_TRIM
+                _side = np.fft.irfft(_F, _n).astype(np.float32)
+                report["top_side_trim_db"] = round(20.0 * np.log10(_SIDE_TRIM), 2)
+                report["top_side_band_hz"] = [5500.0, 9000.0]
+            except Exception as _e:
+                report["top_side_trim_error"] = str(_e)[:120]
             mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
             report["low_mid_guard_hz"] = 600.0
             report["low_mid_side_trim_db"] = -6.0

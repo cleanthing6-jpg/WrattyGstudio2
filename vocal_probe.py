@@ -21,7 +21,7 @@ def load(path):
     if sw != 2:
         raise SystemExit("need 16-bit wav: " + path)
     x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
-    x = x.reshape(-1, ch).T
+    x = x[:len(x) - (len(x) % ch)].reshape(-1, ch).T
     if tmp: os.unlink(tmp)
     return x, sr
 

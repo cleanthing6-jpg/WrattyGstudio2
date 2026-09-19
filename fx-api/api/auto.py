@@ -38,15 +38,15 @@ DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
 DUCK_TARGET = {BODY: 0.5, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
-                "harsh": 1.5, "air": 2.0, "ratio": 3.5, "atk": 12.0, "rel": 80.0,
-                "sat": 0.6, "width": 1.0},
+    "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.8,
+                "harsh": 1.5, "air": 2.8, "ratio": 3.0, "atk": 20.0, "rel": 100.0,
+                "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
-                "harsh": 2.5, "air": 2.0, "ratio": 4.0, "atk": 7.0, "rel": 90.0,
-                "sat": 1.2, "width": 1.45},
+                "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
+                "sat": 0.6, "width": 1.3},
     "backing": {"gain": -3.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.35},
+                "sat": 0.6, "width": 1.25},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -57,7 +57,7 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.20, "plate_db": -18.0, "slap_db": -13.0,
+        "width": 1.20, "plate_db": -18.0, "slap_db": -16.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
@@ -147,7 +147,7 @@ CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
 RAISE_CAP = 2.5
 SEND_WET = 0.11
-DOUBLE_DB = -15.0
+DOUBLE_DB = -20.0
 WIDEN = 1.15
 LOW_MONO_HZ = 120.0
 CEILING_DB = -1.0
@@ -159,6 +159,7 @@ VOCAL_ROLES = ("vocal", "vox", "lead", "adlib", "backing", "harmony",
                "acapella", "acappella", "dry", "main")
 
 _PLATE = {"ir": {}, "err": "", "kind": ""}
+_DBL = {"kind": ""}
 
 
 def role_of(role):
@@ -693,7 +694,7 @@ def _deess(voc, sr, st):
 
 
 SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
-SEND_SLAP  = 10.0 ** (-11.0 / 20.0)   # slap send
+SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
 def _ambience(voc, sr, bpm):
@@ -720,7 +721,7 @@ def _ambience(voc, sr, bpm):
     plate = _plate(voc, sr)
     if plate is not None:
         try:
-            _n = int(sr * 0.030)   # 30 ms predelay: tail starts after the consonant
+            _n = int(sr * 0.045)   # 30 ms predelay: tail starts after the consonant
             if _n > 0 and plate.shape[1] > _n:
                 _p = np.zeros_like(plate)
                 _p[:, _n:] = plate[:, :plate.shape[1] - _n]
@@ -758,6 +759,7 @@ def _double(voc, sr):
             y[1] *= float(np.sqrt(max(0.0, (1.0 + pan) * 0.5)) * 1.414)
             out += y
         out *= 10.0 ** (DOUBLE_DB / 20.0)
+        _DBL["kind"] = "adt (detune+delay+pan)" if PitchShift is not None else "delays+pan only (no PitchShift)"
         return out
     except Exception:
         return None
@@ -1066,6 +1068,7 @@ def mix(groups, sr, loud="MEDIUM"):
             n = max(core.shape[1], dbl.shape[1])
             core = (_pad(core, n) + _pad(dbl, n)).astype(np.float32)
             rep["double"] = True
+            rep["double_kind"] = _DBL.get("kind", "")
         else:
             rep["double"] = False
     else:
@@ -1185,7 +1188,7 @@ def _match_role_levels(ro_map, sr, rep):
             rep["level_match"] = "no lead - skipped"
             return
         lead = float(_rms_db(ro_map["lead"]))
-        target = {"adlib": lead - 8.0, "backing": lead - 6.0}
+        target = {"adlib": lead - 10.0, "backing": lead - 10.0}
         rep["level_match"] = {"lead_rms": round(lead, 1)}
         for r, tgt in target.items():
             v = ro_map.get(r)
@@ -1200,7 +1203,7 @@ def _match_role_levels(ro_map, sr, rep):
                 pass
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, head), -6.0, 22.0))
+            gain = float(np.clip(min(tgt - cur, max(head, 8.0)), -6.0, 10.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
