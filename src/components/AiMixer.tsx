@@ -362,7 +362,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             setMsg("Preview ready — listen below 🎧");
             break;
           }
-          if (i === 29) throw new Error("The mixer is taking too long — try again in a minute.");
+          if (i === 29) setMsg("Still working - don't resubmit, it can take a few minutes.");
         }
       }
     } catch (e: any) {
@@ -396,7 +396,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         else setMsg("Mixing… (" + ((i + 1) * 5) + "s since start)");
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
-      if (!finalR) throw new Error("The mixer is taking too long - check Dashboard > My Mixes, or try again.");
+      if (!finalR) setMsg("Still working - don't resubmit, it can take a few minutes.");
       setFinalUrl(finalR);
       setMsg("Full mix ready — download below 🎉");
     } catch (e: any) {

@@ -65,12 +65,12 @@ async function reapStale() {
   // A job left "running" too long means Render died mid-mix.
   await sql`UPDATE mix_jobs
     SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
-    WHERE status='running' AND updated_at < NOW() - INTERVAL '12 minutes'`;
+    WHERE status='running' AND (updated_at < NOW() - INTERVAL '8 minutes' OR created_at < NOW() - INTERVAL '20 minutes')`;
   // A job left "queued" means the engine call failed before the job was claimed.
   // Without this, ONE dead job blocks the user forever (MAX_PER_USER = 1).
   await sql`UPDATE mix_jobs
     SET status='failed', error='Mixer queue expired - please try again', updated_at=NOW()
-    WHERE status='queued' AND created_at < NOW() - INTERVAL '10 minutes'`;
+    WHERE status='queued' AND created_at < NOW() - INTERVAL '3 minutes'`;
 }
 
 // Start the oldest queued job, but only if nothing is running.
@@ -79,7 +79,8 @@ async function pump(depth = 0): Promise<void> {
   const started = (await sql`
     UPDATE mix_jobs SET status='running', updated_at=NOW()
     WHERE id = (SELECT id FROM mix_jobs WHERE status='queued' ORDER BY created_at ASC LIMIT 1)
-      AND (SELECT COUNT(*) FROM mix_jobs WHERE status='running') < ${MAX_RUNNING}
+      AND (SELECT COUNT(*) FROM mix_jobs
+        WHERE status='running' AND updated_at > NOW() - INTERVAL '8 minutes') < ${MAX_RUNNING}
     RETURNING *
   `) as any[];
   const job = started[0];
@@ -143,10 +144,15 @@ export async function POST(req: NextRequest) {
 
   await ensureTable();
   await reapStale();
+  // Pressing Mix again means the previous run was abandoned - drop it so it
+  // can never block the new one and can never pile up.
+  await sql`UPDATE mix_jobs SET status='failed',
+            error='Superseded by a newer mix request', updated_at=NOW()
+            WHERE user_id = ${userId} AND status IN ('queued','running')`;
 
   const mine = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
     WHERE user_id = ${userId} AND status IN ('queued','running')`) as any[];
-  if (Number(mine[0]?.n || 0) >= 99)
+  if (Number(mine[0]?.n || 0) >= MAX_PER_USER)
     return NextResponse.json({ error: "You already have a mix in the queue - wait for it to finish" }, { status: 429 });
 
   const id = crypto.randomUUID();
