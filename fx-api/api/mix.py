@@ -149,6 +149,17 @@ def setjob(jid, status, url=""):
     print("[job %s] %-18s rss=%s MB" % (jid[:8], _st, _rss), flush=True)
 
 
+
+# ---- role panning. PAN_ENABLED=False fully reverts. ----
+PAN_ENABLED = True
+PAN_HZ = 600.0
+PAN_VALUES = {
+    "backing": (-0.25, 0.25, -0.15),
+    "adlib":   (-0.35, 0.35, 0.20),
+}
+_PAN_N = {"backing": 0, "adlib": 0}
+_PAN_REPORT = {"backing": [], "adlib": []}
+
 def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
     tmp = tempfile.mkdtemp()
     try:
@@ -173,7 +184,22 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 a = np.repeat(a, 2, axis=0)
             a = np.ascontiguousarray(a[:2].astype(np.float32))
             role = s.get("role") or s.get("name") or "stem"
-            groups[auto.bucket(role)].append(a)
+            if i == 0:
+                _PAN_N.update({"backing": 0, "adlib": 0})
+                _PAN_REPORT.update({"backing": [], "adlib": []})
+            bucket = auto.bucket(role)
+            if PAN_ENABLED and bucket in PAN_VALUES:
+                k = _PAN_N[bucket]
+                pan = PAN_VALUES[bucket][k % len(PAN_VALUES[bucket])]
+                _PAN_N[bucket] += 1
+                _hi = Pedalboard([HighpassFilter(
+                    cutoff_frequency_hz=PAN_HZ)])(a, sr).astype(np.float32)
+                _lo = (a - _hi).astype(np.float32)
+                _hi[0] *= float(np.sqrt(1.0 - 0.5 * pan))
+                _hi[1] *= float(np.sqrt(1.0 + 0.5 * pan))
+                a = np.ascontiguousarray((_lo + _hi).astype(np.float32))
+                _PAN_REPORT[bucket].append({"stem": i, "pan": pan})
+            groups[bucket].append(a)
 
         setjob(jid, "analysing")
         try:
@@ -185,6 +211,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = auto.plain_sum(groups)
             report = {"mode": "fallback", "error": str(e)[:300]}
 
+        report["role_pan"] = {"on": PAN_ENABLED, "hz": PAN_HZ,
+                             "backing": _PAN_REPORT["backing"],
+                             "adlib": _PAN_REPORT["adlib"]}
         mode = report.get("mode")
         n = mixed.shape[1]
         want = str(loud or "MEDIUM").upper()
