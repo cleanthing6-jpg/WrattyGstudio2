@@ -719,6 +719,14 @@ def _ambience(voc, sr, bpm):
         wet = None
     plate = _plate(voc, sr)
     if plate is not None:
+        try:
+            _n = int(sr * 0.030)   # 30 ms predelay: tail starts after the consonant
+            if _n > 0 and plate.shape[1] > _n:
+                _p = np.zeros_like(plate)
+                _p[:, _n:] = plate[:, :plate.shape[1] - _n]
+                plate = _p
+        except Exception:
+            pass
         wet = plate if wet is None else (wet + plate).astype(np.float32)
     kind = _PLATE.get("kind") or "none"
     if wet is None:
