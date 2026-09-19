@@ -105,7 +105,7 @@ def encode_out(src, tmp, is_preview):
                      compression_level=0.6)
             return dst, "audio/mpeg", ".mp3", None
         dst = os.path.join(tmp, "mix.flac")
-        sf.write(dst, data, sr, format="FLAC", subtype="PCM_16", compression_level=5)
+        sf.write(dst, data, sr, format="FLAC", subtype="PCM_16", compression_level=0.5)
         return dst, "audio/flac", ".flac", None
     except Exception as e:
         _ENCODE_ERR = str(e)[:200]
