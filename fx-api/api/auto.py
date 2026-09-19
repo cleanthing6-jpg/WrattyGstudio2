@@ -34,8 +34,8 @@ MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
 MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
-DUCK_CAP = {BODY: 1.0, PRES: 3.0, HARSH: 1.5}
-DUCK_TARGET = {BODY: 0.5, PRES: 2.5, HARSH: 1.0}
+DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
+DUCK_TARGET = {BODY: 0.5, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
     "lead":    {"gain": -3.5,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.2,
@@ -743,12 +743,12 @@ def _ambience(voc, sr, bpm):
 
 
 def _double(voc, sr):
-    if PitchShift is None:
-        return None
+    # PitchShift is optional - without it the two copies still differ
+    # by delay (14/22 ms) and pan, which combs and widens on its own.
     try:
         out = np.zeros_like(voc)
         for cents, ms, pan in ((7.0, 14.0, 0.30), (-6.0, 22.0, -0.30)):
-            ch = [PitchShift(semitones=cents / 100.0),
+            ch = ([] if PitchShift is None else [PitchShift(semitones=cents / 100.0)]) + [
                   HighpassFilter(cutoff_frequency_hz=150.0),
                   LowpassFilter(cutoff_frequency_hz=10000.0)]
             _opt(ch, Chorus, rate_hz=0.4, depth=0.06, mix=0.25)
@@ -1053,12 +1053,13 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["vocal_raise_db"] = round(raised, 2)
     rep["level_passes"] = level_passes
 
+    _dry_voc = core.copy()
     core, ms, pk = _ambience(_exciter(_parallel(_glue(core, sr), sr), sr), sr, bpm)
     rep["slap_ms"] = ms
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
 
-    side_ids = [r for r in ("adlib",) if r in ro_map]
+    side_ids = [r for r in ("lead", "adlib") if r in ro_map]
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
         if dbl is not None:
@@ -1070,7 +1071,7 @@ def mix(groups, sr, loud="MEDIUM"):
     else:
         rep["double"] = False
 
-    ducked, plan, vpres, post = _duck(beat, core, freq, st)
+    ducked, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
     tries = 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
