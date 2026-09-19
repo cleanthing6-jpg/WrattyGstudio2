@@ -290,10 +290,18 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
 
         setjob(jid, "clip+limit")
-        if mode != "passthrough" and (
+        _clip_on = mode != "passthrough" and (
             mode != "two_track" or bool(cfg.get("clip"))
-        ):
+        )
+        _thr = 10.0 ** (-1.0 / 20.0)
+        _pre = peakdb(mixed)
+        _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
+        if _clip_on:
             mixed = auto.clip(mixed, sr)
+        report["clip_diag"] = {"enabled": _clip_on,
+                               "pre_peak_dbfs": round(_pre, 2),
+                               "post_peak_dbfs": round(peakdb(mixed), 2),
+                               "samples_over_threshold": _hits}
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
         for _ in range(2):
             f = lufs(mixed, sr)
