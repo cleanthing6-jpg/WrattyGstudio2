@@ -1188,7 +1188,7 @@ def _match_role_levels(ro_map, sr, rep):
             rep["level_match"] = "no lead - skipped"
             return
         lead = float(_rms_db(ro_map["lead"]))
-        target = {"adlib": lead - 10.0, "backing": lead - 10.0}
+        target = {"adlib": lead - 10.0, "backing": lead - 7.0}
         rep["level_match"] = {"lead_rms": round(lead, 1)}
         for r, tgt in target.items():
             v = ro_map.get(r)
@@ -1203,7 +1203,7 @@ def _match_role_levels(ro_map, sr, rep):
                 pass
             pk = float(np.max(np.abs(v))) or 1e-9
             head = 20.0 * np.log10(0.9 / pk)
-            gain = float(np.clip(min(tgt - cur, max(head, 8.0)), -6.0, 10.0))
+            gain = float(np.clip(min(tgt - cur, max(head, 8.0)), -6.0, 20.0))
             if abs(gain) >= 0.1:
                 ro_map[r] = (v * (10.0 ** (gain / 20.0))).astype(np.float32)
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
