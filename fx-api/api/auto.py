@@ -57,7 +57,7 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.20, "plate_db": -18.0, "slap_db": -16.0,
+        "width": 1.20, "plate_db": -12.0, "slap_db": -16.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
