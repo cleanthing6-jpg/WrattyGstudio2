@@ -45,57 +45,101 @@ def fits(spec, beat, bpm_tol=2.0):
             and note_steps(spec["key"], beat.get("key", "C")) == 0
             and spec.get("scale") == beat.get("scale"))
 
-def analyze(path):
+def _window_spans(dur, n=4, win=30.0):
+    if dur <= win or n <= 1:
+        return [(0.0, min(dur, win))]
+    first, last = dur * 0.1, dur * 0.9 - win
+    if last <= first:
+        return [(0.0, min(dur, win))]
+    step = (last - first) / (n - 1)
+    return [(max(0.0, min(first + i * step, dur - win)), win) for i in range(n)]
+
+def _agree(a, b, tol=0.04):
+    m = max(a, b)
+    return min(abs(a-b), abs(a*2-b), abs(a-b*2), abs(a/2-b), abs(a-b/2)) <= tol * m
+
+def _vote_bpm(vals):
+    vals = [v for v in vals if v and 30 < v < 250]
+    if not vals:
+        return 0.0
+    best, score = vals[0], -1
+    for v in vals:
+        s = sum(1 for w in vals if _agree(v, w))
+        if s > score:
+            best, score = v, s
+    return fold_bpm(best)
+
+def _one_window(y, sr):
     try:
         import essentia.standard as es
-        a = es.MonoLoader(filename=path, sampleRate=44100)()[:44100*ANALYZE_SECONDS]
-        bpm, _, _, _, _ = es.RhythmExtractor2013(method="multifeature")(a)
-        k, scale, strength = es.KeyExtractor()(a)
-        return {"bpm": round(fold_bpm(float(bpm)), 2), "key": norm_key(str(k)),
-                "scale": str(scale).strip().lower(),
-                "confidence": round(float(strength), 3), "source": "essentia"}
+        bpm, _, _, _, _ = es.RhythmExtractor2013(method="multifeature")(y.astype("float32"))
+        k, scale, strength = es.KeyExtractor()(y.astype("float32"))
+        return {"bpm": float(bpm), "key": norm_key(str(k)),
+                "scale": str(scale).strip().lower(), "confidence": float(strength),
+                "source": "essentia"}
     except Exception as e:
-        print("essentia unavailable:", type(e).__name__, str(e)[:120], flush=True)
+        print("essentia window skipped:", type(e).__name__, str(e)[:100], flush=True)
 
     import numpy as np, librosa
-    y, sr = librosa.load(path, sr=22050, mono=True, duration=ANALYZE_SECONDS)
-    y, _ = librosa.effects.trim(y, top_db=35)
-    votes = []
-    try:
-        from beat_this.inference import File2Beats
-        beats, _ = File2Beats(checkpoint_path="final0", device="cuda", dbn=False)(path)
-        d = np.diff(np.asarray(beats)); d = d[d > 0.15]
-        if len(d) >= 4: votes.append(float(60.0/np.median(d)))
-    except Exception as e:
-        print("beat_this skipped:", type(e).__name__, flush=True)
     env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=512)
-    try: votes.append(float(np.median(librosa.feature.tempo(onset_envelope=env, sr=sr, aggregate=None))))
-    except Exception: pass
-    try: votes.append(float(np.atleast_1d(librosa.beat.beat_track(onset_envelope=env, sr=sr)[0])[0]))
-    except Exception: pass
-    votes = [v for v in votes if 30 < v < 250]
-    bpm = fold_bpm(float(np.median(votes))) if votes else 0.0
-
-    def corr(p, q):
-        p, q = np.asarray(p,float)-np.mean(p), np.asarray(q,float)-np.mean(q)
-        return float(np.dot(p,q)/((np.linalg.norm(p)*np.linalg.norm(q))+1e-9))
-
+    try:
+        bpm = float(np.median(librosa.feature.tempo(onset_envelope=env, sr=sr, aggregate=None)))
+    except Exception:
+        bpm = 0.0
     chroma = librosa.feature.chroma_cens(y=y, sr=sr).mean(axis=1)
     pc = chroma
     try:
-        f0, _, vp = librosa.pyin(y, fmin=librosa.note_to_hz('E2'), fmax=librosa.note_to_hz('C6'), sr=sr)
+        f0, _, vp = librosa.pyin(y, fmin=librosa.note_to_hz("E2"), fmax=librosa.note_to_hz("C6"), sr=sr)
         ok = ~np.isnan(f0)
         if ok.sum() > 20:
             h = np.zeros(12)
             for m, p in zip(np.round(librosa.hz_to_midi(f0[ok])).astype(int), np.nan_to_num(vp[ok], nan=0.0)):
                 h[m % 12] += max(float(p), 0.05)
-            if h.sum() > 1e-6: pc = h / h.sum()
-    except Exception as e:
-        print("pyin skipped:", type(e).__name__, flush=True)
-    ranked = sorted(((0.5*corr(chroma, np.roll(prof, i)) + 0.5*corr(pc, np.roll(prof, i)), NOTES[i], mode)
-                     for i in range(12) for mode, prof in (("major", MAJ), ("minor", MIN))), reverse=True)
-    return {"bpm": round(bpm, 2), "key": ranked[0][1], "scale": ranked[0][2],
-            "confidence": round(float(ranked[0][0]), 3), "source": "librosa/beat_this"}
+            if h.sum() > 1e-6:
+                pc = h / h.sum()
+    except Exception:
+        pass
+
+    def corr(p, q):
+        p, q = np.asarray(p, float) - np.mean(p), np.asarray(q, float) - np.mean(q)
+        return float(np.dot(p, q) / ((np.linalg.norm(p) * np.linalg.norm(q)) + 1e-9))
+
+    ranked = sorted(((0.5 * corr(chroma, np.roll(prof, i)) + 0.5 * corr(pc, np.roll(prof, i)), NOTES[i], mode)
+                     for i in range(12)
+                     for mode, prof in (("major", MAJ), ("minor", MIN))), reverse=True)
+    return {"bpm": bpm, "key": ranked[0][1], "scale": ranked[0][2],
+            "confidence": float(ranked[0][0]), "source": "librosa"}
+
+def analyze(path, windows=4, win=30.0):
+    """Read several places in the song, then vote. Steadier than one window."""
+    import librosa
+    import numpy as np
+    dur = float(librosa.get_duration(path=path))
+    reads = []
+    for off, w in _window_spans(dur, windows, win):
+        try:
+            y, sr = librosa.load(path, sr=44100, mono=True, offset=off, duration=w)
+            if len(y) < sr:
+                continue
+            r = _one_window(np.ascontiguousarray(y, dtype="float32"), sr)
+            r["offset"] = round(off, 1)
+            reads.append(r)
+            print("READ", r, flush=True)
+        except Exception as e:
+            print("window failed", round(off, 1), type(e).__name__, str(e)[:120], flush=True)
+    if not reads:
+        raise RuntimeError("could not read any window of " + str(path))
+
+    counts = {}
+    for r in reads:
+        counts[(r["key"], r["scale"])] = counts.get((r["key"], r["scale"]), 0) + 1
+    best = max(counts.items(), key=lambda kv: (kv[1], max(r["confidence"] for r in reads
+               if (r["key"], r["scale"]) == kv[0])))[0]
+    conf = max(r["confidence"] for r in reads if (r["key"], r["scale"]) == best)
+    return {"bpm": round(_vote_bpm([r["bpm"] for r in reads]), 2), "key": best[0], "scale": best[1],
+            "confidence": round(float(conf), 3), "source": reads[0]["source"], "windows": len(reads),
+            "reads": [{"offset": r["offset"], "bpm": round(r["bpm"], 2),
+                       "key": f'{r["key"]} {r["scale"]}'} for r in reads]}
 
 def analyze_bytes(data):
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
