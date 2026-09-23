@@ -55,7 +55,7 @@ def distance(spec, beat):
             + 2.0 * abs(note_steps(spec["key"], beat.get("key", "C")))
             + (0.0 if spec.get("scale") == beat.get("scale") else 3.0))
 
-def fits(spec, beat, bpm_tol=5.0):
+def fits(spec, beat, bpm_tol=8.0):
     return (bpm_gap(spec["bpm"], beat.get("bpm", 0)) <= bpm_tol
             and _keys_match(spec, beat))
 
