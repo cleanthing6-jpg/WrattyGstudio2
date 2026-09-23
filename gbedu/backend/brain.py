@@ -55,10 +55,9 @@ def distance(spec, beat):
             + 2.0 * abs(note_steps(spec["key"], beat.get("key", "C")))
             + (0.0 if spec.get("scale") == beat.get("scale") else 3.0))
 
-def fits(spec, beat, bpm_tol=2.0):
+def fits(spec, beat, bpm_tol=5.0):
     return (bpm_gap(spec["bpm"], beat.get("bpm", 0)) <= bpm_tol
-            and note_steps(spec["key"], beat.get("key", "C")) == 0
-            and spec.get("scale") == beat.get("scale"))
+            and _keys_match(spec, beat))
 
 def _window_spans(dur, n=4, win=30.0):
     if dur <= win or n <= 1:
@@ -170,3 +169,38 @@ def build_prompt(spec, genre="afrobeats"):
 
 if __name__ == "__main__":
     print(json.dumps(analyze(sys.argv[1]), indent=2))
+
+
+# ---- relative major/minor compatibility: A minor and C major share every note ----
+def _keys_match(spec, beat):
+    sk, bk = spec.get("key"), beat.get("key")
+    ss = (spec.get("scale") or "").lower()
+    bs = (beat.get("scale") or "").lower()
+    if not sk or not bk or sk not in NOTES or bk not in NOTES:
+        return False
+    if sk == bk and ss == bs:
+        return True
+    d = (NOTES.index(bk) - NOTES.index(sk)) % 12
+    if ss == "minor" and bs == "major" and d == 3:
+        return True
+    if ss == "major" and bs == "minor" and d == 9:
+        return True
+    return False
+
+
+def _rel_only(spec, beat):
+    if not _keys_match(spec, beat):
+        return False
+    return not (spec.get("key") == beat.get("key")
+                and (spec.get("scale") or "").lower() == (beat.get("scale") or "").lower())
+
+
+_DIST0 = distance
+
+
+def distance(spec, beat, *_a, **_k):
+    """Distance with a bonus for a relative-key take, so the right one wins."""
+    d = float(_DIST0(spec, beat, *_a, **_k))
+    if _rel_only(spec, beat):
+        d = max(0.0, d - 3.0)
+    return round(d, 3)
