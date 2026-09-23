@@ -16,10 +16,25 @@ ANALYZE_SECONDS = int(os.environ.get("GBEDU_ANALYZE_SECONDS", "90"))
 def norm_key(k):
     return ENH.get((k or "").strip().upper(), (k or "").strip().upper())
 
-def fold_bpm(bpm):
-    while bpm and bpm > 150: bpm /= 2
-    while bpm and bpm < 70:  bpm *= 2
-    return bpm
+FOLDS = (0.5, 2/3, 4/5, 1.0, 5/4, 3/2, 2.0)
+
+def fold_bpm(bpm, lo=90.0, hi=135.0):
+    """Normalise a detected tempo into [lo, hi] by musical ratio.
+    2/3 and 4/5 matter: detectors lock onto a subdivision (146 = 117 * 5/4)."""
+    try:
+        bpm = float(bpm)
+    except Exception:
+        return 0.0
+    if bpm <= 0:
+        return 0.0
+    best, bd = bpm, None
+    for f in FOLDS:
+        v = bpm * f
+        if lo <= v <= hi:
+            d = abs(v - (lo + hi) / 2.0)
+            if bd is None or d < bd:
+                best, bd = v, d
+    return round(best, 2)
 
 def fold_ratio(r):
     if not r or r <= 0: return 1.0
@@ -59,7 +74,7 @@ def _agree(a, b, tol=0.04):
     return min(abs(a-b), abs(a*2-b), abs(a-b*2), abs(a/2-b), abs(a-b/2)) <= tol * m
 
 def _vote_bpm(vals):
-    vals = [v for v in vals if v and 30 < v < 250]
+    vals = [fold_bpm(v) for v in vals if v and 30 < v < 250]
     if not vals:
         return 0.0
     best, score = vals[0], -1
