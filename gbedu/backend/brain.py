@@ -18,7 +18,7 @@ def norm_key(k):
 
 FOLDS = (0.5, 2/3, 4/5, 1.0, 5/4, 3/2, 2.0)
 
-def fold_bpm(bpm, lo=90.0, hi=135.0):
+def fold_bpm(bpm, lo=60.0, hi=180.0):
     """Normalise a detected tempo into [lo, hi] by musical ratio.
     2/3 and 4/5 matter: detectors lock onto a subdivision (146 = 117 * 5/4)."""
     try:
@@ -31,7 +31,7 @@ def fold_bpm(bpm, lo=90.0, hi=135.0):
     for f in FOLDS:
         v = bpm * f
         if lo <= v <= hi:
-            d = abs(v - (lo + hi) / 2.0)
+            d = abs(f - 1.0)
             if bd is None or d < bd:
                 best, bd = v, d
     return round(best, 2)
@@ -74,15 +74,13 @@ def _agree(a, b, tol=0.04):
     return min(abs(a-b), abs(a*2-b), abs(a-b*2), abs(a/2-b), abs(a-b/2)) <= tol * m
 
 def _vote_bpm(vals):
-    vals = [fold_bpm(v) for v in vals if v and 30 < v < 250]
+    """Median of the raw window reads (a 2x/1.5x read is just one outlier)."""
+    vals = sorted(v for v in vals if v and 30 < v < 250)
     if not vals:
         return 0.0
-    best, score = vals[0], -1
-    for v in vals:
-        s = sum(1 for w in vals if _agree(v, w))
-        if s > score:
-            best, score = v, s
-    return fold_bpm(best)
+    n = len(vals)
+    mid = vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2.0
+    return fold_bpm(mid)
 
 def _one_window(y, sr):
     try:
