@@ -6,7 +6,13 @@ import { getUser, consumeCredit } from "@/lib/credits";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MIX = (process.env.MIX_API_URL || "https://wratty-mix.onrender.com").replace(/\/+$/, "");
+const RAW_MIX = process.env.MIX_API_URL || "";
+// Ignore a misconfigured value (e.g. the secret pasted into the URL field)
+// and fall back to the Modal engine instead of the old Render host.
+const MIX = (/^https?:\/\//.test(RAW_MIX)
+  ? RAW_MIX
+  : "https://wrattyg--wratty-mix-api.modal.run"
+).replace(/\/+$/, "");
 const SECRET = process.env.FX_INTERNAL_SECRET || "";
 
 // Free Render = one 512MB instance. Only ONE mix may run at a time.
