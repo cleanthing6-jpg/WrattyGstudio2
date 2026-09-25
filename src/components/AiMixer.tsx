@@ -142,6 +142,33 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("afrobeats");
+
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState("");
+
+  async function askAi() {
+    if (!aiPrompt.trim()) return;
+    setAiBusy(true);
+    try {
+      const r = await fetch("/api/assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+    preset: "afrobeats", prompt: aiPrompt }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "AI failed");
+      if (d.preset) setStyle(d.preset);
+      if (d.loudness) setRoexLoudness(d.loudness);
+      setMsg("AI: " + (d.reason || d.preset));
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   const [lufs, setLufs] = useState(-8);
   const [roexLoudness, setRoexLoudness] = useState("HIGH");
   const [bpm, setBpm] = useState(100);
@@ -163,7 +190,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await fetch("/api/roex-master", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: mixUrl, style, loudness: roexLoudness, preview: !full }),
+        body: JSON.stringify({
+    preset: "afrobeats", url: mixUrl, loudness: roexLoudness, preview: !full }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
@@ -241,7 +269,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
               const fr = await withTimeout(fetch("/api/vocal-fx", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, bpm, preset: px }),
+                body: JSON.stringify({
+    preset: "afrobeats", url, bpm, preset: px }),
               }), 240000, "Vocal FX " + st.name);
               const fj = await fr.json().catch(() => ({}));
               if (fr.ok && fj.url) url = fj.url;
@@ -261,7 +290,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const sr = await withTimeout(fetch("/api/roex-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: st.url, name: st.name }),
+          body: JSON.stringify({
+    preset: "afrobeats", url: st.url, name: st.name }),
         }), 180000, "Staging " + st.name);
         const sj = await sr.json().catch(() => ({}));
         if (!sr.ok || !sj.url) throw new Error("Stem staging failed for " + st.name + ": " + (sj.error || sr.status));
@@ -274,7 +304,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const vocals = done.filter((st) => !isBeat(st));
         if (!vocals.length) throw new Error("Beat-Lock needs at least one vocal stem");
         setMsg("Beat-Lock: sending " + vocals.length + " vocal stem(s) to the mixer...");
-        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stems: vocals, style }) }), 120000, "Vocal request");
+        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    preset: "afrobeats", stems: vocals, style }) }), 120000, "Vocal request");
         const vdata = await vpost.json().catch(() => ({}));
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
@@ -336,7 +367,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const item: any = up && up[0];
         const fileUrl = (item && (item.ufsUrl || item.url)) || (item && item.serverData && (item.serverData.ufsUrl || item.serverData.url)) || "";
         if (!fileUrl) throw new Error("Beat-Lock upload returned no URL: " + (uploadErrorRef.current || "unknown"));
-        const save = await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: label, url: fileUrl }) });
+        const save = await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    preset: "afrobeats", name: label, url: fileUrl }) });
         if (!save.ok) throw new Error("Beat-Lock save failed HTTP " + save.status);
         setTaskId("");
         setMsg("Done - Beat-Lock mastered & saved: " + label);
@@ -345,7 +377,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const post = await withTimeout(fetch("/api/roex-mix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stems: done, style }),
+          body: JSON.stringify({
+    preset: "afrobeats", stems: done, style }),
         }), 120000, "RoEx request");
         const data = await post.json().catch(() => ({}));
         if (!post.ok || !data.taskId) throw new Error(data.error || "RoEx could not start the mix (code " + post.status + ")");
@@ -381,7 +414,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stems: prepared, loudness: roexLoudness, preset: style }),
+        body: JSON.stringify({
+    preset: "afrobeats", stems: prepared, loudness: roexLoudness }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
@@ -410,6 +444,26 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     <div className="rounded-xl border border-blue-200 bg-white p-4">
       <h3 className="text-lg font-bold mb-1">✨ AI Mix &amp; Master (Pro Engine)</h3>
       <p className="text-xs text-gray-500 mb-3">Afrobeats mix and master engine. The 30-second preview is free.</p>
+
+      <label className="block text-xs font-semibold text-gray-600 mb-1">Describe your mix</label>
+      <div className="flex gap-2 mb-3">
+        <input
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          disabled={aiBusy || busy}
+          placeholder="e.g. warm, less reverb, loud for TikTok"
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        <button
+          type="button"
+            onClick={askAi}
+          disabled={aiBusy || busy}
+          className="rounded-lg bg-black px-3 py-2 text-sm text-white disabled:opacity-50"
+        >
+          {aiBusy ? "..." : "Ask AI"}
+        </button>
+      </div>
+        {(aiNote || err) && (<p className="mt-2 text-xs text-red-600">{aiNote || err}</p>)}
 
       <label className="block text-xs font-semibold text-gray-600 mb-1">Musical style</label>
       <select

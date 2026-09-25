@@ -97,7 +97,7 @@ async function pump(depth = 0): Promise<void> {
 
   const r = await mixer("/", {
     method: "POST",
-    body: JSON.stringify({ stems, loudness: job.loudness, preset: job.preset, maxSeconds: job.max_seconds || 0 }),
+    body: JSON.stringify({ stems, loudness: job.loudness, style: job.preset, maxSeconds: job.max_seconds || 0 }),
   }, 3, [429, 502, 503]);
 
   if (!r.ok || !(r.data && r.data.job)) {

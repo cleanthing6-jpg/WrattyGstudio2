@@ -218,7 +218,8 @@ function StudioInner() {
         const res = await fetch("/api/mix-stems", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioUrl: f.url }),
+          body: JSON.stringify({
+    preset: "afrobeats", audioUrl: f.url }),
         });
         const data = await res.json();
         if (!data.taskId) { alert(f.name + " — " + (data.error || "Split failed")); continue; }
@@ -538,7 +539,8 @@ function StudioInner() {
             await fetch("/api/mixes", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: label, url: uploadedUrl }),
+              body: JSON.stringify({
+    preset: "afrobeats", name: label, url: uploadedUrl }),
             });
           } catch (e: any) {
             console.error("DB save error:", e);
