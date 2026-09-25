@@ -270,7 +270,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-    preset: "afrobeats", url, bpm, preset: px }),
+    preset: "afrobeats", url, bpm }),
               }), 240000, "Vocal FX " + st.name);
               const fj = await fr.json().catch(() => ({}));
               if (fr.ok && fj.url) url = fj.url;
