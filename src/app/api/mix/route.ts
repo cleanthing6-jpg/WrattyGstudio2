@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   if (!stems.length) return NextResponse.json({ error: "stems[] with https urls required" }, { status: 400 });
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
-  const preset = body?.preset ? String(body.preset) : null;
+  const preset = body?.preset ? String(body.preset) : "afrobeats";
   const wantsPreview = body?.preview === true;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
