@@ -15,8 +15,12 @@ image = (
 SECRET = modal.Secret.from_name("wratty-mix")
 jobs = modal.Dict.from_name("wratty-mix-jobs", create_if_missing=True)
 
+# Mix renders are written here and served by the separate wratty-files app.
+mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 
-@app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET])
+
+@app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET],
+              volumes={"/mixes": mixvol})
 def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0):
     import sys
     import traceback
@@ -27,6 +31,10 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
     jobs[job_id] = {"status": "running"}
     try:
         res = mix.do_mix(stems, loudness, job_id, max_seconds, preset)
+        try:
+            mixvol.commit()      # publish the render to wratty-files
+        except Exception as _e:
+            print("volume commit failed: %s" % _e, flush=True)
         try:
             import json as _j
             _safe = {}

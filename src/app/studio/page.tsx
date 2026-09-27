@@ -428,7 +428,7 @@ function StudioInner() {
       }
 
       const g = offline.createGain();
-      g.gain.value = role === "lead" ? 0.65 : role === "adlib" ? 0.12 : 0.15;
+      g.gain.value = role === "lead" ? 0.65 : role === "adlib" ? 0.21 : 0.29;
 
       const hp = offline.createBiquadFilter();
       hp.type = "highpass";
