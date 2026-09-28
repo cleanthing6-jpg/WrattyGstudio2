@@ -253,20 +253,6 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           setUploadedUrls((prev) => ({ ...prev, [(st.role || "") + ":" + (st.url || st.name)]: url }));
         done.push({ url, name: st.name, role: st.role });
       }
-
-      setMsg("Preparing stems...");
-      for (let si = 0; si < done.length; si++) {
-        const st = done[si];
-        setMsg("Preparing " + (st.role || st.name) + " (" + (si + 1) + " of " + done.length + ")...");
-        const sr = await withTimeout(fetch("/api/roex-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: st.url, name: st.name }),
-        }), 180000, "Staging " + st.name);
-        const sj = await sr.json().catch(() => ({}));
-        if (!sr.ok || !sj.url) throw new Error("Stem staging failed for " + st.name + ": " + (sj.error || sr.status));
-        done[si] = { url: sj.url, name: st.name, role: st.role };
-      }
       setPrepared(done);
       const beatStem = done.find(isBeat);
       if (beatLockMode && beatStem) {
