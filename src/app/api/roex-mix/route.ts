@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const inner = new NextRequest(req.url, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stems, loudness, preview: true }),
+    body: JSON.stringify({ stems, loudness, preview: body?.preview === true }),
   });
 
   const r = await mixPOST(inner);
