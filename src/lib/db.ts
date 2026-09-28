@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 
-type Sql = ReturnType<typeof neon>;
+type Sql = ReturnType<typeof neon<false, false>>;
 
 let client: Sql | undefined;
 
