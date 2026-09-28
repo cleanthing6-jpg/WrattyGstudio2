@@ -149,6 +149,13 @@ export async function POST(req: NextRequest) {
   }
 
   await ensureTable();
+    if (wantsPreview || tier === "free") {
+      const recent = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
+        WHERE user_id = ${userId} AND created_at > NOW() - INTERVAL '24 hours'`) as any[];
+      if (Number(recent[0]?.n || 0) >= 10) {
+        return NextResponse.json({ error: "Daily preview limit reached - upgrade for full mixes" }, { status: 429 });
+      }
+    }
   await reapStale();
   // Pressing Mix again means the previous run was abandoned - drop it so it
   // can never block the new one and can never pile up.
