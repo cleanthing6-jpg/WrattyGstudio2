@@ -15,12 +15,33 @@ function isTier(value: string): value is Tier {
   return value === "free" || value === "starter" || value === "pro" || value === "studio";
 }
 
+let resetColumnReady = false;
+
+// Adds the usage_reset_at column once per process; a no-op afterwards.
+async function ensureResetColumn() {
+  if (resetColumnReady) return;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS usage_reset_at TIMESTAMPTZ DEFAULT NOW()`;
+  resetColumnReady = true;
+}
+
+// Rolling 30-day window: zero the counters once the window expires.
+async function rollUsageWindow(userId: string) {
+  await sql`
+    UPDATE users
+    SET mixes_used = 0, beats_used = 0, covers_used = 0, usage_reset_at = NOW()
+    WHERE id = ${userId} AND usage_reset_at < NOW() - INTERVAL '30 days'
+  `;
+}
+
 export async function getUser(userId: string) {
   await sql`
     INSERT INTO users (id)
     VALUES (${userId})
     ON CONFLICT (id) DO NOTHING
   `;
+
+  await ensureResetColumn();
+  await rollUsageWindow(userId);
 
   const rows = await sql`
     SELECT * FROM users
