@@ -314,14 +314,16 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
 
         setjob(jid, "clip+limit")
-        _clip_on = mode != "passthrough" and (
-            mode != "two_track" or bool(cfg.get("clip"))
-        )
+        # Clipper OFF by default: shaving peaks costs kick transients and
+        # adds edge. Only presets that explicitly ask for it keep it.
+        _clip_on = bool(cfg.get("clip")) and mode not in ("passthrough", "master")
         _thr = 10.0 ** (-1.0 / 20.0)
         _pre = peakdb(mixed)
         _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
         if _clip_on:
             mixed = auto.clip(mixed, sr)
+        elif cfg.get("soft_clip"):
+            mixed = auto.soft_clip(mixed, sr)
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
                                "post_peak_dbfs": round(peakdb(mixed), 2),

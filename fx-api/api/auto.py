@@ -73,7 +73,7 @@ PRESETS = {
     },
     "rap": {
         "target_lufs": -11.0, "glue_ratio": 1.8, "glue_gr_db": 1.2,
-        "width": 1.06, "plate_db": -18.0, "slap_db": -22.0, "clip": True,
+        "width": 1.06, "plate_db": -18.0, "slap_db": -22.0, "soft_clip": True,
     },
 }
 ROLE_DELTAS = {
@@ -147,8 +147,8 @@ CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
 RAISE_CAP = 2.5
 SEND_WET = 0.11
-DOUBLE_DB = -20.0
-WIDEN = 1.15
+DOUBLE_DB = -30.0
+WIDEN = 1.0
 LOW_MONO_HZ = 120.0
 CEILING_DB = -1.5
 TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -1.0}
@@ -1293,3 +1293,33 @@ def _match_role_levels(ro_map, sr, rep):
             rep["level_match"][r] = {"from": round(cur, 1), "gain": round(gain, 2)}
     except Exception as e:
         rep["level_match_error"] = str(e)[:300]
+
+
+def soft_clip(x, sr, knee=0.70, oversample=4):
+    """Transparent soft clipper. Linear below `knee`, smooth tanh bend above.
+    4x FFT oversampling keeps the new harmonics from aliasing back down.
+    Quiet material passes through untouched."""
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    n = a.shape[1]
+    k = int(oversample)
+    if k < 2 or n < 64:
+        return x
+    up = k * n
+    y = np.empty((a.shape[0], up), dtype=np.float64)
+    for c in range(a.shape[0]):
+        F = np.fft.rfft(a[c].astype(np.float64))
+        F2 = np.zeros(up // 2 + 1, dtype=np.complex128)
+        F2[: F.shape[0]] = F * k
+        y[c] = np.fft.irfft(F2, up)
+    t = float(knee)
+    m = np.abs(y)
+    over = m > t
+    if np.any(over):
+        y[over] = np.sign(y[over]) * (t + (1.0 - t) * np.tanh((m[over] - t) / (1.0 - t)))
+    out = np.empty((a.shape[0], n), dtype=np.float64)
+    for c in range(a.shape[0]):
+        F = np.fft.rfft(y[c])
+        out[c] = np.fft.irfft(F[: n // 2 + 1] / k, n)
+    return out.astype(np.float32)
