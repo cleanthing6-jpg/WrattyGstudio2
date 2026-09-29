@@ -6,6 +6,10 @@ from urllib.parse import urlparse, parse_qs
 import numpy as np
 import requests
 from pedalboard import Pedalboard, HighpassFilter, PeakFilter, Compressor, Limiter
+try:
+    from pedalboard import BrickwallLimiter
+except Exception:  # pedalboard < 0.9.25
+    BrickwallLimiter = None
 from pedalboard.io import AudioFile
 
 import auto
@@ -23,7 +27,11 @@ BUS = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
                   PeakFilter(cutoff_frequency_hz=250, gain_db=0.0, q=0.9),
                   PeakFilter(cutoff_frequency_hz=3000, gain_db=0.0, q=1.0),
                   Compressor(threshold_db=-16, ratio=1.8, attack_ms=25, release_ms=150)])
-LIM = Limiter(threshold_db=-1.0, release_ms=100)
+if BrickwallLimiter is not None:
+    LIM = BrickwallLimiter(ceiling_db=-1.5, release_ms=100.0,
+                           lookahead_ms=5.0, true_peak=True)
+else:
+    LIM = Limiter(threshold_db=-1.0, release_ms=100)
 
 
 def rmsdb(x):
