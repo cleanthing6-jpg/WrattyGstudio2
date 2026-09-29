@@ -35,7 +35,6 @@ export default function RootLayout({
                 </Link>
                 <Link
                   href="/studio"
-                  href="/master"
                   className="text-gray-400 hover:text-white text-sm"
                 >
                   Studio
