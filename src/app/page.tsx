@@ -3,8 +3,6 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 const FEATURES = [
-  { icon: "🎵", title: "AI Beat Generator", desc: "Describe a vibe - Afrobeats, Amapiano, Highlife - and get a full 2-3 minute track, not a loop.", chip: "bg-green-100" },
-  { icon: "🖼️", title: "Album Covers", desc: "Upload reference images, describe the look, and get a release-ready cover in seconds.", chip: "bg-yellow-100" },
   { icon: "🎛️", title: "Mix & Master", desc: "Upload a rough phone recording and hear a professional mix and master of your own song.", chip: "bg-red-100" },
 ];
 

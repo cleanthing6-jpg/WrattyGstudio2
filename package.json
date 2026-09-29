@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@babel/code-frame": "^7.29.7",
     "@clerk/nextjs": "latest",
     "@neondatabase/serverless": "latest",

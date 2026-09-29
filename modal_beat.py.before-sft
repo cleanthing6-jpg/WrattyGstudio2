@@ -1,0 +1,775 @@
+"""Text -> beat on Modal, adapted from Modal's ACE-Step 1.5 example.
+
+Beats land in the wratty-mixes volume, so the existing /f/... file server
+plays them with no new storage or host.
+"""
+from pathlib import Path
+from uuid import uuid4
+
+import modal
+
+checkpoints_dir = "/opt/ace-step/checkpoints"
+MIX_MOUNT = "/mixes"
+FILES_BASE = "https://wrattyg--wratty-files-web.modal.run"
+
+# --- verbatim from Modal's example (do not get creative here) ---
+image = (
+    modal.Image.from_registry(
+        "nvidia/cuda:13.0.0-cudnn-devel-ubuntu22.04", add_python="3.12"
+    )
+    .apt_install("git", "ffmpeg")
+    .run_commands(
+        "git clone --branch v0.1.6 --depth 1 https://github.com/ace-step/ACE-Step-1.5.git /opt/ace-step",
+    )
+    .uv_pip_install(
+        "/opt/ace-step", "hf_transfer==0.1.9", "torchcodec==0.10.0", "torch~=2.10.0",
+        "librosa", "soundfile"
+    )
+    .env({"ACESTEP_PROJECT_ROOT": "/opt/ace-step", "HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .entrypoint([])
+)
+
+model_cache = modal.Volume.from_name("ACE-Step-v15-model-cache", create_if_missing=True)
+mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
+
+app = modal.App("wratty-beat")
+
+# l40s like the official example. Try "L4" once this works, to halve cost.
+GPU = "l40s"
+
+
+@app.cls(
+    gpu=GPU,
+    image=image,
+    volumes={checkpoints_dir: model_cache, MIX_MOUNT: mixvol},
+    timeout=1800,
+    max_containers=1,        # never let two GPUs bill at once
+    scaledown_window=120,    # short idle window: 5 min idle would cost ~$1.63
+)
+class BeatGenerator:
+    @modal.enter()
+    def init(self):
+        from acestep.handler import AceStepHandler
+        from acestep.llm_inference import LLMHandler
+        from acestep.model_downloader import ensure_lm_model, ensure_main_model
+
+        lm_model_name = "acestep-5Hz-lm-4B"
+        ensure_main_model(checkpoints_dir=checkpoints_dir)
+        ensure_lm_model(model_name=lm_model_name, checkpoints_dir=checkpoints_dir)
+
+        self._load_dit("acestep-v15-xl-turbo")
+
+        self.llm_handler = LLMHandler()
+        lm_status, lm_success = self.llm_handler.initialize(
+            checkpoint_dir=checkpoints_dir,
+            lm_model_path=lm_model_name,
+            backend="vllm",
+            device="cuda",
+        )
+        if not lm_success:
+            raise RuntimeError("LM init failed: %s" % lm_status)
+
+    def _load_dit(self, name: str):
+        import gc
+        import torch
+        from acestep.handler import AceStepHandler
+        from acestep.model_downloader import ensure_dit_model
+
+        if getattr(self, "model_name", "") == name and getattr(self, "dit_handler", None):
+            return name
+        if getattr(self, "dit_handler", None) is not None:
+            del self.dit_handler
+            gc.collect()
+            torch.cuda.empty_cache()
+        ok, msg = ensure_dit_model(name, checkpoints_dir=checkpoints_dir)
+        if not ok:
+            raise RuntimeError("checkpoint %s unavailable: %s" % (name, msg))
+        handler = AceStepHandler()
+        status, ready = handler.initialize_service(
+            project_root="/opt/ace-step", config_path=name, device="cuda")
+        if not ready:
+            raise RuntimeError("DiT init failed for %s: %s" % (name, status))
+        self.dit_handler = handler
+        self.model_name = name
+        return name
+
+    def _ensure_model(self, name: str) -> str:
+        if name != getattr(self, "model_name", ""):
+            return self._load_dit(name)
+        return name
+
+    @modal.method()
+    def beat(self, prompt: str, duration: float = 45.0, seed: int = 1,
+             bpm: int = 0, keyscale: str = "") -> dict:
+        import dataclasses as _dc
+        from acestep.inference import GenerationConfig, GenerationParams, generate_music
+        self._ensure_model("acestep-v15-xl-turbo")
+
+        _kw = {"caption": prompt, "lyrics": "[Instrumental]", "duration": duration,
+               "thinking": True, "instrumental": True, "use_cot_metas": False}
+        if bpm:
+            _kw["bpm"] = int(bpm)
+        if keyscale:
+            _kw["keyscale"] = keyscale
+        try:
+            _fields = {f.name for f in _dc.fields(GenerationParams)}
+        except Exception:
+            _fields = set(_kw)
+        params = GenerationParams(**{k: v for k, v in _kw.items() if k in _fields})
+        config = GenerationConfig(
+            audio_format="wav",
+            batch_size=1,
+            seeds=[seed],
+            use_random_seed=False,
+        )
+        result = generate_music(
+            self.dit_handler, self.llm_handler, params, config, save_dir="/dev/shm"
+        )
+        if not result.success:
+            raise RuntimeError("generation failed: %s" % result.error)
+
+        data = Path(result.audios[0]["path"]).read_bytes()
+        key = "fx/beat-%s.wav" % uuid4().hex
+        dst = Path(MIX_MOUNT) / key
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dst.with_suffix(".part")
+        tmp.write_bytes(data)
+        tmp.replace(dst)          # atomic
+        mixvol.commit()           # publish to the file server
+        return {"key": key, "bytes": len(data),
+                "url": "%s/f/%s" % (FILES_BASE, key)}
+
+
+    @modal.method()
+    def producer(self, vocal_url: str, style: str, bpm: int = 0, keyscale: str = "",
+                 timesig: str = "", seconds: float = 0.0) -> dict:
+        # Acapella in -> instrumental out. BASE model, audio-conditioned (complete + extract).
+        import subprocess
+        import urllib.request
+        import uuid as _uuid
+        from pathlib import Path as _P
+
+        from acestep.inference import GenerationConfig, GenerationParams, generate_music
+
+        work = _P("/dev/shm") / ("producer-" + _uuid.uuid4().hex)
+        work.mkdir(parents=True, exist_ok=True)
+        raw, wav = work / "vocal.upload", work / "vocal.wav"
+        got = 0
+        with urllib.request.urlopen(vocal_url, timeout=300) as r, open(raw, "wb") as fh:
+            while True:
+                c = r.read(1 << 20)
+                if not c:
+                    break
+                got += len(c)
+                if got > 300 * 1024 * 1024:
+                    raise RuntimeError("vocal file too large")
+                fh.write(c)
+
+        def probe(path):
+            try:
+                out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
+                                      "format=duration", "-of", "csv=p=0", str(path)],
+                                     check=True, capture_output=True, text=True).stdout.strip()
+                return float(out)
+            except Exception as e:
+                print("ffprobe failed: %s" % e, flush=True)
+                return 0.0
+
+        total = probe(raw)
+        trim = ["-t", str(seconds)] if seconds and seconds > 0 else []
+        subprocess.run(["ffmpeg", "-y", "-i", str(raw)] + trim +
+                       ["-ac", "2", "-ar", "48000", str(wav)],
+                       check=True, capture_output=True)
+        secs = seconds if seconds and seconds > 0 else total
+        if secs <= 0:
+            secs = 180.0
+        secs = max(10.0, min(240.0, float(secs)))
+
+        det_bpm, det_key = 0, ""
+        if not bpm or not keyscale:
+            try:
+                import librosa
+                import numpy as np
+                y, sr = librosa.load(str(wav), sr=22050, mono=True)
+                if not bpm:
+                    t = float(np.atleast_1d(librosa.beat.beat_track(y=y, sr=sr)[0])[0])
+                    while t > 190:
+                        t /= 2.0
+                    det_bpm = int(round(t)) if t > 0 else 0
+                if not keyscale:
+                    ch = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+                    NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+                    MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+                    MIN = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+                    sc = [(sum(ch[(i + k) % 12] * pr[k] for k in range(12)), NOTES[i], m)
+                          for i in range(12) for pr, m in ((MAJ, "major"), (MIN, "minor"))]
+                    det_key = "%s %s" % (max(sc)[1], max(sc)[2])
+            except Exception as e:
+                print("analysis skipped: %s" % e, flush=True)
+        print("vocal %.2fs -> %.1fs | given bpm=%s key=%s | detected bpm=%s key=%s"
+              % (total, secs, bpm or "-", keyscale or "-", det_bpm or "-", det_key or "-"),
+              flush=True)
+
+        print("loading %s" % self._ensure_model("acestep-v15-sft"), flush=True)
+
+        def render(task, instruction, src=None, instrumental=None):
+            kw = {
+                "task_type": task,
+                "instruction": instruction,
+                "caption": style,
+                "lyrics": "[Instrumental]",
+                "duration": float(secs),
+                "cot_caption": style,
+                "cot_duration": float(secs),
+                "use_cot_caption": False,
+                "use_cot_metas": False,
+                "thinking": False,
+                "inference_steps": 50,
+                "guidance_scale": 7.0,
+                "lm_temperature": 0.95,
+                "lm_top_p": 0.95,
+                "lm_top_k": 0,
+                "lm_cfg_scale": 1.5,
+            }
+            if src is not None:
+                kw["src_audio"] = str(src)
+            if instrumental is not None:
+                kw["instrumental"] = bool(instrumental)
+            if bpm:
+                kw["bpm"] = int(bpm)
+                kw["cot_bpm"] = int(bpm)
+            if keyscale:
+                kw["keyscale"] = keyscale
+                kw["cot_keyscale"] = keyscale
+            if timesig:
+                kw["timesignature"] = str(timesig)
+                kw["cot_timesignature"] = str(timesig)
+            params = GenerationParams(**kw)
+            cfg = GenerationConfig(audio_format="flac", batch_size=1, seeds=[1],
+                                   use_random_seed=True)
+            res = generate_music(self.dit_handler, self.llm_handler, params, cfg,
+                                 save_dir=str(work))
+            if not res.success:
+                raise RuntimeError("%s failed: %s" % (task, res.error))
+            return _P(res.audios[0]["path"])
+
+        def save(local, tag):
+            key = "producer/%s-%s" % (_uuid.uuid4().hex[:12], tag)
+            wp, mp = work / (tag + ".wav"), work / (tag + ".mp3")
+            subprocess.run(["ffmpeg", "-y", "-i", str(local), str(wp)],
+                           check=True, capture_output=True)
+            subprocess.run(["ffmpeg", "-y", "-i", str(wp), "-b:a", "320k", str(mp)],
+                           check=True, capture_output=True)
+            out = {}
+            for ext, path in (("wav", wp), ("mp3", mp)):
+                dst = _P(MIX_MOUNT) / ("%s.%s" % (key, ext))
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                tmp = dst.with_name(dst.name + ".part")
+                tmp.write_bytes(path.read_bytes())
+                tmp.replace(dst)
+                out[ext] = "%s/f/%s.%s" % (FILES_BASE, key, ext)
+            return out
+
+        COMPLETE = ("Complete the input acapella with an instrumental accompaniment that locks to "
+                    "its timing, groove and key. No vocals, no singing, no vocal samples.")
+        out = {"source": vocal_url, "bpm": int(bpm or 0), "keyscale": keyscale,
+               "seconds": secs, "detected_bpm": det_bpm, "detected_key": det_key}
+        mix = None
+        try:
+            mix = render("complete", COMPLETE, src=wav, instrumental=False)
+            out["complete"] = save(mix, "complete")
+        except Exception as e:
+            out["complete_error"] = str(e)[:200]
+            print("complete failed: %s" % e, flush=True)
+        try:
+            out["complete_inst"] = save(render("complete", COMPLETE, src=wav, instrumental=True),
+                                        "complete-inst")
+        except Exception as e:
+            out["complete_inst_error"] = str(e)[:200]
+            print("complete(instrumental) failed: %s" % e, flush=True)
+        if mix is not None:
+            try:
+                out["extract_inst"] = save(render(
+                    "extract", "Extract the instrumental accompaniment, excluding all vocals, "
+                               "from the audio:", src=mix), "extract-inst")
+            except Exception as e:
+                out["extract_inst_error"] = str(e)[:200]
+                print("extract instrumental failed: %s" % e, flush=True)
+            try:
+                out["extract_voc"] = save(render(
+                    "extract", "Extract the vocals track from the audio:", src=mix), "extract-voc")
+            except Exception as e:
+                out["extract_voc_error"] = str(e)[:200]
+                print("extract vocals failed: %s" % e, flush=True)
+        mixvol.commit()
+        for k in sorted(out):
+            v = out[k]
+            print("PRODUCE %-16s %s" % (k, v.get("mp3", v) if isinstance(v, dict) else v),
+                  flush=True)
+        return out
+
+    @modal.method()
+    def produce(self, vocal_url: str, style: str, bpm: int = 0, keyscale: str = "") -> dict:
+        # Acapella in -> matching instrumental out.
+        import dataclasses, subprocess, urllib.request, uuid as _uuid
+        from pathlib import Path as _P
+        from acestep.inference import GenerationConfig, GenerationParams, generate_music
+
+        work = _P("/dev/shm") / ("produce-" + _uuid.uuid4().hex)
+        work.mkdir(parents=True, exist_ok=True)
+        raw, wav = work / "vocal.upload", work / "vocal.wav"
+        n = 0
+        with urllib.request.urlopen(vocal_url, timeout=180) as r, open(raw, "wb") as fh:
+            while True:
+                c = r.read(1 << 20)
+                if not c:
+                    break
+                n += len(c)
+                if n > 250 * 1024 * 1024:
+                    raise RuntimeError("vocal file too large")
+                fh.write(c)
+        subprocess.run(["ffmpeg", "-y", "-i", str(raw), "-ac", "2", "-ar", "48000", str(wav)],
+                       check=True, capture_output=True)
+
+        seconds = 0.0
+        try:
+            seconds = float(subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "csv=p=0", str(wav)],
+                check=True, capture_output=True, text=True).stdout.strip())
+            print("vocal duration: %.2fs" % seconds, flush=True)
+        except Exception as e:
+            print("ffprobe failed: %s" % e, flush=True)
+            seconds = 0.0
+        if not bpm or not keyscale:
+            try:
+                import librosa, numpy as np
+                y, sr = librosa.load(str(wav), sr=22050, mono=True)
+                seconds = len(y) / float(sr)
+                if not bpm:
+                    t = float(np.atleast_1d(librosa.beat.beat_track(y=y, sr=sr)[0])[0])
+                    while t > 190:
+                        t /= 2.0
+                    bpm = int(round(t)) if t > 0 else 0
+                if not keyscale:
+                    ch = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+                    NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+                    MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+                    MIN = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+                    sc = [(sum(ch[(i + k) % 12] * pr[k] for k in range(12)), NOTES[i], m)
+                          for i in range(12) for pr, m in ((MAJ, "major"), (MIN, "minor"))]
+                    keyscale = "%s %s" % (max(sc)[1], max(sc)[2])
+            except Exception as e:
+                print("analysis skipped: %s" % e, flush=True)
+
+        duration = max(150.0, min(240.0, float(round(seconds)) if seconds > 0 else 180.0))
+
+        try:
+            fields = {f.name for f in dataclasses.fields(GenerationParams)}
+        except Exception:
+            fields = {"caption", "lyrics", "duration", "thinking"}
+        kw = {"caption": "%s, instrumental, no vocals, no singing, no lyrics" % style,
+              "lyrics": "[Instrumental]", "duration": duration, "thinking": True}
+        if bpm and "bpm" in fields:
+            kw["bpm"] = int(bpm)
+        if keyscale and "keyscale" in fields:
+            kw["keyscale"] = keyscale
+        if "instrumental" in fields:
+            kw["instrumental"] = True
+        params = GenerationParams(**kw)
+
+        result = None
+        fmt = "wav"
+        for fmt in ("wav", "mp3"):
+            try:
+                result = generate_music(self.dit_handler, self.llm_handler, params,
+                                        GenerationConfig(audio_format=fmt, batch_size=1,
+                                                         seeds=[1], use_random_seed=True),
+                                        save_dir=str(work))
+            except Exception as e:
+                print("generate_music(%s) raised: %s" % (fmt, e), flush=True)
+                result = None
+            if result is not None and result.success:
+                break
+        if result is None or not result.success:
+            raise RuntimeError("generation failed: %s" % getattr(result, "error", "unknown"))
+
+        src = _P(result.audios[0]["path"])
+        band, mp3 = work / "beat.wav", work / "beat.mp3"
+        if fmt == "wav":
+            band.write_bytes(src.read_bytes())
+        else:
+            subprocess.run(["ffmpeg", "-y", "-i", str(src), str(band)], check=True, capture_output=True)
+        subprocess.run(["ffmpeg", "-y", "-i", str(band), "-b:a", "320k", str(mp3)],
+                       check=True, capture_output=True)
+
+        hid = _uuid.uuid4().hex
+        out = {}
+        for key, local in (("producer/beat-%s.wav" % hid, band), ("producer/beat-%s.mp3" % hid, mp3)):
+            dst = _P(MIX_MOUNT) / key
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            tmp = dst.with_name(dst.name + ".part")
+            tmp.write_bytes(local.read_bytes())
+            tmp.replace(dst)
+            out[key.rsplit(".", 1)[-1]] = "%s/f/%s" % (FILES_BASE, key)
+        mixvol.commit()
+        return {"url": out["wav"], "wav": out["wav"], "mp3": out["mp3"],
+                "bpm": int(bpm or 0), "keyscale": keyscale,
+                "seconds": duration, "sourceFormat": fmt}
+
+
+@app.function(image=image, timeout=600)
+def introspect():
+    """Cheap, no GPU: discover what the generation API actually accepts.
+    This is how we find the Vocal2BGM parameters for stage 3."""
+    import dataclasses
+    import inspect
+
+    from acestep import inference
+
+    lines = []
+    for name in ("GenerationParams", "GenerationConfig"):
+        cls = getattr(inference, name, None)
+        if cls is not None and dataclasses.is_dataclass(cls):
+            lines.append("%s: %s" % (name, ", ".join(f.name for f in dataclasses.fields(cls))))
+    lines.append("generate_music: %s" % inspect.signature(inference.generate_music))
+    for _l in lines:
+        print(_l, flush=True)
+    return "\n".join(lines)
+
+
+@app.function(image=image, timeout=600, volumes={checkpoints_dir: model_cache})
+def probe():
+    import dataclasses, inspect, os, subprocess
+
+    from acestep import inference
+    from acestep.handler import AceStepHandler
+    from acestep.model_downloader import ensure_lm_model, ensure_main_model
+
+    out = []
+    for name in ("GenerationParams", "GenerationConfig"):
+        cls = getattr(inference, name, None)
+        if cls is not None and dataclasses.is_dataclass(cls):
+            out.append("== %s fields ==" % name)
+            for f in dataclasses.fields(cls):
+                d = ""
+                if f.default is not dataclasses.MISSING:
+                    d = " = %r" % (f.default,)
+                elif f.default_factory is not dataclasses.MISSING:
+                    d = " = factory"
+                out.append("   %s%s" % (f.name, d))
+
+    for fn, label in ((generate_music := inference.generate_music, "generate_music"),
+                      (ensure_main_model, "ensure_main_model"),
+                      (ensure_lm_model, "ensure_lm_model"),
+                      (AceStepHandler.initialize_service, "initialize_service")):
+        try:
+            out.append("== %s signature ==\n   %s" % (label, inspect.signature(fn)))
+        except Exception as e:
+            out.append("== %s signature failed: %s" % (label, e))
+
+    out.append("== cached checkpoints ==")
+    try:
+        out.append("   %s" % sorted(os.listdir(checkpoints_dir)))
+    except Exception as e:
+        out.append("   failed: %s" % e)
+
+    g = subprocess.run(["grep", "-rn", "acestep-v15", "/opt/ace-step/acestep",
+                        "--include=*.py"], capture_output=True, text=True).stdout
+    out.append("== acestep-v15 config names in source ==")
+    out.extend("   " + l for l in g.splitlines()[:40])
+    text = "\n".join(out)
+    print(text, flush=True)
+    return text
+
+
+@app.function(image=image, timeout=900, volumes={checkpoints_dir: model_cache})
+def probe2():
+    import importlib, inspect, subprocess
+
+    out = []
+    for name in ("acestep.model_downloader",
+                 "acestep.core.generation.handler.init_service_catalog",
+                 "acestep.core.generation.handler.init_service_loader"):
+        try:
+            mod = importlib.import_module(name)
+        except Exception as e:
+            out.append("!! import %s failed: %s" % (name, e))
+            continue
+        out.append("== %s ==" % name)
+        out.append("   names: " + ", ".join(n for n in dir(mod) if not n.startswith("_")))
+        try:
+            src = inspect.getsource(mod).splitlines()
+        except Exception as e:
+            out.append("   getsource failed: %s" % e)
+            continue
+        out.append("   source lines: %d, showing 70" % len(src))
+        out.extend("   " + l for l in src[:70])
+
+    g = subprocess.run(["grep", "-rn", "-E",
+                        "ensure_main_model|snapshot_download|hf_hub|MAIN_MODEL|main_model",
+                        "/opt/ace-step/acestep", "--include=*.py"],
+                       capture_output=True, text=True).stdout
+    out.append("== download call sites ==")
+    out.extend("   " + l for l in g.splitlines()[:50])
+
+    text = "\n".join(out)
+    print(text, flush=True)
+    return text
+
+
+@app.function(image=image, timeout=1800, volumes={checkpoints_dir: model_cache})
+def probe3():
+    import inspect, os
+
+    from acestep import model_downloader as md
+
+    out = []
+    for n in ("download_main_model", "download_all_models", "ensure_main_model", "ensure_dit_model",
+              "download_submodel", "check_model_exists", "check_main_model_exists",
+              "list_available_models", "get_checkpoints_dir"):
+        fn = getattr(md, n, None)
+        if fn is None:
+            out.append("%s: MISSING" % n)
+            continue
+        try:
+            out.append("%s%s" % (n, inspect.signature(fn)))
+        except Exception as e:
+            out.append("%s: signature failed: %s" % (n, e))
+
+    out.append("MAIN_MODEL_REPO = %r" % (getattr(md, "MAIN_MODEL_REPO", None),))
+    out.append("MAIN_MODEL_COMPONENTS = %r" % (getattr(md, "MAIN_MODEL_COMPONENTS", None),))
+    reg = getattr(md, "SUBMODEL_REGISTRY", None)
+    out.append("SUBMODEL_REGISTRY = %r" % (reg,))
+    try:
+        out.append("list_available_models() = %r" % (md.list_available_models(),))
+    except Exception as e:
+        out.append("list_available_models failed: %s" % e)
+
+    def attempt(fn_name):
+        fn = getattr(md, fn_name, None)
+        if fn is None:
+            return "%s: MISSING" % fn_name
+        try:
+            sig = inspect.signature(fn)
+        except Exception as e:
+            return "%s: %s" % (fn_name, e)
+        kwargs = {}
+        for p in sig.parameters.values():
+            if p.name in ("model_name", "name", "variant", "model", "submodel", "dit_model"):
+                kwargs[p.name] = "acestep-v15-sft"
+            elif p.name == "checkpoints_dir":
+                kwargs[p.name] = checkpoints_dir
+            elif p.default is inspect.Parameter.empty and p.kind in (p.POSITIONAL_ONLY,
+                                                                    p.POSITIONAL_OR_KEYWORD):
+                kwargs[p.name] = "acestep-v15-sft"
+        try:
+            r = fn(**kwargs)
+        except Exception as e:
+            return "%s(%s) raised %s: %s" % (fn_name, kwargs, type(e).__name__, e)
+        return "%s(%s) -> %r" % (fn_name, kwargs, r)
+
+    out.append("-- download attempts --")
+    for fn_name in ("ensure_dit_model", "download_submodel", "ensure_main_model"):
+        out.append("   " + attempt(fn_name))
+
+    out.append("== checkpoints after ==")
+    try:
+        out.append("   %s" % sorted(os.listdir(checkpoints_dir)))
+    except Exception as e:
+        out.append("   %s" % e)
+
+    text = "\n".join(out)
+    print(text, flush=True)
+    return text
+
+
+@app.function(image=image, timeout=1800, volumes={MIX_MOUNT: mixvol})
+def identify():
+    import json
+    import urllib.request
+    from pathlib import Path
+
+    import librosa
+    import numpy as np
+
+    raw = urllib.request.urlopen(FILES_BASE + "/ls?prefix=producer", timeout=180).read()
+    keys = json.loads(raw)["files"]
+    cand = [k for k in keys if k.endswith(".wav")]
+
+    ref_key = "stems/1790577442468-kcrc16-Lead_vocal.flac"
+    y_ref, sr = librosa.load(str(Path(MIX_MOUNT) / ref_key), sr=22050, mono=True, duration=40.0)
+
+    def chroma(y):
+        c = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=1024)
+        return c / np.maximum(np.linalg.norm(c, axis=0, keepdims=True), 1e-9)
+
+    cr = chroma(y_ref)
+    rows = []
+    for k in cand:
+        p = Path(MIX_MOUNT) / k
+        try:
+            y, _ = librosa.load(str(p), sr=22050, mono=True, duration=40.0)
+        except Exception as e:
+            rows.append((-9.0, k, "load failed: %s" % e))
+            continue
+        cc = chroma(y)
+        m = min(cr.shape[1], cc.shape[1])
+        if m < 50:
+            rows.append((-9.0, k, "too short"))
+            continue
+        rows.append((float((cr[:, :m] * cc[:, :m]).sum(axis=0).mean()), k, ""))
+
+    rows.sort(key=lambda r: -r[0])
+    print("== acapella similarity: higher = contains YOUR vocal, first 40s ==", flush=True)
+    for sim, k, note in rows:
+        print("%.4f  %s  %s" % (sim, k, note), flush=True)
+    return "done"
+
+
+@app.local_entrypoint()
+def main(
+    prompt: str = "Afrobeats instrumental, log drum bass, shaker groove, 104 BPM, no vocals",
+    duration: float = 45.0,
+    vocal_url: str = "",
+    style: str = "afrobeats, log drum bass, shaker groove",
+    bpm: int = 0,
+    keyscale: str = "",
+    seconds: float = 0.0,
+):
+    if vocal_url:
+        res = BeatGenerator().producer.remote(vocal_url, style, bpm, keyscale,
+                                            seconds=seconds)
+        for k in sorted(res):
+            v = res[k]
+            print("PRODUCE %-16s %s" % (k, v.get("mp3", v) if isinstance(v, dict) else v))
+        print("PRODUCE mp3=" + res["mp3"] + "  bpm=" + str(res["bpm"]) + "  key=" + str(res["keyscale"]) + "  seconds=" + str(res["seconds"]) + "  fmt=" + str(res["sourceFormat"]))
+        return
+    res = BeatGenerator().beat.remote(prompt, duration=duration, bpm=bpm, keyscale=keyscale)
+    print("BEAT %s  (%d bytes)" % (res["url"], res["bytes"]))
+
+
+# ---------------------------------------------------------------------------
+# Job API - start a beat, poll for it. Same shape as the mix engine.
+# ---------------------------------------------------------------------------
+
+BEAT_SECRET = modal.Secret.from_name("wratty-mix")   # same FX_INTERNAL_SECRET
+jobs = modal.Dict.from_name("wratty-beat-jobs", create_if_missing=True)
+
+# Slim image for the web tier. All the heavy ACE-Step imports live inside
+# BeatGenerator.init(), so this layer never needs torch.
+beat_web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
+    "fastapi[standard]", "pydantic"
+)
+
+
+@app.function(image=beat_web_image, cpu=1.0, memory=2048, timeout=1800)
+def run_beat(job_id: str, prompt: str, duration: float, seed: int):
+    """CPU wrapper: drives the GPU class and records progress in the Dict."""
+    import traceback
+
+    jobs[job_id] = {"status": "running"}
+    try:
+        res = BeatGenerator().beat.remote(prompt, duration=duration, seed=seed)
+        jobs[job_id] = {"status": "done", "url": res.get("url", ""), "result": res}
+    except Exception as e:
+        traceback.print_exc()
+        jobs[job_id] = {"status": "failed", "error": str(e)[:300]}
+
+
+@app.function(image=beat_web_image, cpu=1.0, memory=2048, timeout=1800)
+def run_produce(job_id: str, vocal_url: str, style: str, bpm: int, keyscale: str, seconds: float = 0.0):
+    # CPU wrapper: drives the GPU producer and records progress in the Dict.
+    import traceback
+
+    jobs[job_id] = {"status": "running"}
+    try:
+        res = BeatGenerator().producer.remote(vocal_url, style, bpm, keyscale,
+                                            seconds=seconds)
+        jobs[job_id] = {"status": "done",
+                        "url": (res.get("complete_inst") or {}).get("wav", ""),
+                        "result": res}
+    except Exception as e:
+        traceback.print_exc()
+        jobs[job_id] = {"status": "failed", "error": str(e)[:300]}
+
+
+@app.function(image=beat_web_image, timeout=150, scaledown_window=300,
+              secrets=[BEAT_SECRET])
+@modal.asgi_app()
+def api():
+    import os
+    import uuid
+
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+
+    web = FastAPI()
+    key = os.environ.get("FX_INTERNAL_SECRET", "")
+
+    @web.get("/health")
+    async def health():
+        return {"ok": True}
+
+    @web.get("/")
+    async def poll(request: Request):
+        jid = request.query_params.get("id")
+        if not jid:
+            return {"ok": True}
+        return (await jobs.get.aio(jid)) or {"status": "none"}
+
+    @web.post("/")
+    async def start(request: Request):
+        if not key or request.headers.get("authorization") != "Bearer " + key:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad json"}, status_code=400)
+
+        prompt = str(body.get("prompt") or "").strip()
+        if not prompt:
+            return JSONResponse({"error": "prompt required"}, status_code=400)
+
+        duration = float(body.get("duration") or 45.0)
+        if not (5.0 <= duration <= 240.0):
+            return JSONResponse({"error": "duration must be 5-240s"}, status_code=400)
+
+        seed = int(body.get("seed") or 1)
+
+        jid = uuid.uuid4().hex
+        await jobs.put.aio(jid, {"status": "queued"})
+        await run_beat.spawn.aio(jid, prompt, duration, seed)
+        return {"job": jid}
+
+    @web.get("/produce")
+    async def produce_poll(request: Request):
+        jid = request.query_params.get("id")
+        if not jid:
+            return {"ok": True}
+        return (await jobs.get.aio(jid)) or {"status": "none"}
+
+    @web.post("/produce")
+    async def produce_start(request: Request):
+        if not key or request.headers.get("authorization") != "Bearer " + key:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad json"}, status_code=400)
+
+        vocal_url = str(body.get("vocalUrl") or "").strip()
+        if not vocal_url.startswith("https://"):
+            return JSONResponse({"error": "vocalUrl required"}, status_code=400)
+
+        style = str(body.get("style") or "").strip() or "afrobeats, log drum bass, shaker groove"
+        bpm = int(body.get("bpm") or 0)
+        keyscale = str(body.get("keyscale") or "").strip()
+
+        jid = uuid.uuid4().hex
+        await jobs.put.aio(jid, {"status": "queued"})
+        seconds = float(body.get("seconds") or 0)
+        await run_produce.spawn.aio(jid, vocal_url, style, bpm, keyscale, seconds)
+        return {"job": jid}
+
+    return web

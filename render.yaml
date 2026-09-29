@@ -13,8 +13,6 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
-      - key: BEAT_API_URL
-        value: https://wrattyg--wratty-beat-api.modal.run
       - key: MIX_API_URL
         value: https://wrattyg--wratty-mix-api.modal.run
       - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY

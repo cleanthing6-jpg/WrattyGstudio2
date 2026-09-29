@@ -113,6 +113,16 @@ def encode_out(src, tmp, is_preview):
 
 
 def put(p, name, ctype="audio/wav"):
+    # Prefer the Modal volume: no Vercel Blob data-transfer meter. Any failure
+    # falls through to Blob so a bad deploy can never break a mix.
+    try:
+        import blobstore
+        if blobstore.enabled():
+            url = blobstore.put(p, name)
+            print("PUT modal %s" % url, flush=True)
+            return url
+    except Exception as e:
+        print("PUT modal failed (%s) - using blob" % str(e)[:200], flush=True)
     t = os.environ.get("BLOB_READ_WRITE_TOKEN")
     if not t:
         raise RuntimeError("BLOB_READ_WRITE_TOKEN missing")
@@ -152,10 +162,10 @@ def setjob(jid, status, url=""):
 
 # ---- role panning. PAN_ENABLED=False fully reverts. ----
 PAN_ENABLED = True
-PAN_HZ = 600.0
+PAN_HZ = 200.0
 PAN_VALUES = {
-    "backing": (-0.25, 0.25, -0.15),
-    "adlib":   (-0.35, 0.35, 0.20),
+    "backing": (-0.55, 0.55, -0.35, 0.35),
+    "adlib":   (-0.45, 0.45, 0.30, -0.30),
 }
 _PAN_N = {"backing": 0, "adlib": 0}
 _PAN_REPORT = {"backing": [], "adlib": []}
@@ -195,8 +205,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _hi = Pedalboard([HighpassFilter(
                     cutoff_frequency_hz=PAN_HZ)])(a, sr).astype(np.float32)
                 _lo = (a - _hi).astype(np.float32)
-                _hi[0] *= float(np.sqrt(1.0 - 0.5 * pan))
-                _hi[1] *= float(np.sqrt(1.0 + 0.5 * pan))
+                _hi[0] *= float(np.sqrt(1.0 - 0.8 * pan))
+                _hi[1] *= float(np.sqrt(1.0 + 0.8 * pan))
                 a = np.ascontiguousarray((_lo + _hi).astype(np.float32))
                 _PAN_REPORT[bucket].append({"stem": i, "pan": pan})
             groups[bucket].append(a)
@@ -263,8 +273,14 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
             if mode in ("two_track", "master"):
-                # input is already a finished mix - keep 30 Hz guard, skip the compressor
-                mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30)])(mixed, sr).astype(np.float32)
+                # input is already a finished mix - skip the compressor. The guard below
+                # is only for an arbitrary two_track upload, not for a master.
+                #
+                # A "master" is our own mix fed back in and already carries the
+                # 30 Hz guard from the mix pass - filtering it again costs ~0.7 dB
+                # of 30-60 Hz for nothing. An arbitrary two_track upload still gets it.
+                if mode != "master":
+                    mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30)])(mixed, sr).astype(np.float32)
                 report["glue_thr_db"] = "off (%s)" % mode
             else:
                 _gr = float(cfg.get("glue_gr_db", 1.0))
@@ -303,12 +319,19 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                                "post_peak_dbfs": round(peakdb(mixed), 2),
                                "samples_over_threshold": _hits}
         mixed, tp, brick = auto.limit(mixed, sr, -1.0)
-        for _ in range(2):
+        # Scale-then-limit means every limiting pass pulls integrated loudness back
+        # down, so two iterations could not converge: a -9.1 LUFS master target
+        # landed at -10.70. Overshoot the correction, iterate until it lands,
+        # then record the residual error.
+        for _ in range(6):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
-            mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - f)) / 20.0))
+            _step = max(-9.0, min(9.0, (tgt - f) * 1.25))
+            mixed = mixed * (10.0 ** (_step / 20.0))
             mixed, tp, brick = auto.limit(mixed, sr, -1.0)
+        _fin = lufs(mixed, sr)
+        report["loudness_error_db"] = None if _fin is None else round(tgt - _fin, 2)
         report["true_peak_dbfs"] = round(tp, 2)
         report["limiter"] = "brickwall" if brick else "fallback"
 

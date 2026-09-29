@@ -1,6 +1,6 @@
 """polish.py - dynamic control AFTER the effects. Pure numpy, no scipy.
 
-Standalone module: nothing in auto.py imports this yet.
+Used by auto.py's _master() (the full-mix master bus).
 Four primitives:
   dynamic_eq   - tracking dynamic EQ (harshness + sibilance), stereo-linked
   two_band_deess - de-esser built on dynamic_eq

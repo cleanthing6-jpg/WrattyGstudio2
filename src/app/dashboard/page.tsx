@@ -5,10 +5,10 @@ import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
 
 const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> = {
-  free: { beats: 0, covers: 0, mixes: 0, price: "Free" },
-  starter: { beats: 5, covers: 3, mixes: 0, price: "₦3,000" },
-  pro: { beats: 12, covers: 6, mixes: 0, price: "₦7,000" },
-  studio: { beats: 20, covers: 10, mixes: 1, price: "₦15,000" },
+  free: { beats: 0, covers: 0, mixes: 1, price: "Free" },
+  starter: { beats: 0, covers: 0, mixes: 5, price: "₦3,000" },
+  pro: { beats: 0, covers: 0, mixes: 20, price: "₦7,000" },
+  studio: { beats: 0, covers: 0, mixes: 50, price: "₦15,000" },
 };
 
 export default function Dashboard() {
@@ -52,8 +52,6 @@ export default function Dashboard() {
   const usedMixes = used.mixes_used ?? used.used?.mixes ?? 0;
 
   const statCards = [
-    { icon: "🎵", label: "Beats", used: usedBeats, total: lim.beats, chip: "bg-green-100 text-green-700", bar: "bg-green-500", href: "/studio?type=beat" },
-    { icon: "🖼️", label: "Album Covers", used: usedCovers, total: lim.covers, chip: "bg-yellow-100 text-yellow-700", bar: "bg-yellow-500", href: "/studio?type=cover" },
     { icon: "🎛️", label: "Mix & Master", used: usedMixes, total: lim.mixes, chip: "bg-red-100 text-red-700", bar: "bg-red-500", href: "/studio?type=mix" },
   ];
 
@@ -108,7 +106,7 @@ export default function Dashboard() {
         <section className="mt-8 rounded-2xl bg-gradient-to-r from-green-600 to-yellow-500 p-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-xl font-black">Ready to make something great?</h2>
-            <p className="text-white/85 text-sm mt-1">Generate a beat, design a cover, or mix your track.</p>
+            <p className="text-white/85 text-sm mt-1">Mix and master your track.</p>
           </div>
           <Link href="/studio" className="px-6 py-3 rounded-full bg-white text-green-700 font-bold text-sm text-center hover:bg-green-50 transition">Go to Studio →</Link>
         </section>
@@ -116,18 +114,14 @@ export default function Dashboard() {
         <section className="mt-8">
 {history.length > 0 && (
   <section className="mt-8">
-    <h2 className="text-lg font-bold mb-3">Your recent creations</h2>
+    <h2 className="text-lg font-bold mb-3">Your recent mixes</h2>
     <div className="space-y-3">
       {history.slice(0, 8).map((h, i) => (
         <div key={i} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-4">
-          {h.type === "cover" ? (
-            <img src={h.result_url} alt="cover" className="w-16 h-16 rounded-xl object-cover" />
-          ) : (
-            <span className="w-16 h-16 rounded-xl bg-green-100 grid place-items-center text-2xl">🎵</span>
-          )}
+          <span className="w-16 h-16 rounded-xl bg-green-100 grid place-items-center text-2xl">🎵</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold capitalize text-slate-900">{h.type}</p>
-            {h.type === "beat" && <audio controls src={h.result_url} className="w-full mt-1 h-8" />}
+            <audio controls src={h.result_url} className="w-full mt-1 h-8" />
           </div>
           <a href={h.result_url} download className="text-xs font-bold text-green-700 shrink-0">Download</a>
         </div>
@@ -142,8 +136,6 @@ export default function Dashboard() {
                 <h3 className="font-bold capitalize">{key}</h3>
                 <p className="mt-1 text-2xl font-black">{p.price}</p>
                 <ul className="mt-3 space-y-1 text-xs text-slate-600">
-                  <li>🎵 {p.beats} beats</li>
-                  <li>🖼️ {p.covers} covers</li>
                   <li>🎛️ {p.mixes > 0 ? p.mixes + " pro mix & master" : "No pro mix included"}</li>
                 </ul>
                 <Link href="/pricing" className={"mt-4 block text-center px-4 py-2 rounded-full text-sm font-bold " + (key === "studio" ? "bg-green-600 text-white" : "border border-slate-300 text-slate-700")}>Choose {key}</Link>

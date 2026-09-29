@@ -43,10 +43,10 @@ ROLE_TREAT = {
                 "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
-                "sat": 0.6, "width": 1.3},
+                "sat": 0.6, "width": 1.6},
     "backing": {"gain": -3.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.25},
+                "sat": 0.6, "width": 1.45},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -57,7 +57,7 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.20, "plate_db": -12.0, "slap_db": -16.0,
+        "width": 1.20, "plate_db": -17.5, "slap_db": -12.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
@@ -78,7 +78,7 @@ PRESETS = {
 }
 ROLE_DELTAS = {
     "afrobeats": {
-        "lead": {"air": 0.5, "sat": 0.4},
+        "lead": {"air": -0.5, "sat": 0.4},
         "adlib": {"air": 0.2, "sat": 0.2, "pres": -0.2},
         "backing": {"pres": -0.2},
     },
@@ -697,7 +697,11 @@ SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
 SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
-def _ambience(voc, sr, bpm):
+def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None):
+    if delay_scale is None:
+        delay_scale = scale
+    if plate_scale is None:
+        plate_scale = scale
     try:
         bpm = float(bpm)
     except (TypeError, ValueError):
@@ -706,7 +710,7 @@ def _ambience(voc, sr, bpm):
         bpm = 100.0
     bpm = float(min(max(bpm, 40.0), 240.0))
     beat_s = 60.0 / bpm
-    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.60)))
+    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.25), int(sr * 0.60)))
     wet = None
     slap = None
     try:
@@ -734,13 +738,76 @@ def _ambience(voc, sr, bpm):
         return voc, round(d / float(sr) * 1000.0), "none"
     w = None
     if slap is not None:
-        w = SEND_SLAP * slap
+        w = (SEND_SLAP * float(delay_scale)) * slap
     if plate is not None:
-        w = SEND_PLATE * plate if w is None else (w + SEND_PLATE * plate)
+        _pw = (SEND_PLATE * float(plate_scale)) * plate
+        w = _pw if w is None else (w + _pw)
     if w is None:
         return voc, round(d / float(sr) * 1000.0), "none"
     out = (voc + w).astype(np.float32)
-    return _headroom(out, -1.0), round(d / float(sr) * 1000.0), kind
+    return (_headroom(out, -1.0) if headroom else out), round(d / float(sr) * 1000.0), kind
+
+
+# ---- per-role space: different reverb depth per vocal role ----
+ROLE_BUS = {
+    # plate = reverb depth, delay = tempo-echo depth (split on purpose)
+    "lead":    {"glue": None,          "plate": 0.75, "delay": 1.0, "exciter": True},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.85, "delay": 0.50, "exciter": True},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True},
+}
+
+
+def _role_space(voc, sr, scale):
+    """Add extra plate depth for a role so it sits in its own space."""
+    try:
+        if not scale:
+            return voc
+        pl = _plate(voc, sr)
+        if pl is None:
+            return voc
+        n = int(sr * 0.030)
+        if n > 0 and pl.shape[1] > n:
+            q = np.zeros_like(pl)
+            q[:, n:] = pl[:, :pl.shape[1] - n]
+            pl = q
+        return (voc + (SEND_PLATE * float(scale)) * pl).astype(np.float32)
+    except Exception:
+        return voc
+
+
+def _role_buses(pre, sr, bpm, raised):
+    """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
+    No cross-role compression: the lead is never glued to backing or adlib.
+    Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
+    levels are untouched; the summed bus normalises once at the end."""
+    out = []
+    first = None
+    for r, y0 in pre.items():
+        y = np.asarray(y0, dtype=np.float32)
+        if polish is not None:
+            try:
+                _y, _ = polish.dynamic_eq(y, sr, get_stats=True)
+                if _y.shape == y.shape and np.isfinite(_y).all():
+                    y = np.asarray(_y, dtype=np.float32)
+            except Exception:
+                pass
+        if raised:
+            y = (y * (10.0 ** (raised / 20.0))).astype(np.float32)
+        cfg = ROLE_BUS.get(r) or {"glue": None, "plate": 1.0, "delay": 1.0}
+        if cfg.get("glue"):
+            _thr, _rat = cfg["glue"]
+            y = _glue(y, sr, thr=_thr, ratio=_rat)
+        if cfg.get("exciter"):
+            y = _exciter(y, sr)
+        _pl = float(cfg.get("plate", cfg.get("space", 1.0)))
+        _dl = float(cfg.get("delay", _pl))
+        if _pl or _dl:
+            y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
+                                      plate_scale=_pl, delay_scale=_dl, headroom=False)
+            if first is None:
+                first = (_ms, _kind)
+        out.append(y)
+    return _sum(out), first
 
 
 def _double(voc, sr):
@@ -817,10 +884,17 @@ def vocal_process(voc, sr, st, bpm):
     return out, moves
 
 
-def _plan(st):
+def _plan(st, pres_min=2.5):
+    """Deeper lead pocket: guarantee at least pres_min dB of duck in the
+    presence band so the lead sits in its own space. Other bands unchanged."""
     now = {BODY: st["mask_body"], PRES: st["clarity"], HARSH: st["mask_harsh"]}
-    return {b: -min(DUCK_CAP[b], max(0.0, (DUCK_TARGET[b] - now[b]) * 0.9))
-            for b in (BODY, PRES, HARSH)}
+    out = {}
+    for b in (BODY, PRES, HARSH):
+        v = max(0.0, (DUCK_TARGET[b] - now[b]) * 0.9)
+        if b == PRES:
+            v = max(v, float(pres_min))
+        out[b] = -min(DUCK_CAP[b], v)
+    return out
 
 
 def _duck(beat, voc_eq, freq, st, extra=0.0):
@@ -842,7 +916,13 @@ def _duck(beat, voc_eq, freq, st, extra=0.0):
     for c in range(beat.shape[0]):
         S = _stft(beat[c])
         for b, (k, gain) in gains.items():
-            S[:, k] *= gain[:, None]
+            g = gain
+            if g.shape[0] != S.shape[0]:
+                if g.shape[0] < S.shape[0]:
+                    g = np.concatenate([g, np.ones(S.shape[0] - g.shape[0], np.float32)])
+                else:
+                    g = g[:S.shape[0]]
+            S[:, k] *= g[:, None]
         out[c] = _istft(S, beat.shape[1])
         del S
     return out, plan, vpres, _avg(_stft(_mono(out)), PRES, freq)
@@ -1019,13 +1099,14 @@ def mix(groups, sr, loud="MEDIUM"):
     st = _measures(Bst, _stft(_mono(voc)), freq)
     rep["measured"] = {k: round(float(v), 2) for k, v in st.items()}
 
-    parts, moves = [], {}
+    parts, moves, _pre = [], {}, {}
     for r in list(ro_map.keys()):
         y, mv = _role_chain(ro_map[r], sr, st, r)
         if ROLE_TREAT[r]["width"] != 1.0:
             y = _widen(y, sr, ROLE_TREAT[r]["width"])
+        _pre[r] = y
         parts.append(y); moves[r] = mv
-    core = _sum(parts)
+    core = _sum(parts)   # dry sum: polish, raise and _dry_voc all read this
     if polish is not None:
         try:
             _sh = core.shape
@@ -1056,12 +1137,15 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["level_passes"] = level_passes
 
     _dry_voc = core.copy()
-    core, ms, pk = _ambience(_exciter(_parallel(_glue(core, sr), sr), sr), sr, bpm)
+    core, _info = _role_buses(_pre, sr, bpm, raised)
+    ms, pk = _info if _info else (0, "none")
+    rep["bus"] = {r: ROLE_BUS.get(r, {}) for r in _pre}
     rep["slap_ms"] = ms
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
 
-    side_ids = [r for r in ("lead", "adlib") if r in ro_map]
+    _DOUBLE_ON = False   # ADT detune copy welds lead+adlib - off
+    side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
         if dbl is not None:

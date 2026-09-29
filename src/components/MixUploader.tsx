@@ -1,39 +1,46 @@
 "use client";
 import { useRef, useState } from "react";
-import { useUploadThing } from "@/utils/uploadthing";
-import { uploadStem } from "@/lib/freeUpload";
 
-async function localStartUpload(files: any[]): Promise<any[]> {
-  const out: any[] = [];
-  const list = Array.isArray(files) ? files : [files];
-  for (let i = 0; i < list.length; i++) {
-    const f: any = list[i];
-    const name = (f && f.name) || "stem.wav";
-    const file = new File([f], name, { type: (f && f.type) || "audio/wav" });
-    const url = await uploadStem(file);
-    out.push({ ufsUrl: url, url, serverData: { ufsUrl: url, url } });
-  }
-  return out;
+function sanitizeName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const ext = dot >= 0 ? name.slice(dot).toLowerCase() : "";
+  const base = (dot >= 0 ? name.slice(0, dot) : name)
+    .replace(/[^A-Za-z0-9._-]/g, "_")
+    .slice(0, 60);
+  return `${base || "stem"}${ext}`;
 }
 
-const startUpload = localStartUpload;
+async function uploadToR2(file: File): Promise<string> {
+  const type = file.type || "application/octet-stream";
+
+  const res = await fetch("/api/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: sanitizeName(file.name), type }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error("Could not get upload URL: " + res.status + " " + (await res.text()).slice(0, 200));
+  }
+  const { url, getUrl } = await res.json();
+  if (!url || !getUrl) throw new Error("No upload URL returned");
+
+  const put = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": type },
+    body: file,
+  });
+  if (!put.ok) {
+    throw new Error("R2 upload failed: " + put.status + " " + (await put.text()).slice(0, 200));
+  }
+
+  return getUrl as string;
+}
 
 export default function MixUploader({ onReady }: { onReady: (url: string, name: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  void useUploadThing("audioUploader", {
-    onClientUploadComplete: (res: any[]) => {
-      const f = res && res[0];
-      const url = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
-      if (url) onReady(url, (f && f.name) || "Track");
-      else setError("No URL on file: " + JSON.stringify(f).slice(0, 300));
-    },
-    onUploadError: (e: any) => {
-      setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
-    },
-  });
 
   const pick = async (files: FileList | null) => {
     const arr = files ? Array.from(files) : [];
@@ -42,14 +49,11 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
     setBusy(true);
     try {
       for (const file of arr) {
-        const res = await startUpload([file]);
-        const f: any = (res && res[0]) || {};
-        const url = f.ufsUrl || f.url || (f.serverData && f.serverData.url) || "";
-        if (!url) throw new Error("No URL returned for " + file.name);
+        const url = await uploadToR2(file);
         onReady(url, file.name);
       }
     } catch (e: any) {
-      setError("Upload error: " + ((e && e.message) ? e.message : "unknown"));
+      setError("Upload error: " + (e && e.message ? e.message : "unknown"));
     }
     setBusy(false);
     if (inputRef.current) inputRef.current.value = "";

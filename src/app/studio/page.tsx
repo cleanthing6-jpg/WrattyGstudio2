@@ -116,7 +116,7 @@ async function loadSpaceIR(mode: string, ctx: OfflineAudioContext, cfg: { decay:
   return conv;
 }
 
-type StudioTab = "beat" | "cover" | "mix";
+type StudioTab = "mix";
 type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
 type MixMode = "split" | "mix";
 type StemRole = "lead" | "backup" | "adlib" | "beat";
@@ -124,8 +124,8 @@ type UploadedFile = { url: string; name: string; role: StemRole };
 type SplitResult = { name: string; stems: { type: string; url: string }[] };
 type ReadyStem = { url: string; name: string; role: StemRole };
 
-function getStudioTab(value: string | null): StudioTab {
-  return value === "beat" || value === "cover" || value === "mix" ? value : "beat";
+function getStudioTab(_value: string | null): StudioTab {
+  return "mix";
 }
 
 function StudioInner() {
@@ -688,12 +688,10 @@ function StudioInner() {
   return (
     <div className="min-h-screen bg-white px-4 py-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">Studio</h1>
-      <p className="text-gray-500 mb-8">Create beats, design covers, or process your tracks</p>
+      <p className="text-gray-500 mb-8">Mix and master your tracks</p>
 
       <div className="flex gap-2 mb-8 overflow-x-auto">
         {[
-          { id: "beat" as const, label: "🎵 Beat Generator" },
-          { id: "cover" as const, label: "🎨 Album Cover" },
           { id: "mix" as const, label: "🎛️ Mix & Master" },
         ].map((tab) => (
           <button

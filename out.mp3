@@ -1,0 +1,1 @@
+{"detail":[{"type":"string_too_short","loc":["body","composition_plan","CompositionPlan","chunks",0,"GenerationChunk","conditioning_ref","song_id"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}

@@ -42,12 +42,12 @@ export default function History() {
 
       {items.length === 0 && (
         <p className="text-gray-400">
-          No generations yet.{" "}
+          No mixes yet.{" "}
           <Link
-            href="/studio?type=beat"
+            href="/studio?type=mix"
             className="text-green-400"
           >
-            Create your first beat →
+            Create your first mix →
           </Link>
         </p>
       )}

@@ -4,10 +4,10 @@ type CreditType = "beat" | "cover" | "mix";
 type Tier = "free" | "starter" | "pro" | "studio";
 
 const TIERS: Record<Tier, { beats: number; covers: number; mixes: number }> = {
-  free: { beats: 0, covers: 1, mixes: 0 },
-  starter: { beats: 5, covers: 3, mixes: 3 },
-  pro: { beats: 10, covers: 7, mixes: 10 },
-  studio: { beats: 30, covers: 20, mixes: 30 },
+  free: { beats: 0, covers: 0, mixes: 1 },
+  starter: { beats: 0, covers: 0, mixes: 5 },
+  pro: { beats: 0, covers: 0, mixes: 20 },
+  studio: { beats: 0, covers: 0, mixes: 50 },
 };
 
 
@@ -96,9 +96,9 @@ export async function consumeCredit(
         : "mixes_used";
 
   const limits = {
-    beat: { free: 0, starter: 5, pro: 10, studio: 30 },
-    cover: { free: 1, starter: 3, pro: 7, studio: 20 },
-    mix: { free: 0, starter: 3, pro: 10, studio: 30 },
+    beat: { free: 0, starter: 0, pro: 0, studio: 0 },
+    cover: { free: 0, starter: 0, pro: 0, studio: 0 },
+    mix: { free: 1, starter: 5, pro: 20, studio: 50 },
   };
 
   const maxCredits = limits[type];
