@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
     maxSeconds = null;
   }
 
+  console.log("[mix-debug]", { ownerConfigured: !!ownerId, isOwner, wantsPreview, tier, maxSeconds });
   await ensureTable();
     if (!isOwner && (wantsPreview || tier === "free")) {
       const recent = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
