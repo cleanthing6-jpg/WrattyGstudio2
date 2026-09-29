@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   const wantsPreview = body?.preview === true;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
-  const ownerId = process.env.OWNER_USER_ID?.trim();
+  const ownerId = (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t").trim();
   const isOwner = !!ownerId && userId === ownerId;
 
   let maxSeconds: number | null;
@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
   }
 
   console.log("[mix-debug]", { ownerConfigured: !!ownerId, isOwner, wantsPreview, tier, maxSeconds });
+  console.log("[mix-debug]", { signedIn: userId, ownerIs: ownerId.slice(0, 12), isOwner, wantsPreview, tier, maxSeconds });
   await ensureTable();
     if (!isOwner && (wantsPreview || tier === "free")) {
       const recent = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
