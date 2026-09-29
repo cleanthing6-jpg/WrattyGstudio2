@@ -38,3 +38,12 @@ yarn-error.log*
 .cron-secret
 __pycache__/
 *.pyc
+
+# local test artifacts
+/beats/
+/ref.wav
+/ref_perc.wav
+/out.mp3
+/84c65e102086-complete-inst.wav
+/r2_test.mjs
+modal_beat.py.before-*
