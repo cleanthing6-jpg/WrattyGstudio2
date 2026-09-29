@@ -1,5 +1,6 @@
 "use client";
 import { masterStage } from "@/lib/masterStage";
+import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback, useEffect } from "react";
@@ -312,6 +313,14 @@ function StudioInner() {
               </div>
 
               <MixUploader onReady={addFile} />
+              <Link
+                href="/master"
+                className="block mb-4 bg-white border border-slate-200 rounded-2xl p-4 hover:border-green-500 transition"
+              >
+                <span className="font-bold text-green-700">Master only</span>
+                <span className="block text-slate-500 text-sm">Already mixed? Send it straight to the mastering chain - no stems needed.</span>
+              </Link>
+
               <AiMixer stems={readyStems.length ? readyStems : files} />
                 {files.length > 0 && (
                   <div className="mt-3 space-y-2">
