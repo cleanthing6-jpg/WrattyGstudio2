@@ -1,85 +1,79 @@
 "use client";
 import { useState } from "react";
-import { masterStage } from "@/lib/masterStage";
+import { uploadStem } from "@/lib/freeUpload";
 
-function encodeWav(buf: AudioBuffer): Blob {
-  const ch = buf.numberOfChannels;
-  const len = buf.length;
-  const sr = buf.sampleRate;
-  const bytes = len * ch * 2;
-  const ab = new ArrayBuffer(44 + bytes);
-  const v = new DataView(ab);
-  const ws = (o: number, s: string) => {
-    for (let i = 0; i < s.length; i++) {
-      v.setUint8(o + i, s.charCodeAt(i));
-    }
-  };
-  ws(0, "RIFF");
-  v.setUint32(4, 36 + bytes, true);
-  ws(8, "WAVE");
-  ws(12, "fmt ");
-  v.setUint32(16, 16, true);
-  v.setUint16(20, 1, true);
-  v.setUint16(22, ch, true);
-  v.setUint32(24, sr, true);
-  v.setUint32(28, sr * ch * 2, true);
-  v.setUint16(32, ch * 2, true);
-  v.setUint16(34, 16, true);
-  ws(36, "data");
-  v.setUint32(40, bytes, true);
-  const data: Float32Array[] = [];
-  for (let c = 0; c < ch; c++) {
-    data.push(buf.getChannelData(c));
-  }
-  let o = 44;
-  for (let i = 0; i < len; i++) {
-    for (let c = 0; c < ch; c++) {
-      let x = data[c][i];
-      if (x > 1) x = 1;
-      if (x < -1) x = -1;
-      const d = x + (Math.random() - 0.5) / 32768;
-      let s = Math.round(d * 32767);
-      if (s > 32767) s = 32767;
-      if (s < -32768) s = -32768;
-      v.setInt16(o, s, true);
-      o += 2;
-    }
-  }
-  return new Blob([ab], { type: "audio/wav" });
-}
+type Job = {
+  status?: string;
+  position?: number;
+  url?: string;
+  error?: string;
+  result?: any;
+};
+
+const PRESETS = ["afrobeats", "pop", "rap", "rnb", "amapiano", "neutral"];
 
 export default function MasterPage() {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+  const [err, setErr] = useState("");
   const [url, setUrl] = useState("");
-  const [name, setName] = useState("master.wav");
-  const [tgt, setTgt] = useState(-10);
+  const [name, setName] = useState("master.mp3");
+  const [loud, setLoud] = useState("HIGH");
+  const [preset, setPreset] = useState("afrobeats");
   const [info, setInfo] = useState("");
 
   const run = async (f: File) => {
-    setBusy(true);
-    setUrl("");
-    setStage("Reading " + f.name + "...");
+    setBusy(true); setErr(""); setUrl(""); setInfo("");
     const base = f.name.replace(/\.[^.]+$/, "");
-    setName(base + " - Master.wav");
+    setName(base + " - Master.mp3");
     try {
-      const ab = await f.arrayBuffer();
-      const w = window as any;
-      const AC = w.AudioContext || w.webkitAudioContext;
-      const ctx = new AC();
-      const buf = await ctx.decodeAudioData(ab);
-      setStage("Measuring the song...");
-      const out = await masterStage(buf, {
-        targetLUFS: tgt,
-        onMetrics: (x: any) => setInfo(JSON.stringify(x)),
+      setStage("Uploading " + f.name + "...");
+      const hosted = await uploadStem(f, "masters");
+
+      setStage("Starting the master job...");
+      const r = await fetch("/api/mix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stems: [{ url: hosted, role: "master" }], loudness: loud, preset }),
       });
-      setStage("Writing WAV...");
-      const blob = encodeWav(out);
-      setUrl(URL.createObjectURL(blob));
-      setStage("Done - preview and download");
+      const d: any = await r.json().catch(() => ({}));
+      if (!r.ok || !d.job) throw new Error(d?.error || "Could not start the master job (code " + r.status + ")");
+
+      let finalUrl: string = d.url || "";
+      let last: Job = {};
+      for (let i = 0; i < 120 && !finalUrl; i++) {
+        await new Promise((res) => setTimeout(res, 5000));
+        const g = await fetch("/api/mix?id=" + encodeURIComponent(d.job));
+        const gd: Job = await g.json().catch(() => ({}));
+        last = gd;
+        if (gd.status === "failed") throw new Error(gd.error || "Mastering failed");
+        if (gd.error && gd.status !== "queued" && gd.status !== "running") throw new Error(String(gd.error));
+        if (gd.status === "done" && gd.url) { finalUrl = gd.url; break; }
+        setStage(gd.status === "queued"
+          ? "Queued - position " + (gd.position || 1) + ". It will start automatically."
+          : "Mastering... " + ((i + 1) * 5) + "s");
+      }
+      if (!finalUrl) throw new Error("Still working - do not resubmit. Check Dashboard > My Mixes in a minute.");
+      setUrl(finalUrl);
+
+      const m: any = last.result && typeof last.result === "object" ? last.result : {};
+      setInfo([
+        typeof m.lufs === "number" ? m.lufs.toFixed(2) + " LUFS" : "",
+        typeof m.peak_dbfs === "number" ? m.peak_dbfs.toFixed(2) + " dBFS peak" : "",
+        typeof m.seconds === "number" ? m.seconds.toFixed(1) + "s" : "",
+        m.mode ? "mode: " + m.mode : "",
+      ].filter(Boolean).join("   "));
+
+      setStage("Saving to your dashboard...");
+      const s = await fetch("/api/mixes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: base + " - Master", url: finalUrl, preset }),
+      });
+      setStage(s.ok ? "Done - saved to Dashboard > My Mixes" : "Master ready - dashboard save failed, download it now");
     } catch (e: any) {
-      const m = (e && e.message) || "unknown error";
-      setStage("Failed: " + m);
+      setErr(e?.message || "unknown error");
+      setStage("");
     }
     setBusy(false);
   };
@@ -89,58 +83,44 @@ export default function MasterPage() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-black mb-1">Master only</h1>
         <p className="text-slate-500 text-sm mb-6">
-          Upload an already-mixed song. No stem processing,
-          just the adaptive master stage.
+          Upload an already-mixed song. It goes through the studio engine's master
+          chain - polish EQ, width, brickwall limiter. Free accounts render a 30s preview.
         </p>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <label className="block text-sm text-slate-500 mb-2">
-            Target loudness
-          </label>
-          <select
-            value={tgt}
-            onChange={(e) => setTgt(Number(e.target.value))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm mb-4"
-          >
-            <option value={-14}>Streaming (-14 LUFS)</option>
-            <option value={-10}>Club / field (-10 LUFS)</option>
-            <option value={-9}>Loud (-9 LUFS)</option>
-            <option value={-8}>Very loud (-8 LUFS)</option>
-          </select>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-sm text-slate-500 mb-2">Loudness</label>
+              <select value={loud} onChange={(e) => setLoud(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
+                <option value="MEDIUM">Standard</option>
+                <option value="HIGH">Loud</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-500 mb-2">Style</label>
+              <select value={preset} onChange={(e) => setPreset(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
+                {PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
 
-          <input
-            type="file"
-            accept="audio/*"
-            disabled={busy}
-            onChange={(e) => {
-              const fl = e.target.files;
-              const f = fl && fl[0];
-              if (f) run(f);
-            }}
-            className="block w-full text-sm"
-          />
+          <input type="file" accept="audio/*" disabled={busy}
+            onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) run(f); }}
+            className="block w-full text-sm" />
 
-          {stage && (
-            <p className="mt-4 text-sm text-slate-500">{stage}</p>
-          )}
-          {info && (
-            <p className="mt-2 text-xs text-slate-400 break-all">
-              {info}
-            </p>
-          )}
+          {stage && <p className="mt-4 text-sm text-slate-500">{stage}</p>}
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+          {info && <p className="mt-2 text-xs text-slate-400 break-all">{info}</p>}
         </div>
 
         {url && (
           <div className="mt-6 bg-white rounded-2xl border border-slate-200 p-6">
-            <p className="font-bold text-green-700 mb-2">
-              Master ready
-            </p>
+            <p className="font-bold text-green-700 mb-2">Master ready</p>
             <audio controls src={url} className="w-full" />
-            <a
-              href={url}
-              download={name}
-              className="mt-3 inline-block px-5 py-3 rounded-full bg-green-600 text-white font-bold text-sm"
-            >
+            <a href={url} download={name}
+              className="mt-3 inline-block px-5 py-3 rounded-full bg-green-600 text-white font-bold text-sm">
               Download master
             </a>
           </div>
