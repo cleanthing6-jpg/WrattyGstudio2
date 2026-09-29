@@ -40,6 +40,12 @@ export default function RootLayout({
                   Studio
                 </Link>
                 <Link
+                  href="/master"
+                  className="text-gray-400 hover:text-white text-sm"
+                >
+                  Master
+                </Link>
+                <Link
                   href="/pricing"
                   className="text-gray-400 hover:text-white text-sm"
                 >
