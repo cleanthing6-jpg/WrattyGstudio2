@@ -133,9 +133,14 @@ export async function POST(req: NextRequest) {
   const wantsPreview = body?.preview === true;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
+  const ownerId = process.env.OWNER_USER_ID?.trim();
+  const isOwner = !!ownerId && userId === ownerId;
 
   let maxSeconds: number | null;
-  if (wantsPreview || tier === "free") {
+  if (isOwner) {
+    maxSeconds = null;  // owner: full length, no charge
+
+    } else if (wantsPreview || tier === "free") {
     maxSeconds = 30;
   } else {
     const ok = await consumeCredit(userId, "mix");
@@ -149,7 +154,7 @@ export async function POST(req: NextRequest) {
   }
 
   await ensureTable();
-    if (wantsPreview || tier === "free") {
+    if (!isOwner && (wantsPreview || tier === "free")) {
       const recent = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
         WHERE user_id = ${userId} AND created_at > NOW() - INTERVAL '24 hours'`) as any[];
       if (Number(recent[0]?.n || 0) >= 10) {

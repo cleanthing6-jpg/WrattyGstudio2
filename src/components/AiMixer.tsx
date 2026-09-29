@@ -2,7 +2,6 @@
 import { useUser } from "@clerk/nextjs";
 
 import {useState, useRef } from "react";
-import { useUploadThing } from "@/utils/uploadthing";
 import { uploadStem } from "@/lib/freeUpload";
 
 async function localStartUpload(files: any[]): Promise<any[]> {
@@ -130,14 +129,6 @@ async function convertToWavFile(st: Stem): Promise<File> {
 export default function AiMixer({ stems }: { stems: Stem[] }) {
   const uploadErrorRef = useRef("");
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
-  void useUploadThing("audioUploader", {
-    onUploadError: (e) => {
-      const msg = (e as any)?.message || String(e);
-      uploadErrorRef.current = msg;
-      console.error("[UploadThing]", e);
-      setErr("UploadThing: " + msg);
-    },
-  });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");

@@ -9,6 +9,9 @@ import { sql } from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const FOLDERS = ["stems", "masters"] as const;
+type Folder = (typeof FOLDERS)[number];
+
 async function ensureTable() {
   await sql`CREATE TABLE IF NOT EXISTS files (
     id TEXT PRIMARY KEY,
@@ -28,6 +31,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const rawName = String(body.name || "stem.wav");
   const type = String(body.type || "application/octet-stream");
+  const folder: Folder = (FOLDERS as readonly string[]).includes(String(body.folder))
+    ? (body.folder as Folder)
+    : "stems";
 
   const dot = rawName.lastIndexOf(".");
   const ext = dot >= 0 ? rawName.slice(dot).toLowerCase() : "";
@@ -36,7 +42,7 @@ export async function POST(req: NextRequest) {
       .replace(/[^A-Za-z0-9._-]/g, "_")
       .slice(0, 60) || "stem";
 
-  const key = `stems/${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${base}${ext}`;
+  const key = `${folder}/${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${base}${ext}`;
   const id = randomUUID();
 
   await ensureTable();

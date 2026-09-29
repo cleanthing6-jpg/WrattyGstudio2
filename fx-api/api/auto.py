@@ -150,7 +150,7 @@ SEND_WET = 0.11
 DOUBLE_DB = -20.0
 WIDEN = 1.15
 LOW_MONO_HZ = 120.0
-CEILING_DB = -1.0
+CEILING_DB = -1.5
 TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -1.0}
 
 BEAT_ROLES = ("beat", "instrumental", "inst", "instrument", "music",

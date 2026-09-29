@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useRef, useCallback, useEffect } from "react";
 import MixUploader from "@/components/MixUploader";
 import AiMixer from "@/components/AiMixer";
-import { useUploadThing } from "@/utils/uploadthing";
 import { uploadStem } from "@/lib/freeUpload";
 
 async function localStartUpload(files: any[]): Promise<any[]> {
@@ -166,7 +165,6 @@ function StudioInner() {
   const [processing, setProcessing] = useState(false);
   const [stage, setStage] = useState("");
   const [mixedBlob, setMixedBlob] = useState<Blob | null>(null);
-  void useUploadThing("audioUploader");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const addFile = (url: string, name: string) => {
