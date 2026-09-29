@@ -67,9 +67,11 @@ export default function Dashboard() {
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-600">
             <Link href="/dashboard" className="font-bold text-green-700">Dashboard</Link>
             <Link href="/studio" className="hover:text-green-700">Studio</Link>
+            <Link href="/master" className="hover:text-green-700">Master</Link>
             <Link href="/pricing" className="hover:text-green-700">Pricing</Link>
           </nav>
           <Link href="/studio" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Open Studio</Link>
+          <Link href="/master" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Open Master</Link>
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-8">
@@ -109,6 +111,7 @@ export default function Dashboard() {
             <p className="text-white/85 text-sm mt-1">Mix and master your track.</p>
           </div>
           <Link href="/studio" className="px-6 py-3 rounded-full bg-white text-green-700 font-bold text-sm text-center hover:bg-green-50 transition">Go to Studio →</Link>
+          <Link href="/master" className="px-6 py-3 rounded-full bg-white text-green-700 font-bold text-sm text-center hover:bg-green-50 transition">Go to Master →</Link>
         </section>
 
         <section className="mt-8">

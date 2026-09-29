@@ -25,12 +25,14 @@ export default function Home() {
           </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-600">
             <Link href="/studio">Studio</Link>
+            <Link href="/master">Master</Link>
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/pricing">Pricing</Link>
           </nav>
           <div>
             {isLoaded && isSignedIn ? (
               <Link href="/studio" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Open Studio</Link>
+              <Link href="/master" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Open Master</Link>
             ) : (
               <Link href="/sign-in" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Get started</Link>
             )}
@@ -52,6 +54,7 @@ export default function Home() {
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             {isLoaded && isSignedIn ? (
               <Link href="/studio" className="px-7 py-3 rounded-full bg-green-600 text-white font-bold shadow-lg shadow-green-600/20">Go to Studio</Link>
+              <Link href="/master" className="px-7 py-3 rounded-full bg-green-600 text-white font-bold shadow-lg shadow-green-600/20">Go to Master</Link>
             ) : (
               <Link href="/sign-in" className="px-7 py-3 rounded-full bg-green-600 text-white font-bold shadow-lg shadow-green-600/20">Start creating free</Link>
             )}
