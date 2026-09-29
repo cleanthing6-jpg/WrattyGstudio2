@@ -510,6 +510,13 @@ function StudioInner() {
     return loudRendered;
   }, []);
 
+  useEffect(() => {
+    if (!processing) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [processing]);
+
   const bakeMix = async () => {
     if (mixMode !== "mix") return;
     const stems = readyStems.length ? readyStems : files.map((f) => ({ url: f.url, name: f.name, role: f.role }));
@@ -522,24 +529,25 @@ function StudioInner() {
       const wav = encodeWav(result);
       const blob = new Blob([wav], { type: "audio/wav" });
       setMixedBlob(blob);
-      setStage("Uploading master...");
-      const beatStem = stems.find((s: any) => s.role === "beat");
+      setStage("Saving master to dashboard...");
+      const beatStem = stems.find((x: any) => x.role === "beat");
       const first = stems[0] as any;
       const base = (beatStem && beatStem.name ? String(beatStem.name) : first && first.name ? String(first.name) : "Mix").replace(/\.[^.]+$/, "");
       const label = base + " - Master";
-      let uploadedUrl = "";
+      let saved = false;
       try {
-        const up = await startUpload([new File([blob], label + ".wav", { type: "audio/wav" })]);
-        const f: any = up && up[0];
-        uploadedUrl = (f && (f.ufsUrl || f.url || (f.serverData && f.serverData.url))) || "";
-        if (uploadedUrl) {
-          try {
-            await fetch("/api/mixes", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-    preset: "afrobeats", name: label, url: uploadedUrl }),
-            });
+        const f = new File([blob], label + ".wav", { type: "audio/wav" });
+        const url = await uploadStem(f, "masters");
+        const r = await fetch("/api/mixes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preset: "afrobeats", name: label, url }),
+        });
+        saved = r.ok;
+      } catch (err: any) {
+        console.error("Master save failed:", err);
+      }
+      setStage(saved ? "Done - saved to dashboard: " + label : "Master ready - autosave failed, download it now")
           } catch (e: any) {
             console.error("DB save error:", e);
           }
