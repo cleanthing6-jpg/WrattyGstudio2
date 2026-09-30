@@ -256,7 +256,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const vocals = done.filter((st) => !isBeat(st));
         if (!vocals.length) throw new Error("Beat-Lock needs at least one vocal stem");
         setMsg("Beat-Lock: sending " + vocals.length + " vocal stem(s) to the mixer...");
-        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stems: vocals, style , preview: true }) }), 120000, "Vocal request");
+        const vpost = await withTimeout(fetch("/api/roex-mix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stems: vocals, style }) }), 120000, "Vocal request");
         const vdata = await vpost.json().catch(() => ({}));
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
@@ -327,7 +327,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const post = await withTimeout(fetch("/api/roex-mix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stems: done, style }),
+          body: JSON.stringify({ stems: done, style, preview: true }),
         }), 120000, "RoEx request");
         const data = await post.json().catch(() => ({}));
         if (!post.ok || !data.taskId) throw new Error(data.error || "RoEx could not start the mix (code " + post.status + ")");
