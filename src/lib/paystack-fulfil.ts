@@ -19,17 +19,15 @@ async function ensureRefsTable() {
     created_at TIMESTAMP DEFAULT NOW()
   )`;
   await sql`ALTER TABLE paystack_refs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'granted'`;
+  // Self-heal: a crash mid-grant must not strand a paid reference forever.
+  await sql`UPDATE paystack_refs SET status='pending'
+            WHERE status='granting' AND created_at < NOW() - INTERVAL '10 minutes'`;
   _ready = true;
 }
 
 // Called by BOTH the browser callback and the webhook. Safe to call repeatedly.
 export async function fulfilPaystackReference(reference: string) {
   await ensureRefsTable();
-
-  const done = (await sql`
-    SELECT status FROM paystack_refs WHERE reference = ${reference} LIMIT 1
-  `) as any[];
-  if (done[0]?.status === "granted") return "already_granted";
 
   const secret = process.env.PAYSTACK_SECRET_KEY;
   if (!secret) throw new Error("PAYSTACK_SECRET_KEY missing");
@@ -59,13 +57,25 @@ export async function fulfilPaystackReference(reference: string) {
     throw new Error("Payment verification failed");
   }
 
-  await setTier(userId, tier);
-
-  await sql`
+  // Atomic claim: exactly one caller (callback OR webhook) may grant.
+  const claimed = (await sql`
     INSERT INTO paystack_refs (reference, user_id, tier, status)
-    VALUES (${reference}, ${userId}, ${tier}, 'granted')
-    ON CONFLICT (reference) DO UPDATE SET status = 'granted'
-  `;
+    VALUES (${reference}, ${userId}, ${tier}, 'granting')
+    ON CONFLICT (reference) DO UPDATE SET status = 'granting'
+      WHERE paystack_refs.status NOT IN ('granted', 'granting')
+    RETURNING reference
+  `) as any[];
+  if (!claimed.length) return "already_granted";
 
+  try {
+    await setTier(userId, tier);
+  } catch (e) {
+    // Release so a retry can grant, instead of stranding a paid reference.
+    await sql`UPDATE paystack_refs SET status='pending'
+              WHERE reference=${reference} AND status='granting'`;
+    throw e;
+  }
+
+  await sql`UPDATE paystack_refs SET status='granted' WHERE reference=${reference}`;
   return "granted";
 }
