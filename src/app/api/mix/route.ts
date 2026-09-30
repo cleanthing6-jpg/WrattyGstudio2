@@ -18,7 +18,6 @@ const SECRET = process.env.FX_INTERNAL_SECRET || "";
 // Free Render = one 512MB instance. Only ONE mix may run at a time.
 const MAX_RUNNING = 1;
 // Each user may hold at most one mix (queued or running).
-const MAX_PER_USER = 1;
 
 async function ensureTable() {
   await sql`CREATE TABLE IF NOT EXISTS mix_jobs (
@@ -77,6 +76,12 @@ async function reapStale() {
   await sql`UPDATE mix_jobs
     SET status='failed', error='Mixer queue expired - please try again', updated_at=NOW()
     WHERE status='queued' AND created_at < NOW() - INTERVAL '3 minutes'`;
+  // A job left 'running' with no Modal id (start call never completed) would
+  // block the user forever. Reap those too.
+  await sql`UPDATE mix_jobs SET status='failed',
+            error='Render never started - please try again', updated_at=NOW()
+            WHERE status='running' AND runner_job IS NULL
+              AND updated_at < NOW() - INTERVAL '10 minutes'`;
 }
 
 // Start the oldest queued job, but only if nothing is running.
@@ -167,14 +172,12 @@ export async function POST(req: NextRequest) {
   // Pressing Mix again means the previous run was abandoned - drop it so it
   // can never block the new one and can never pile up.
   await sql`UPDATE mix_jobs SET status='failed',
-            error='Superseded by a newer mix request', updated_at=NOW()
+            error='Superseded by your newer request', updated_at=NOW()
             WHERE user_id = ${userId} AND status IN ('queued','running')
               AND created_at < NOW() - INTERVAL '3 minutes'`;
 
-  const mine = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
-    WHERE user_id = ${userId} AND status IN ('queued','running')`) as any[];
-  if (Number(mine[0]?.n || 0) >= MAX_PER_USER)
-    return NextResponse.json({ error: "You already have a mix in the queue - wait for it to finish" }, { status: 429 });
+  // No per-user rejection. A new request supersedes your own older
+  // job instead of blocking you; the shared queue still protects the engine.
 
   const id = crypto.randomUUID();
   await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds)

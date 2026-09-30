@@ -342,7 +342,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                                "pre_peak_dbfs": round(_pre, 2),
                                "post_peak_dbfs": round(peakdb(mixed), 2),
                                "samples_over_threshold": _hits}
-        mixed, tp, brick = auto.limit(mixed, sr, -1.0)
+        mixed, tp, brick = auto.limit(mixed, sr, -0.1)
         # Scale-then-limit means every limiting pass pulls integrated loudness back
         # down, so two iterations could not converge: a -9.1 LUFS master target
         # landed at -10.70. Overshoot the correction, iterate until it lands,
@@ -356,7 +356,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 break
             _step = max(-9.0, min(9.0, tgt - f))
             mixed = mixed * (10.0 ** (_step / 20.0))
-            mixed, tp, brick = auto.limit(mixed, sr, -1.0)
+            mixed, tp, brick = auto.limit(mixed, sr, -0.1)
         _fin = lufs(mixed, sr)
         report["loudness_error_db"] = None if _fin is None else round(tgt - _fin, 2)
         report["true_peak_dbfs"] = round(tp, 2)
