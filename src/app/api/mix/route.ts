@@ -1,4 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import { sendRenderEmail } from "@/lib/mail";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUser, consumeCredit } from "@/lib/credits";
@@ -189,6 +190,25 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ job: id, status: row.status, position }, { status: 202 });
 }
 
+// Clerk v5 exports clerkClient as an object, v6 as a function. Support both.
+async function ownerEmail(userId: string): Promise<string> {
+  try {
+    const cc: any = typeof clerkClient === "function" ? await (clerkClient as any)() : clerkClient;
+    const u = await cc.users.getUser(userId);
+    return u?.emailAddresses?.[0]?.emailAddress || "";
+  } catch (e) {
+    console.error("[mail] could not resolve email", e);
+    return "";
+  }
+}
+
+// Best-effort: a mail failure must never break the render or the response.
+async function notify(userId: string, status: "ready" | "failed", opts?: any) {
+  const to = await ownerEmail(userId);
+  if (!to) return;
+  await sendRenderEmail(to, status, opts);
+}
+
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -219,11 +239,18 @@ export async function GET(req: NextRequest) {
   const d = r.ok ? r.data : null;
 
   if (d && d.status === "done" && d.url) {
-    await sql`UPDATE mix_jobs SET status='done', url=${d.url},
-              result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW() WHERE id=${id}`;
+    // RETURNING id -> empty means another poll already flipped it, so we
+    // email exactly once instead of on every 5s poll.
+    const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
+              result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW()
+              WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
+    if (tr.length && !row.max_seconds) await notify(userId, "ready", { url: d.url });
   } else if (d && d.status === "failed") {
-    await sql`UPDATE mix_jobs SET status='failed',
-              error=${String(d.error || "mix failed")}, updated_at=NOW() WHERE id=${id}`;
+    const err = String(d.error || "mix failed");
+    const tr = (await sql`UPDATE mix_jobs SET status='failed',
+              error=${err}, updated_at=NOW()
+              WHERE id=${id} AND status <> 'failed' RETURNING id`) as any[];
+    if (tr.length && !row.max_seconds) await notify(userId, "failed", { error: err });
   } else if (d && d.status === "none") {
     // Only believe "none" once the job is old enough that Modal must have
     // registered it. Below that it is a startup race, not a failure.
