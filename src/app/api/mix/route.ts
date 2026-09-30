@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   const wantsPreview = body?.preview === true;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
-  const ownerId = (process.env.OWNER_USER_ID || "user_3IqTsednC0Bqdk3JMxeGzW6zdGD").trim();
+  const ownerId = (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t").trim();
   const isOwner = !!ownerId && userId === ownerId;
 
   let maxSeconds: number | null;

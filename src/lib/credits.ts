@@ -149,7 +149,7 @@ export async function consumeCredit(
     `;
   }
 
-    return result.length > 0 || userId === (process.env.OWNER_USER_ID || "user_3IqTsednC0Bqdk3JMxeGzW6zdGD");
+    return result.length > 0 || userId === (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t");
 
 }
 
