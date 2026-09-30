@@ -810,7 +810,7 @@ def _role_buses(pre, sr, bpm, raised):
     return _sum(out), first
 
 
-KICK_PUNCH_DB = 2.0   # attack-only lift on 40-170 Hz. 0.0 = off
+KICK_PUNCH_DB = 0.0   # attack-only lift on 40-170 Hz. 0.0 = off
 
 
 def _transient(x, sr, amount_db, fast_ms=6.0, slow_ms=140.0):

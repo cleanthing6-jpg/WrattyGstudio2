@@ -306,6 +306,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if tgt is None:
             tgt = float(cfg.get("target_lufs", -14.0))
         if mode == "master":
+            # 250-500 Hz sits ~2.4 dB forward vs BOI/FOLA. The BUS
+            # PeakFilter never runs on this path, so cut it here,
+            # before the limiter sees it.
+            mixed = Pedalboard([
+                PeakFilter(cutoff_frequency_hz=350.0, gain_db=-2.0, q=0.9),
+            ])(mixed, sr).astype(np.float32)
+            report["master_mid_cut_db"] = -2.0
             # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
             # margin and forces extra limiting that shaves crest.
             tgt = tgt + float(cfg.get("master_lift_db", 1.5))
@@ -326,10 +333,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
         if _clip_on:
             mixed = auto.clip(mixed, sr)
-        elif cfg.get("soft_clip"):
+        elif cfg.get("soft_clip") or mode == "master":
             # Loudness = true peak - PLR. At -1.0 dBTP the route to -10 LUFS
             # is a gentle PLR shave, not more limiting.
-            mixed = auto.soft_clip(mixed, sr)
+            mixed = auto.soft_clip(mixed, sr, knee=0.60 if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
@@ -343,7 +350,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # Two non-overshooting corrections. The old 6-pass x1.25 loop
         # re-limited the signal 6x, shaving crest (14 -> 9.45) and LRA
         # (2.6 -> 1.3). Aim at the target exactly, max 2 passes.
-        for _ in range(2):
+        for _ in range(3):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
