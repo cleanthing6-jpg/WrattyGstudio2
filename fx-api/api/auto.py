@@ -35,7 +35,7 @@ MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 3.0, 2.5
 DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
 DEESS_ATK, DEESS_REL = 1.0, 4.0
 DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
-DUCK_TARGET = {BODY: 2.0, PRES: 3.2, HARSH: 1.3}
+DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
     "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.8,
