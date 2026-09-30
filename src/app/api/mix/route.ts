@@ -133,14 +133,15 @@ export async function POST(req: NextRequest) {
   const wantsPreview = body?.preview === true;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
-  const ownerId = (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t").trim();
+  const ownerId = (process.env.OWNER_USER_ID || "user_3IqTsednC0Bqdk3JMxeGzW6zdGD").trim();
   const isOwner = !!ownerId && userId === ownerId;
 
   let maxSeconds: number | null;
-  if (isOwner) {
-    maxSeconds = null;  // owner: full length, no charge
-
-    } else if (wantsPreview || tier === "free") {
+  if (wantsPreview) {
+    maxSeconds = 30;   // a preview is ALWAYS 30s - owner included
+  } else if (isOwner) {
+    maxSeconds = null; // owner full render: full length, no charge
+  } else if (tier === "free") {
     maxSeconds = 30;
   } else {
     const ok = await consumeCredit(userId, "mix");
@@ -167,7 +168,8 @@ export async function POST(req: NextRequest) {
   // can never block the new one and can never pile up.
   await sql`UPDATE mix_jobs SET status='failed',
             error='Superseded by a newer mix request', updated_at=NOW()
-            WHERE user_id = ${userId} AND status IN ('queued','running')`;
+            WHERE user_id = ${userId} AND status IN ('queued','running')
+              AND created_at < NOW() - INTERVAL '3 minutes'`;
 
   const mine = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
     WHERE user_id = ${userId} AND status IN ('queued','running')`) as any[];
@@ -204,6 +206,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...row, position: 0 });
   }
 
+  // The row is marked running BEFORE Modal's job id is stored. Polling in
+  // that window asks Modal with an empty id, gets "none", and would mark a
+  // perfectly healthy render as failed. Wait for the id.
+  if (!row.runner_job) {
+    return NextResponse.json({ ...row, position: 0 });
+  }
   const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 1, [502, 503, 504], 20000);
   const d = r.ok ? r.data : null;
 
@@ -214,8 +222,14 @@ export async function GET(req: NextRequest) {
     await sql`UPDATE mix_jobs SET status='failed',
               error=${String(d.error || "mix failed")}, updated_at=NOW() WHERE id=${id}`;
   } else if (d && d.status === "none") {
-    await sql`UPDATE mix_jobs SET status='failed',
-              error='Mixer restarted before finishing - please try again', updated_at=NOW() WHERE id=${id}`;
+    // Only believe "none" once the job is old enough that Modal must have
+    // registered it. Below that it is a startup race, not a failure.
+    const ag = (await sql`SELECT EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age
+      FROM mix_jobs WHERE id=${id}`) as any[];
+    if (Number(ag[0]?.age || 0) > 180) {
+      await sql`UPDATE mix_jobs SET status='failed',
+                error='Mixer restarted before finishing - please try again', updated_at=NOW() WHERE id=${id}`;
+    }
   }
 
   await pump();

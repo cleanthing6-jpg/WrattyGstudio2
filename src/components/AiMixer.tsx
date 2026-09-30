@@ -1,7 +1,7 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
 
-import {useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { uploadStem } from "@/lib/freeUpload";
 
 async function localStartUpload(files: any[]): Promise<any[]> {
@@ -143,7 +143,12 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [finalUrl, setFinalUrl] = useState("");
   const [masterUrl, setMasterUrl] = useState("");
   const { user } = useUser();
-  const isOwner = String(user?.id || "") === "user_3IqTsednC0Bqdk3JMxeGzW6zdGD";
+  // Owner is decided by the server (OWNER_USER_ID) - one source of truth.
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => {
+    fetch("/api/me").then((r) => r.json())
+      .then((d) => setIsOwner(!!d?.isOwner)).catch(() => {});
+  }, []);
 
   
   async function masterTrack(mixUrl: string, full = false) {
@@ -159,12 +164,12 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
 
-      for (let i = 0; i < (full ? 120 : 30); i++) {
+      for (let i = 0; i < (full ? 180 : 48); i++) {
         await new Promise((res) => setTimeout(res, 5000));
         const s2 = await fetch("/api/roex-master?taskId=" + encodeURIComponent(data.taskId));
         const st = await s2.json().catch(() => ({}));
-        if (!s2.ok) throw new Error(st.error || "Mastering failed");
-        if (/failed|error/i.test(String(st.status))) throw new Error("Mastering failed");
+        if (!s2.ok) throw new Error(st.error || ("Mastering failed (HTTP " + s2.status + ")"));
+        if (/failed|error/i.test(String(st.status))) throw new Error(st.error || "Mastering failed");
         const got = st.masterUrl || st.url || st.previewUrl;
         if (got) { setMasterUrl(got); setMsg("Master ready"); return; }
       }
@@ -442,7 +447,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       {previewUrl && (
         <div className="mt-4">
           <p className="text-xs font-semibold text-gray-600 mb-1">AI preview</p>
-          <audio controls src={previewUrl} className="w-full" onTimeUpdate={(e) => { if (isOwner) return; if (e.currentTarget.currentTime > 30) { e.currentTarget.pause(); e.currentTarget.currentTime = 0; } }} />
+          <audio controls src={previewUrl} className="w-full" />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
           {!finalUrl && taskId && (
             <button

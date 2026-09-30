@@ -43,10 +43,10 @@ ROLE_TREAT = {
                 "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
-                "sat": 0.6, "width": 1.6},
+                "sat": 0.6, "width": 1.25},
     "backing": {"gain": -3.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 0.0,
                 "harsh": 2.0, "air": 1.0, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-                "sat": 0.6, "width": 1.45},
+                "sat": 0.6, "width": 1.2},
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
@@ -810,6 +810,49 @@ def _role_buses(pre, sr, bpm, raised):
     return _sum(out), first
 
 
+KICK_PUNCH_DB = 2.0   # attack-only lift on 40-170 Hz. 0.0 = off
+
+
+def _transient(x, sr, amount_db, fast_ms=6.0, slow_ms=140.0):
+    try:
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[1] < 64: return a
+        bs = max(1, int(sr * 0.001)); n = a.shape[1] // bs
+        if n < 64: return a
+        blk = np.abs(a[:, : n * bs]).reshape(a.shape[0], n, bs).max(axis=2)
+        kf = float(np.exp(-1.0 / max(1.0, fast_ms)))
+        ks = float(np.exp(-1.0 / max(1.0, slow_ms)))
+        ef = np.empty_like(blk); es = np.empty_like(blk)
+        for c in range(a.shape[0]):
+            pf = ps = 0.0
+            for i in range(n):
+                v = float(blk[c, i])
+                pf = v if v > pf * kf else pf * kf
+                ps = v if v > ps * ks else ps * ks
+                ef[c, i] = pf; es[c, i] = ps
+        ratio = np.clip(ef / (es + 1e-9), 0.0, 3.0)
+        amt = float(10.0 ** (amount_db / 20.0)) - 1.0
+        g = 1.0 + np.clip(ratio - 1.0, 0.0, 2.0) * (amt / 2.0)
+        g = np.repeat(g, bs, axis=1)
+        if g.shape[1] < a.shape[1]:
+            g = np.concatenate([g, np.ones((a.shape[0], a.shape[1] - g.shape[1]), np.float32)], axis=1)
+        return (a * g).astype(np.float32)
+    except Exception:
+        return x
+
+
+def _kick_punch(x, sr):
+    """Attack-only lift on 40-170 Hz. Level already matches refs - no EQ boost."""
+    try:
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[1] < 128: return x
+        lo = Pedalboard([LowpassFilter(cutoff_frequency_hz=170.0)])(a, sr).astype(np.float32)
+        hi = (a - lo).astype(np.float32)
+        return _headroom(_transient(lo, sr, KICK_PUNCH_DB) + hi, -1.0).astype(np.float32)
+    except Exception:
+        return x
+
+
 def _double(voc, sr):
     # PitchShift is optional - without it the two copies still differ
     # by delay (14/22 ms) and pan, which combs and widens on its own.
@@ -1138,6 +1181,11 @@ def mix(groups, sr, loud="MEDIUM"):
 
     _dry_voc = core.copy()
     core, _info = _role_buses(_pre, sr, bpm, raised)
+    try:
+        beat = _kick_punch(beat, sr)
+        rep["kick_punch_db"] = KICK_PUNCH_DB
+    except Exception as _e:
+        rep["kick_punch_error"] = str(_e)[:120]
     ms, pk = _info if _info else (0, "none")
     rep["bus"] = {r: ROLE_BUS.get(r, {}) for r in _pre}
     rep["slap_ms"] = ms

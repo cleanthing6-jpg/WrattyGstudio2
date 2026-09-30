@@ -24,7 +24,7 @@ TARGET = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.5}
 JOBS, LK = {}, threading.Lock()
 
 BUS = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
-                  PeakFilter(cutoff_frequency_hz=250, gain_db=0.0, q=0.9),
+                  PeakFilter(cutoff_frequency_hz=250, gain_db=-2.0, q=0.9),
                   PeakFilter(cutoff_frequency_hz=3000, gain_db=0.0, q=1.0),
                   Compressor(threshold_db=-16, ratio=1.8, attack_ms=25, release_ms=150)])
 if BrickwallLimiter is not None:
@@ -250,7 +250,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 from pedalboard import LowShelfFilter as _LSF
                 _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=4.0)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
-                report["low_mid_mid_shelf"] = {"hz": 80.0, "gain_db": 4.0}
+                ## round 3 ready - shelf untouched
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
@@ -262,15 +262,17 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 # Exact FFT band trim. HP5500-HP9000 is not a flat bandpass
                 # (effective gain ~0.28, and it leaked into 1.5-4 kHz), so the
                 # original split could never exceed -2.9 dB. Brickwall instead.
-                _SIDE_TRIM = 0.86   # 1.0 = off | 0.86 = -1.3 dB (sounded right)
+                _SIDE_TRIM = 0.45   # 1.0 = off | 0.70 = -3.1 | 0.45 = -6.9 dB
                 _n = _side.shape[-1]
                 _F = np.fft.rfft(_side.astype(np.float64))
                 _f = np.fft.rfftfreq(_n, 1.0 / sr)
-                _m = (_f >= 5500.0) & (_f < 9000.0)
+                _m = (_f >= 5500.0) & (_f < 16000.0)
                 _F[_m] *= _SIDE_TRIM
+                _m2 = (_f >= 2500.0) & (_f < 5500.0)
+                _F[_m2] *= 0.70
                 _side = np.fft.irfft(_F, _n).astype(np.float32)
                 report["top_side_trim_db"] = round(20.0 * np.log10(_SIDE_TRIM), 2)
-                report["top_side_band_hz"] = [5500.0, 9000.0]
+                report["top_side_band_hz"] = [5500.0, 16000.0]
             except Exception as _e:
                 report["top_side_trim_error"] = str(_e)[:120]
             mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
@@ -291,20 +293,22 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30)])(mixed, sr).astype(np.float32)
                 report["glue_thr_db"] = "off (%s)" % mode
             else:
-                _gr = float(cfg.get("glue_gr_db", 1.0))
-                _rat = float(cfg.get("glue_ratio", 1.5))
+                _gr = float(cfg.get("glue_gr_db", 0.25))
+                _rat = float(cfg.get("glue_ratio", 1.25))
                 _over = _gr * _rat / max(0.1, _rat - 1.0)
                 _thr = float(np.clip(rmsdb(mixed) - _over, -40.0, -6.0))
                 mixed = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
                                     Compressor(threshold_db=_thr, ratio=_rat,
-                                               attack_ms=30.0, release_ms=130.0)])(mixed, sr).astype(np.float32)
+                                               attack_ms=50.0, release_ms=130.0)])(mixed, sr).astype(np.float32)
                 report["glue_thr_db"] = round(_thr, 2)
 
         tgt = TARGET.get(want)
         if tgt is None:
             tgt = float(cfg.get("target_lufs", -14.0))
         if mode == "master":
-            tgt = tgt + float(cfg.get("master_lift_db", 2.5))
+            # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
+            # margin and forces extra limiting that shaves crest.
+            tgt = tgt + float(cfg.get("master_lift_db", 1.5))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
@@ -323,7 +327,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if _clip_on:
             mixed = auto.clip(mixed, sr)
         elif cfg.get("soft_clip"):
+            # Loudness = true peak - PLR. At -1.0 dBTP the route to -10 LUFS
+            # is a gentle PLR shave, not more limiting.
             mixed = auto.soft_clip(mixed, sr)
+            report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
                                "post_peak_dbfs": round(peakdb(mixed), 2),
@@ -333,11 +340,14 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # down, so two iterations could not converge: a -9.1 LUFS master target
         # landed at -10.70. Overshoot the correction, iterate until it lands,
         # then record the residual error.
-        for _ in range(6):
+        # Two non-overshooting corrections. The old 6-pass x1.25 loop
+        # re-limited the signal 6x, shaving crest (14 -> 9.45) and LRA
+        # (2.6 -> 1.3). Aim at the target exactly, max 2 passes.
+        for _ in range(2):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
-            _step = max(-9.0, min(9.0, (tgt - f) * 1.25))
+            _step = max(-9.0, min(9.0, tgt - f))
             mixed = mixed * (10.0 ** (_step / 20.0))
             mixed, tp, brick = auto.limit(mixed, sr, -1.0)
         _fin = lufs(mixed, sr)
