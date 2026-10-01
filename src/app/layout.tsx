@@ -4,8 +4,8 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WrattyGstudio",
-  description: "Upload. Automix. Master. Release.",
+  title: "WraGstudio",
+  description: "AI mixing and mastering for African sounds. Upload your song, get a release-ready mix and master.",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
                 href="/"
                 className="text-xl font-black bg-gradient-to-r from-green-400 to-yellow-500 bg-clip-text text-transparent"
               >
-                WrattyGstudio
+                WraGstudio
               </Link>
 
               <div className="flex gap-4 items-center">
