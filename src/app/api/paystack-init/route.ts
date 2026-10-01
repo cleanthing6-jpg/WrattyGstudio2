@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const callbackUrl = new URL("/api/paystack-verify", req.url).toString();
+    // req.url is the container-internal origin (http://localhost:10000 on
+    // Render), so it must never be used for a public redirect.
+    const appUrl = process.env.APP_URL || "https://wratty-gstudio2.onrender.com";
+    const callbackUrl = new URL("/api/paystack-verify", appUrl).toString();
 
     const response = await fetch(
       "https://api.paystack.co/transaction/initialize",

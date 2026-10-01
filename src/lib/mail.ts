@@ -1,18 +1,20 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.MAIL_FROM || "Wratty <onboarding@resend.dev>";
 
-// Renders are async and can take minutes. Every send is best-effort: a mail
-// failure must never break the render or the API response.
+// Lazy: never construct at module scope, or `next build` fails while Next
+// collects page data for every route (no key at build time).
 export async function sendRenderEmail(
   to: string,
   status: "ready" | "failed",
   opts?: { url?: string; error?: string; charged?: boolean }
 ) {
-  if (!to || !process.env.RESEND_API_KEY) return;
+  const key = process.env.RESEND_API_KEY;
+  if (!to || !key) return;
+
   const ready = status === "ready";
   try {
+    const resend = new Resend(key);
     await resend.emails.send({
       from: FROM,
       to: [to],
