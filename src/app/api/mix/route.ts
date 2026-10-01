@@ -42,6 +42,9 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
+  // Dismissed renders stay in the table (the file is still there) but drop
+  // off the dashboard list.
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`;
 }
 
 async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[], ms = 45000) {
@@ -319,7 +322,7 @@ async function saveToDashboard(userId: string, row: any, mp3: string, flac: stri
     const name = a && t ? `${a} - ${t}` : t || a || "My mix";
     const client = await getMongoClient();
     await client.db("wrattyg").collection("mixes").insertOne({
-      userId, name,
+      userId, name, jobId: String(row?.id || ""),
       url: mp3 || flac, mp3: mp3 || "", flac: flac || "",
       loudness: String(row?.loudness || ""), preset: String(row?.preset || ""),
       createdAt: new Date(),
