@@ -3,6 +3,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
+import SupportChat from "@/components/SupportChat";
 
 const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> = {
   free: { beats: 0, covers: 0, mixes: 1, price: "Free" },
@@ -144,6 +145,7 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+      <SupportChat />
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400 mt-8">
         <p className="font-bold text-sm text-slate-700">Wratty<span className="text-green-600">G</span>studio</p>
         <p className="mt-1">Made for African creators. © 2026</p>
