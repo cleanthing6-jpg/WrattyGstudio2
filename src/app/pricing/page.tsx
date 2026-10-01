@@ -3,43 +3,57 @@
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PLANS, MASTER_PLANS } from "@/lib/pricing";
+
+const COLORS: Record<string, string> = {
+  starter: "green", pro: "yellow", studio: "red",
+  "master-single": "green", "master-ep": "yellow", "master-album": "red",
+};
+
+const FEATURES: Record<string, string[]> = {
+  starter: ["1 finished mix + master", "Stem separation", "WAV + MP3 download"],
+  pro: ["5 finished mixes + masters", "Priority processing", "Full FX & space controls"],
+  studio: ["10 finished mixes + masters", "Fastest processing", "Commercial license"],
+  "master-single": ["Master 1 finished stereo mix", "Loudness + tone + width", "WAV + MP3 download"],
+  "master-ep": ["Master 5 finished stereo mixes", "Priority processing", "WAV + MP3 download"],
+  "master-album": ["Master 10 finished stereo mixes", "Fastest processing", "Commercial license"],
+};
+
+const CTA: Record<string, string> = {
+  starter: "Buy Single", pro: "Buy EP Pack", studio: "Buy Album",
+  "master-single": "Master 1 Track", "master-ep": "Master 5 Tracks", "master-album": "Master 10 Tracks",
+};
+
+const naira = (n: number) => "\u20a6" + n.toLocaleString("en-NG");
 
 const TIERS = [
   {
     id: "free",
     name: "Free",
-    price: "₦0",
-    features: ["1 preview mix", "Beat-locked vocal mixing", "Standard mastering"],
+    price: naira(0),
+    period: "",
+    features: ["1 watermarked 30s preview", "Hear it before you pay"],
     cta: "Start Free",
     color: "gray",
   },
-  {
-    id: "starter",
-    name: "Starter",
-    price: "₦7,500",
-    period: "/month",
-    features: ["5 mixes / month", "AI auto-mix & master", "Stem separation"],
-    cta: "Get Starter",
-    color: "green",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "₦25,000",
-    period: "/month",
-    features: ["20 mixes / month", "Priority processing", "Full FX & space controls"],
-    cta: "Get Pro",
-    color: "yellow",
-  },
-  {
-    id: "studio",
-    name: "Studio",
-    price: "₦45,000",
-    period: "/month",
-    features: ["50 mixes / month", "Fastest processing", "Commercial license"],
-    cta: "Get Studio",
-    color: "red",
-  },
+  ...PLANS.filter((p) => p.id !== "free").map((p) => ({
+    id: p.id,
+    name: p.name,
+    price: naira(p.ngn),
+    period: "one-off \u00b7 credits never expire",
+    features: FEATURES[p.id] ?? [p.tagline],
+    cta: CTA[p.id] ?? "Buy",
+    color: COLORS[p.id] ?? "green",
+  })),
+  ...MASTER_PLANS.map((p) => ({
+    id: p.id,
+    name: p.name + " \u00b7 mastering only",
+    price: naira(p.ngn),
+    period: "one-off \u00b7 credits never expire",
+    features: FEATURES[p.id] ?? [p.tagline],
+    cta: CTA[p.id] ?? "Buy",
+    color: COLORS[p.id] ?? "green",
+  })),
 ];
 
 export default function Pricing() {
