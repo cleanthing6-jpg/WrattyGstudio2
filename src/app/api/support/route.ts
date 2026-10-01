@@ -1,95 +1,119 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
 const WA = "https://wa.me/2347074216877";
-const LIMIT = 10;          // messages per user per minute
-const WINDOW_MS = 60_000;
-const MAX_MESSAGE = 1000;
+const FALLBACK =
+  `I couldn't answer that just now. Message us on WhatsApp and we'll sort it: ${WA}`;
 
-// Per-process only: resets on restart/deploy. Adequate for one Render process
-// (WEB_CONCURRENCY=1); multiple instances would need a shared limiter.
-const hits = new Map<string, { start: number; count: number }>();
+const SYSTEM = [
+  "You are Wratty, the support assistant for WrattyGstudio, a Nigerian music studio app.",
+  "Answer in 2-4 short sentences.",
+  "You help with: renders, mixes, beats, covers, uploads, plans and pricing, refunds, and account issues.",
+  "Plans: Free = 1 mix, Starter = 5 mixes (N3,000), Pro = 20 mixes (N7,000), Studio = 50 mixes (N15,000).",
+  "Never invent prices, refund promises, or delivery times.",
+  "If unsure, tell the user to message WhatsApp support.",
+].join("\n");
 
-const SYSTEM = `
-You are WrattyGstudio's support assistant. Use ONLY these facts:
-- Free AI previews are 30 seconds; free users get up to 10 preview requests per rolling 24 hours.
-- Pro gives 20 mix & master renders; Studio gives 50.
-- Refunds: report within 7 days if a payment succeeded but the plan did not activate, or a render failed and you were charged. No refund for change of mind after using credits.
-- Upload: sign in, open Studio, upload your stems, wait for the upload to finish, then start the mix.
-- Render status appears live in the app.
-- Payments are handled by Paystack; we never see card details.
-
-Never invent prices, plan terms or limits, and never promise a refund.
-If you are unsure, or the issue is payment, refund, or account-specific, set escalate=true.
-Reply with JSON only: {"answer":"...","escalate":true|false}
-`;
-
-function fallback() {
-  return {
-    answer: `I couldn't answer that just now. Message us on WhatsApp and we'll sort it: ${WA}`,
-    escalate: true,
-  };
-}
+const MODELS = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL]
+  : ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest"];
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Sign in first" }, { status: 401 });
-
-  let body: any;
+  let message = "";
   try {
-    const text = await req.text();
-    if (text.length > 5000) return NextResponse.json({ error: "Request too large" }, { status: 413 });
-    body = JSON.parse(text);
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    const body = await req.json();
+    message = String(body?.message ?? "").slice(0, 1000).trim();
+  } catch {}
 
-  const message = body?.message;
-  if (typeof message !== "string" || !message.trim() || message.length > MAX_MESSAGE) {
-    return NextResponse.json({ error: `Message must be 1-${MAX_MESSAGE} characters` }, { status: 400 });
-  }
-
-  const now = Date.now();
-  const hit = hits.get(userId);
-  if (!hit || now - hit.start >= WINDOW_MS) hits.set(userId, { start: now, count: 1 });
-  else if (hit.count >= LIMIT) return NextResponse.json({ error: "Too many messages - try again in a minute" }, { status: 429 });
-  else hit.count++;
-
-  if (hits.size > 10000) {
-    for (const [id, h] of hits) if (now - h.start >= WINDOW_MS) hits.delete(id);
+  if (!message) {
+    return NextResponse.json({
+      answer: "Ask me anything about renders, plans, uploads or refunds.",
+    });
   }
 
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return NextResponse.json(fallback());
+  if (!key) {
+    console.error("[support] GEMINI_API_KEY is not set");
+    return NextResponse.json({ answer: FALLBACK });
+  }
 
-  try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(12000),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM }] },
-          contents: [{ parts: [{ text: message.trim() }] }],
-          generationConfig: { responseMimeType: "application/json", maxOutputTokens: 250 },
-        }),
+  for (const model of MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM }] },
+            contents: [{ role: "user", parts: [{ text: message }] }],
+            generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
+          }),
+        }
+      );
+
+      const raw = await res.text();
+
+      if (!res.ok) {
+        console.error(`[support] ${model} HTTP ${res.status}: ${raw.slice(0, 300)}`);
+        continue;
       }
-    );
-    if (!r.ok) return NextResponse.json(fallback());
 
-    const data = await r.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    const parsed = JSON.parse(raw);
-    const answer = typeof parsed?.answer === "string" ? parsed.answer : fallback().answer;
-    const escalate = parsed?.escalate === true;
+      let data: any = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {}
+
+      const parts = data?.candidates?.[0]?.content?.parts ?? [];
+      const text = parts
+        .map((p: any) => p?.text ?? "")
+        .join("")
+        .trim();
+
+      if (!text) {
+        console.error(`[support] ${model} returned no text: ${raw.slice(0, 300)}`);
+        continue;
+      }
+
+      console.log(`[support] ok via ${model}`);
+      return NextResponse.json({ answer: text });
+    } catch (e: any) {
+      console.error(`[support] ${model} threw:`, e?.name, e?.message);
+    }
+  }
+
+  return NextResponse.json({ answer: FALLBACK });
+}
+
+export async function GET() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
+  }
+  try {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models",
+      { headers: { "x-goog-api-key": key } }
+    );
+    const raw = await res.text();
+    let models: string[] = [];
+    try {
+      const d = JSON.parse(raw);
+      models = (d.models ?? [])
+        .filter((m: any) =>
+          (m.supportedGenerationMethods ?? []).includes("generateContent")
+        )
+        .map((m: any) => String(m.name).replace("models/", ""));
+    } catch {}
     return NextResponse.json({
-      answer: escalate ? `${answer}\n\nChat with us: ${WA}` : answer,
-      escalate,
+      status: res.status,
+      count: models.length,
+      models,
+      error: models.length ? undefined : raw.slice(0, 400),
     });
-  } catch {
-    return NextResponse.json(fallback());
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "failed" }, { status: 500 });
   }
 }
