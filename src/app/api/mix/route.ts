@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : "afrobeats";
   const wantsPreview = body?.preview === true;
+  const mode = body?.mode === "master" ? "master" : "mix";
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
   const ownerId = (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t").trim();
@@ -148,7 +149,22 @@ export async function POST(req: NextRequest) {
   } else if (isOwner) {
     maxSeconds = null; // owner full render: full length, no charge
   } else if (tier === "free") {
+    if (mode === "master") {
+      return NextResponse.json(
+        { error: "Buy a Master pack to download the full master" },
+        { status: 403 }
+      );
+    }
     maxSeconds = 30;
+  } else if (mode === "master") {
+    const ok = await consumeCredit(userId, "master");
+    if (!ok) {
+      return NextResponse.json(
+        { error: "No mastering credits remaining - buy a Master pack" },
+        { status: 403 }
+      );
+    }
+    maxSeconds = null;
   } else {
     const ok = await consumeCredit(userId, "mix");
     if (!ok) {
