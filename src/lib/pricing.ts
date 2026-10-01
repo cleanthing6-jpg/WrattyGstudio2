@@ -40,3 +40,26 @@ export function priceFor(plan: Plan, region: Region) {
 export function plansFor(region: Region) {
   return PLANS.map((p) => ({ ...p, price: priceFor(p, region) }));
 }
+
+
+// ---- Mastering-only: for users who already have a mixed / pre-mixed track ----
+export type Service = "mix-master" | "master-only";
+
+export type MasterPlan = Plan & { service: Service };
+
+export const MASTER_PLANS: MasterPlan[] = [
+  { id: "master-single", name: "Master Single", tracks: 1,  ngn: 5000,  usd: 8,  tagline: "Master 1 finished stereo mix",  service: "master-only" },
+  { id: "master-ep",     name: "Master EP",     tracks: 5,  ngn: 17500, usd: 30, tagline: "Master 5 finished stereo mixes", service: "master-only" },
+  { id: "master-album",  name: "Master Album",  tracks: 10, ngn: 31500, usd: 52, tagline: "Master 10 finished stereo mixes", service: "master-only" },
+];
+
+export const ALL_PAID_PLANS: MasterPlan[] = [
+  ...PLANS.filter((p) => p.id !== "free").map((p) => ({ ...p, service: "mix-master" as Service })),
+  ...MASTER_PLANS,
+];
+
+export function findPlanById(id: string): MasterPlan | undefined {
+  return ALL_PAID_PLANS.find((p) => p.id === id);
+}
+
+export const MASTER_TIER_IDS = MASTER_PLANS.map((p) => p.id);

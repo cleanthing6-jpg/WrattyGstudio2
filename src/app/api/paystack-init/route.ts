@@ -1,11 +1,12 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { ALL_PAID_PLANS } from "@/lib/pricing";
 
-const PRICES: Record<string, number> = {
-  starter: 300000,
-  pro: 700000,
-  studio: 1400000,
-};
+// Derived from lib/pricing.ts so checkout, dashboard and bot can never drift.
+// Paystack amounts are in KOBO, so naira x 100.
+const PRICES: Record<string, number> = Object.fromEntries(
+  ALL_PAID_PLANS.map((p) => [p.id, p.ngn * 100])
+);
 
 export async function POST(req: NextRequest) {
   try {
