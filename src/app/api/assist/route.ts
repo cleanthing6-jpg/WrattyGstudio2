@@ -10,7 +10,7 @@ const word = (t: string, w: string) => new RegExp("\\b" + w + "\\b").test(t);
 
 // Try newest first; fall through on 404/deprecated so a model rename
 // never breaks the assistant.
-const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+const MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
 
 async function askGemini(question: string): Promise<string> {
   const key = process.env.GEMINI_API_KEY || "";
