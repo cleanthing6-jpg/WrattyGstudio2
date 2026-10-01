@@ -223,9 +223,16 @@ function StudioInner() {
           if (st === "done" && Array.isArray(fl)) {
             // Keep ONLY vocals + instrumental: the UI promises two stems and
             // drums/bass/other are already inside the instrumental.
+            // BS Roformer (sep_type 40) returns exactly two files:
+            // "Vocals" and "Other" (everything non-vocal = the instrumental).
+            // Some algorithms say "Instrumental" instead, so accept both and
+            // show the non-vocal one to the user as "Instrumental".
             const stems = fl
-              .filter((x: any) => x && x.url && /^(vocals?|instrumental)$/i.test(String(x.type || "").trim()))
-              .map((x: any) => ({ type: x.type, url: x.url }));
+              .filter((x: any) => x && x.url && /^(vocals?|instrumental|other|no vocals|music)$/i.test(String(x.type || "").trim()))
+              .map((x: any) => ({
+                type: /^vocals?$/i.test(String(x.type || "").trim()) ? "Vocals" : "Instrumental",
+                url: x.url,
+              }));
             results.push({ name: f.name, stems });
             finished = true; break;
           }
