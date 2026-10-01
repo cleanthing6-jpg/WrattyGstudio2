@@ -41,7 +41,7 @@ async function availableModels(key: string): Promise<string[]> {
     const r = await fetch(API + "/models", {
       headers: { "x-goog-api-key": key },
       cache: "no-store",
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(6000),
     });
     const d: any = await r.json().catch(() => ({}));
     // Text-only chat models. TTS/image/transcribe/omni reject a TEXT request
@@ -86,7 +86,7 @@ async function generate(key: string, model: string, message: string): Promise<Tr
         contents: [{ role: "user", parts: [{ text: message }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(7000),
     });
     const raw = await r.text();
     if (!r.ok) return { ok: false, err: model + " HTTP " + r.status + ": " + raw.slice(0, 180) };
@@ -146,6 +146,6 @@ export async function GET() {
     keyPresent: true,
     envModel: process.env.GEMINI_MODEL || null,
     availableCount: avail.length,
-    willTry: list,
+    willTry: list.slice(0, 2),
   });
 }
