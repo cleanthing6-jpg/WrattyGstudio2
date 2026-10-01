@@ -39,3 +39,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message || "Stem split failed" }, { status: 500 });
   }
 }
+
+// Diagnostic: is the MVSEP token configured? Never returns the token itself.
+export async function GET() {
+  const t = (process.env.MVSEP_API_TOKEN || "").trim();
+  return NextResponse.json({ tokenPresent: t.length > 0, tokenLength: t.length });
+}
