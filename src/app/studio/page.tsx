@@ -118,6 +118,8 @@ async function loadSpaceIR(mode: string, ctx: OfflineAudioContext, cfg: { decay:
 
 type StudioTab = "mix";
 type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
+type MixMode = "split" | "mix";
+type SplitResult = { name: string; stems: { type: string; url: string }[] };
 type StemRole = "lead" | "backup" | "adlib" | "beat";
 type UploadedFile = { url: string; name: string; role: StemRole };
 type ReadyStem = { url: string; name: string; role: StemRole };
@@ -160,6 +162,8 @@ function StudioInner() {
 
   const [readyStems, setReadyStems] = useState<ReadyStem[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [mixMode, setMixMode] = useState<MixMode>("mix");
+  const [splitResults, setSplitResults] = useState<SplitResult[]>([]);
   const [stage, setStage] = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -182,8 +186,60 @@ function StudioInner() {
   ;
 
   ;
+  const promoteSplitStems = () => {
+    const stems: ReadyStem[] = [];
+    for (const r of splitResults) for (const st of r.stems) {
+      const t = (st.type || "").toLowerCase();
+      const role: StemRole = (t.includes("vocal") || t.includes("lead")) ? "lead" : "beat";
+      stems.push({ url: st.url, name: st.type, role });
+    }
+    setReadyStems(stems);
+  };
+  const clearSplitResults = () => setSplitResults([]);
+
   // ---- Split mode ----
-  ;
+  const runSplit = async () => {
+    if (!files.length) { alert("Upload at least one audio file first"); return; }
+    setProcessing(true);
+    const results: SplitResult[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      setStage("Splitting " + (i + 1) + " of " + files.length + "…");
+      try {
+        const res = await fetch("/api/mix-stems", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preset: "afrobeats", audioUrl: f.url }),
+        });
+        const data = await res.json();
+        if (!data.taskId) { alert(f.name + " — " + (data.error || "Split failed")); continue; }
+        let finished = false;
+        for (let k = 0; k < 60; k++) {
+          await new Promise((r) => setTimeout(r, 10000));
+          const sres = await fetch("/api/mix-status?hash=" + encodeURIComponent(data.taskId));
+          const sdata = await sres.json();
+          const st = sdata.status || (sdata.data && sdata.data.status);
+          const fl = (sdata.data && sdata.data.files) ? sdata.data.files : sdata.files;
+          if (st === "done" && Array.isArray(fl)) {
+            // Keep ONLY vocals + instrumental: the UI promises two stems and
+            // drums/bass/other are already inside the instrumental.
+            const stems = fl
+              .filter((x: any) => x && x.url && /^(vocals?|instrumental)$/i.test(String(x.type || "").trim()))
+              .map((x: any) => ({ type: x.type, url: x.url }));
+            results.push({ name: f.name, stems });
+            finished = true; break;
+          }
+          if (st === "failed") { alert(f.name + " — split failed on server"); finished = true; break; }
+        }
+        if (!finished) alert(f.name + " — timed out, try again in a minute");
+      } catch (e: any) {
+        alert("Error splitting " + f.name + ": " + ((e && e.message) ? e.message : "network error"));
+      }
+    }
+    setSplitResults(results);
+    setStage("Split done — press Use stems in mixer");
+    setProcessing(false);
+  };
 
   // ---- Mix/master preset ----
   
@@ -312,6 +368,16 @@ function StudioInner() {
                 </select>
               </div>
 
+              <div className="flex gap-2 mb-4">
+                <button onClick={() => setMixMode("split")}
+                  className={"flex-1 py-3 rounded-xl font-semibold transition border " + (mixMode === "split" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
+                  ✂️ Splitter (only if you don&apos;t have stems)
+                </button>
+                <button onClick={() => setMixMode("mix")}
+                  className={"flex-1 py-3 rounded-xl font-semibold transition border " + (mixMode === "mix" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
+                  🎚️ Mix &amp; master preset
+                </button>
+              </div>
               <MixUploader onReady={addFile} />
               <Link
                 href="/master"
@@ -322,6 +388,24 @@ function StudioInner() {
               </Link>
 
               <AiMixer stems={readyStems.length ? readyStems : files} />
+
+              {mixMode === "split" && splitResults.length > 0 && (
+                <div className="bg-green-50 border border-green-500/40 rounded-xl p-4 mt-4">
+                  <div className="font-semibold text-green-700">✅ Split complete — {splitResults.reduce((x, r) => x + r.stems.length, 0)} stems</div>
+                  <div className="text-xs text-gray-500 mt-1">Press Use stems in mixer, then run the mix.</div>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => { promoteSplitStems(); setMixMode("mix"); }} className="bg-green-500 text-black font-bold px-4 py-2 rounded-xl text-sm">Use stems in mixer</button>
+                    <button onClick={clearSplitResults} className="text-red-500 text-sm font-semibold px-2">Clear ✕</button>
+                  </div>
+                </div>
+              )}
+
+              {mixMode === "split" && (
+                <button onClick={runSplit} disabled={processing || !files.length}
+                  className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-100 disabled:text-gray-500 text-black font-bold py-4 rounded-xl transition text-lg mt-4">
+                  {processing ? "Splitting " + files.length + " tracks… ⏳" : "Split All Tracks (" + files.length + ") ✂️"}
+                </button>
+              )}
                 {files.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {files.map((f) => (
