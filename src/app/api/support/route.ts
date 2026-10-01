@@ -30,7 +30,7 @@ const SYSTEM = [
 ].join("\n");
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
-const PREFERRED = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+const PREFERRED = ["gemini-3.5-flash"];
 
 // Models the key can actually call. Cached per warm instance.
 let cachedModels: string[] | null = null;
@@ -41,12 +41,12 @@ async function availableModels(key: string): Promise<string[]> {
     const r = await fetch(API + "/models", {
       headers: { "x-goog-api-key": key },
       cache: "no-store",
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(5000),
     });
     const d: any = await r.json().catch(() => ({}));
     // Text-only chat models. TTS/image/transcribe/omni reject a TEXT request
     // (HTTP 400) or burn a separate quota (HTTP 429).
-    const BAD = /tts|image|transcribe|lyria|nano-banana|embedding|aqa|omni|gemma/i;
+    const BAD = /tts|image|transcribe|lyria|nano-banana|embedding|aqa|omni|gemma|gemini-2\.5/i;
     const all = (d?.models ?? [])
       .filter((m: any) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
       .map((m: any) => String(m.name).replace("models/", ""))
@@ -86,7 +86,7 @@ async function generate(key: string, model: string, message: string): Promise<Tr
         contents: [{ role: "user", parts: [{ text: message }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
       }),
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(15000),
     });
     const raw = await r.text();
     if (!r.ok) return { ok: false, err: model + " HTTP " + r.status + ": " + raw.slice(0, 180) };
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
   const list = await candidates(key);
   const errors: string[] = [];
 
-  for (const model of list) {
+  for (const model of list.slice(0, 2)) {
     const r = await generate(key, model, message);
     if (r.ok) {
       console.log("[support] ok via " + r.model);
