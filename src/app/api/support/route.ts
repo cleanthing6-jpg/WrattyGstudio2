@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { STUDIO_KNOWLEDGE } from "@/lib/studioKnowledge";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 const WA = "https://wa.me/2347074216877";
 const FALLBACK =
   `I couldn't answer that just now. Message us on WhatsApp and we'll sort it: ${WA}`;
@@ -26,9 +29,73 @@ const SYSTEM = [
   "Email wrattyg@gmail.com for refunds and account issues. WhatsApp for everything else.",
 ].join("\n");
 
-const MODELS = process.env.GEMINI_MODEL
-  ? [process.env.GEMINI_MODEL]
-  : ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+const API = "https://generativelanguage.googleapis.com/v1beta";
+const PREFERRED = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+
+// Models the key can actually call. Cached per warm instance.
+let cachedModels: string[] | null = null;
+
+async function availableModels(key: string): Promise<string[]> {
+  if (cachedModels) return cachedModels;
+  try {
+    const r = await fetch(API + "/models", {
+      headers: { "x-goog-api-key": key },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    });
+    const d: any = await r.json().catch(() => ({}));
+    const all = (d?.models ?? [])
+      .filter((m: any) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
+      .map((m: any) => String(m.name).replace("models/", ""));
+    if (all.length) cachedModels = all;
+    return all;
+  } catch {
+    return [];
+  }
+}
+
+// Order: GEMINI_MODEL (only if it exists), then preferred, then the rest.
+async function candidates(key: string): Promise<string[]> {
+  const env = (process.env.GEMINI_MODEL || "").trim();
+  const avail = await availableModels(key);
+  const out: string[] = [];
+  const push = (m: string) => {
+    if (!m || out.includes(m)) return;
+    if (avail.length && !avail.includes(m)) return; // ignore bogus env name
+    out.push(m);
+  };
+  push(env);
+  PREFERRED.forEach(push);
+  avail.forEach(push);
+  return out.slice(0, 6);
+}
+
+type Try = { ok: true; text: string; model: string } | { ok: false; err: string };
+
+async function generate(key: string, model: string, message: string): Promise<Try> {
+  try {
+    const r = await fetch(API + "/models/" + model + ":generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text: message }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    const raw = await r.text();
+    if (!r.ok) return { ok: false, err: model + " HTTP " + r.status + ": " + raw.slice(0, 180) };
+    let d: any = {};
+    try { d = JSON.parse(raw); } catch {}
+    const text = (d?.candidates?.[0]?.content?.parts ?? [])
+      .map((p: any) => p?.text ?? "").join("").trim();
+    if (!text) return { ok: false, err: model + " returned no text: " + raw.slice(0, 180) };
+    return { ok: true, text, model };
+  } catch (e: any) {
+    return { ok: false, err: model + " threw: " + (e?.name || "") + " " + (e?.message || "") };
+  }
+}
 
 export async function POST(req: Request) {
   let message = "";
@@ -38,95 +105,43 @@ export async function POST(req: Request) {
   } catch {}
 
   if (!message) {
-    return NextResponse.json({
-      answer: "Ask me anything about renders, plans, uploads or refunds.",
-    });
+    return NextResponse.json({ answer: "Ask me anything about renders, plans, uploads or refunds." });
   }
 
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     console.error("[support] GEMINI_API_KEY is not set");
-    return NextResponse.json({ answer: FALLBACK });
+    return NextResponse.json({ answer: FALLBACK, debug: "GEMINI_API_KEY not set" });
   }
 
-  for (const model of MODELS) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": key,
-          },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM }] },
-            contents: [{ role: "user", parts: [{ text: message }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
-          }),
-        }
-      );
+  const list = await candidates(key);
+  const errors: string[] = [];
 
-      const raw = await res.text();
-
-      if (!res.ok) {
-        console.error(`[support] ${model} HTTP ${res.status}: ${raw.slice(0, 300)}`);
-        continue;
-      }
-
-      let data: any = {};
-      try {
-        data = JSON.parse(raw);
-      } catch {}
-
-      const parts = data?.candidates?.[0]?.content?.parts ?? [];
-      const text = parts
-        .map((p: any) => p?.text ?? "")
-        .join("")
-        .trim();
-
-      if (!text) {
-        console.error(`[support] ${model} returned no text: ${raw.slice(0, 300)}`);
-        continue;
-      }
-
-      console.log(`[support] ok via ${model}`);
-      return NextResponse.json({ answer: text });
-    } catch (e: any) {
-      console.error(`[support] ${model} threw:`, e?.name, e?.message);
+  for (const model of list) {
+    const r = await generate(key, model, message);
+    if (r.ok) {
+      console.log("[support] ok via " + r.model);
+      return NextResponse.json({ answer: r.text, model: r.model });
     }
+    errors.push(r.err);
+    console.error("[support] " + r.err);
   }
 
-  return NextResponse.json({ answer: FALLBACK });
+  return NextResponse.json({
+    answer: FALLBACK,
+    debug: errors.length ? errors.join(" | ") : "no candidate models available",
+  });
 }
 
 export async function GET() {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
-  }
-  try {
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models",
-      { headers: { "x-goog-api-key": key } }
-    );
-    const raw = await res.text();
-    let models: string[] = [];
-    try {
-      const d = JSON.parse(raw);
-      models = (d.models ?? [])
-        .filter((m: any) =>
-          (m.supportedGenerationMethods ?? []).includes("generateContent")
-        )
-        .map((m: any) => String(m.name).replace("models/", ""));
-    } catch {}
-    return NextResponse.json({
-      status: res.status,
-      count: models.length,
-      models,
-      error: models.length ? undefined : raw.slice(0, 400),
-    });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "failed" }, { status: 500 });
-  }
+  if (!key) return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
+  const avail = await availableModels(key);
+  const list = await candidates(key);
+  return NextResponse.json({
+    keyPresent: true,
+    envModel: process.env.GEMINI_MODEL || null,
+    availableCount: avail.length,
+    willTry: list,
+  });
 }
