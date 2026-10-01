@@ -79,9 +79,19 @@ export async function GET(req: NextRequest) {
     try { await ensureMixCols(); } catch (e) { console.error("[mixes] columns", e); }
     await reconcile(userId);
 
-    const client = await getMongoClient();
-    const col = client.db("wrattyg").collection("mixes");
-    const rows = await col.find({ userId }).sort({ createdAt: -1 }).toArray();
+    // Mongo holds the LEGACY list. A Mongo outage must not kill the whole
+    // endpoint - finished engine renders live in Postgres and still deserve to
+    // show. Degrade instead of returning 500.
+    let rows: any[] = [];
+    let mongoError: string | null = null;
+    try {
+      const client = await getMongoClient();
+      const col = client.db("wrattyg").collection("mixes");
+      rows = await col.find({ userId }).sort({ createdAt: -1 }).toArray();
+    } catch (e: any) {
+      mongoError = (e && e.message) || String(e);
+      console.error("[mixes] mongo failed", e);
+    }
 
     let jobs: any[] = [];
     let renderError: string | null = null;
@@ -130,6 +140,7 @@ export async function GET(req: NextRequest) {
       }))],
     };
     if (renderError) body.renderError = renderError;
+    if (mongoError) body.mongoError = mongoError;
     return NextResponse.json(body);
   } catch (e: any) {
     console.error("[mixes] GET failed", e);
