@@ -1,11 +1,16 @@
 import { sql } from "@/lib/db";
 import { setTier } from "@/lib/credits";
+import { findPlanById } from "@/lib/pricing";
 
-const PRICES: Record<string, number> = {
-  starter: 300000,
-  pro: 700000,
-  studio: 1400000,
-};
+// Derived from lib/pricing.ts - the single source of truth.
+// Paystack amounts are in the smallest unit: kobo for NGN, cents for USD.
+function expectedAmount(tier: string, currency: string): number | undefined {
+  const plan = findPlanById(tier);
+  if (!plan) return undefined;
+  if (currency === "NGN") return plan.ngn * 100;
+  if (currency === "USD") return plan.usd * 100;
+  return undefined;
+}
 
 let _ready = false;
 // Idempotent: creates the table, and adds `status` if it already exists.
@@ -41,7 +46,8 @@ export async function fulfilPaystackReference(reference: string) {
 
   const userId = tx?.metadata?.userId;
   const tier = tx?.metadata?.tier;
-  const expected = PRICES[tier];
+  const currency = tx?.currency;
+  const expected = expectedAmount(tier, currency);
 
   if (
     !res.ok ||
@@ -51,8 +57,7 @@ export async function fulfilPaystackReference(reference: string) {
     typeof userId !== "string" ||
     typeof tier !== "string" ||
     !expected ||
-    tx?.amount !== expected ||
-    tx?.currency !== "NGN"
+    tx?.amount !== expected
   ) {
     throw new Error("Payment verification failed");
   }

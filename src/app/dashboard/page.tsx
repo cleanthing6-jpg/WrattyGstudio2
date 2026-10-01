@@ -4,16 +4,16 @@ import Link from "next/link";
 import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
 import SupportChat from "@/components/SupportChat";
-import { PLANS } from "@/lib/pricing";
+import { ALL_PAID_PLANS, PLANS } from "@/lib/pricing";
 
 const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> =
   Object.fromEntries(
-    PLANS.map((p) => [
+    [...PLANS.filter((p) => p.id !== "free"), ...ALL_PAID_PLANS.filter((p) => p.service === "master-only")].map((p) => [
       p.id,
       {
         beats: 0,
         covers: 0,
-        mixes: p.tracks,
+        mixes: "service" in p && p.service === "master-only" ? 0 : p.tracks,
         price: p.ngn ? "\u20a6" + p.ngn.toLocaleString("en-NG") : "Free",
       },
     ])
