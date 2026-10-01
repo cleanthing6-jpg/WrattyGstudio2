@@ -400,6 +400,20 @@ function StudioInner() {
                 <div className="bg-green-50 border border-green-500/40 rounded-xl p-4 mt-4">
                   <div className="font-semibold text-green-700">✅ Split complete — {splitResults.reduce((x, r) => x + r.stems.length, 0)} stems</div>
                   <div className="text-xs text-gray-500 mt-1">Press Use stems in mixer, then run the mix.</div>
+                  <div className="mt-3 space-y-3">
+                    {splitResults.map((r) => (
+                      <div key={r.name}>
+                        <p className="text-xs font-semibold text-gray-600 mb-2">{r.name}</p>
+                        {r.stems.map((s) => (
+                          <div key={s.type + s.url} className="bg-white border border-slate-200 rounded-xl p-3 mb-2">
+                            <div className="font-semibold text-sm mb-2">{s.type}</div>
+                            <audio controls src={s.url} className="w-full mb-2" preload="none" />
+                            <a href={s.url} target="_blank" rel="noreferrer" download className="text-sm font-semibold text-green-600">Download {s.type} ⬇️</a>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => { promoteSplitStems(); setMixMode("mix"); }} className="bg-green-500 text-black font-bold px-4 py-2 rounded-xl text-sm">Use stems in mixer</button>
                     <button onClick={clearSplitResults} className="text-red-500 text-sm font-semibold px-2">Clear ✕</button>
