@@ -106,7 +106,7 @@ export default function Pricing() {
               tier.color === "green" ? "border-green-500" : "border-slate-200"
             }`}
           >
-            {tier.color === "green" && (
+            {tier.id === "starter" && (
               <div className="text-xs text-green-400 font-bold mb-2">
                 MOST POPULAR
               </div>
