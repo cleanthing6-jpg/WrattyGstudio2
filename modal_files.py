@@ -50,7 +50,7 @@ def web():
             return None
         return p
 
-    def ticket_ok(req):
+    def ticket_ok(req, scope="stem-upload"):
         """Verifies the short-lived ticket minted by the Next.js app.
         The signing secret itself never leaves the two servers."""
         if not KEY:
@@ -63,7 +63,7 @@ def web():
             return False
         if abs(time.time() - exp) > 900:      # +-15 min, tolerant of clock skew
             return False
-        want = hmac.new(KEY.encode(), ("stem-upload|%d" % exp).encode(),
+        want = hmac.new(KEY.encode(), ("%s|%d" % (scope, exp)).encode(),
                         hashlib.sha256).hexdigest()
         return hmac.compare_digest(want, sig)
 
@@ -87,7 +87,10 @@ def web():
         return {"ok": True, "mounted": ROOT.is_dir(), "mount": MOUNT}
 
     @api.get("/ls")
-    def ls(prefix: str = ""):
+    def ls(request: Request, prefix: str = ""):
+        # Was public - it listed every render on the volume.
+        if not ticket_ok(request, "read"):
+            raise HTTPException(status_code=401, detail="bad or expired ticket")
         if not ROOT.is_dir():
             return {"count": 0, "files": [], "note": "volume not mounted"}
         ks = listing(prefix)
@@ -126,7 +129,10 @@ def web():
                 "url": "%s/f/%s" % (FILES_BASE, quote(key))}
 
     @api.get("/f/{key:path}")
-    def get_file(key: str):
+    def get_file(key: str, request: Request):
+        # Was fully public: anyone with the hostname could pull any render.
+        if not ticket_ok(request, "read"):
+            raise HTTPException(status_code=401, detail="bad or expired ticket")
         p = resolve(key)
         if p is None:
             raise HTTPException(status_code=400, detail="bad key")
