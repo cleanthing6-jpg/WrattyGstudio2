@@ -30,7 +30,7 @@ const SYSTEM = [
 ].join("\n");
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
-const PREFERRED = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+const PREFERRED = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
 
 // Models the key can actually call. Cached per warm instance.
 let cachedModels: string[] | null = null;
@@ -44,9 +44,13 @@ async function availableModels(key: string): Promise<string[]> {
       signal: AbortSignal.timeout(15000),
     });
     const d: any = await r.json().catch(() => ({}));
+    // Text-only chat models. TTS/image/transcribe/omni reject a TEXT request
+    // (HTTP 400) or burn a separate quota (HTTP 429).
+    const BAD = /tts|image|transcribe|lyria|nano-banana|embedding|aqa|omni|gemma/i;
     const all = (d?.models ?? [])
       .filter((m: any) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
-      .map((m: any) => String(m.name).replace("models/", ""));
+      .map((m: any) => String(m.name).replace("models/", ""))
+      .filter((m: string) => m.startsWith("gemini-") && !BAD.test(m));
     if (all.length) cachedModels = all;
     return all;
   } catch {
