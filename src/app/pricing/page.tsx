@@ -16,7 +16,7 @@ const TIERS = [
   {
     id: "starter",
     name: "Starter",
-    price: "₦3,000",
+    price: "₦7,500",
     period: "/month",
     features: ["5 mixes / month", "AI auto-mix & master", "Stem separation"],
     cta: "Get Starter",
@@ -25,7 +25,7 @@ const TIERS = [
   {
     id: "pro",
     name: "Pro",
-    price: "₦7,000",
+    price: "₦25,000",
     period: "/month",
     features: ["20 mixes / month", "Priority processing", "Full FX & space controls"],
     cta: "Get Pro",
@@ -34,7 +34,7 @@ const TIERS = [
   {
     id: "studio",
     name: "Studio",
-    price: "₦15,000",
+    price: "₦45,000",
     period: "/month",
     features: ["50 mixes / month", "Fastest processing", "Commercial license"],
     cta: "Get Studio",
