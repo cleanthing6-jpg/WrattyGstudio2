@@ -135,6 +135,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [style, setStyle] = useState("afrobeats");
   const [lufs, setLufs] = useState(-8);
   const [toast, setToast] = useState("");
+  const [artist, setArtist] = useState("");
+  const [songTitle, setSongTitle] = useState("");
   const [masterLoudness, setMasterLoudness] = useState("HIGH");
   const [bpm, setBpm] = useState(100);
   const [beatLockMode, setBeatLockMode] = useState(false);
@@ -365,7 +367,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stems: prepared, loudness: masterLoudness, preset: style }),
+        body: JSON.stringify({ artist, title: songTitle, stems: prepared, loudness: masterLoudness, preset: style }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
@@ -407,7 +409,25 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       >
         {STYLES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
       </select>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Master loudness</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Artist name</label>
+        <input
+          value={artist}
+          onChange={(e) => setArtist(e.target.value)}
+          disabled={busy}
+          maxLength={60}
+          placeholder="e.g. Burna Boy"
+          className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        <label className="block text-xs font-semibold text-gray-600 mb-1">Song title</label>
+        <input
+          value={songTitle}
+          onChange={(e) => setSongTitle(e.target.value)}
+          disabled={busy}
+          maxLength={60}
+          placeholder="e.g. Last Last"
+          className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+        <label className="block text-xs font-semibold text-gray-600 mb-1">Master loudness</label>
         <select value={masterLoudness} onChange={(e) => setMasterLoudness(e.target.value)} disabled={busy} className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value="LOW">LOW — quietest, most dynamic</option>
           <option value="MEDIUM">MEDIUM — balanced, streaming standard</option>

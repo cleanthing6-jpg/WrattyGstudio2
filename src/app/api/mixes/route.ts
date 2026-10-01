@@ -11,7 +11,7 @@ export async function GET() {
     const col = client.db("wrattyg").collection("mixes");
     const rows = await col.find({ userId }).sort({ createdAt: -1 }).toArray();
     return NextResponse.json({
-      mixes: rows.map((r: any) => ({ id: r._id.toString(), name: r.name, url: r.url, createdAt: r.createdAt })),
+      mixes: rows.map((r: any) => ({ id: r._id.toString(), name: r.name, url: r.url, mp3: r.mp3 || r.url || "", flac: r.flac || "", createdAt: r.createdAt })),
     });
   } catch (e: any) {
     return NextResponse.json({ error: (e && e.message) || String(e) }, { status: 500 });

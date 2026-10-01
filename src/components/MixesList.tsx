@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Mix = { id: string; name: string; url: string; createdAt?: string };
+type Mix = { id: string; name: string; url: string; mp3?: string; flac?: string; createdAt?: string };
 
 export default function MixesList() {
   const [mixes, setMixes] = useState<Mix[] | null>(null);
@@ -45,10 +45,17 @@ export default function MixesList() {
                 <div className="font-semibold text-green-800 text-sm truncate">{m.name}</div>
                 <button onClick={() => remove(m.id)} className="text-red-500 hover:text-red-700 text-lg leading-none">&times;</button>
               </div>
-              <audio controls src={m.url} className="w-full mt-2" preload="none" />
-              <a href={m.url} download={m.name + ".wav"} className="inline-block mt-2 text-xs bg-green-500 hover:bg-green-400 text-black font-bold px-3 py-1.5 rounded-lg">
-                ⬇ Download
-              </a>
+              <audio controls src={m.mp3 || m.url} className="w-full mt-2" preload="none" />
+              <div className="flex flex-wrap gap-2 mt-2">
+                <a href={m.mp3 || m.url} download={m.name + ".mp3"} className="text-xs bg-green-500 hover:bg-green-400 text-black font-bold px-3 py-1.5 rounded-lg">
+                  ⬇ MP3
+                </a>
+                {m.flac && (
+                  <a href={m.flac} download={m.name + ".flac"} className="text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg">
+                    ⬇ FLAC lossless
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>

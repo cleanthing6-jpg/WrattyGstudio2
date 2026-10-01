@@ -19,7 +19,6 @@ try:
 except Exception:
     pyln = None
 
-BLOB = "https://blob.vercel-storage.com"
 TARGET = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.5}
 JOBS, LK = {}, threading.Lock()
 
@@ -101,6 +100,29 @@ def grab(u, dst):
 _ENCODE_ERR = None
 
 
+def encode_all(src, tmp, is_preview):
+    """Previews: MP3 only. Full renders: MP3 AND FLAC, both encoded from the
+    SAME decoded audio - the master is never rendered twice."""
+    global _ENCODE_ERR
+    try:
+        import soundfile as sf
+        data, sr = sf.read(src, dtype="float32", always_2d=True)
+        out = []
+        mp3 = os.path.join(tmp, "mix.mp3")
+        sf.write(mp3, data, sr, format="MP3", subtype="MPEG_LAYER_III",
+                 compression_level=0.6)
+        out.append((mp3, "audio/mpeg", ".mp3"))
+        if not is_preview:
+            flac = os.path.join(tmp, "mix.flac")
+            sf.write(flac, data, sr, format="FLAC", subtype="PCM_16",
+                     compression_level=0.5)
+            out.append((flac, "audio/flac", ".flac"))
+        return out, None
+    except Exception as e:
+        _ENCODE_ERR = str(e)[:200]
+        return [(src, "audio/wav", ".wav")], _ENCODE_ERR
+
+
 def encode_out(src, tmp, is_preview):
     """MP3 for previews, FLAC for full renders. Falls back to the WAV."""
     global _ENCODE_ERR
@@ -121,27 +143,13 @@ def encode_out(src, tmp, is_preview):
 
 
 def put(p, name, ctype="audio/wav"):
-    # Prefer the Modal volume: no Vercel Blob data-transfer meter. Any failure
-    # falls through to Blob so a bad deploy can never break a mix.
-    try:
-        import blobstore
-        if blobstore.enabled():
-            url = blobstore.put(p, name)
-            print("PUT modal %s" % url, flush=True)
-            return url
-    except Exception as e:
-        print("PUT modal failed (%s) - using blob" % str(e)[:200], flush=True)
-    t = os.environ.get("BLOB_READ_WRITE_TOKEN")
-    if not t:
-        raise RuntimeError("BLOB_READ_WRITE_TOKEN missing")
-    with open(p, "rb") as fh:
-        r = requests.put(BLOB + "/" + name, data=fh, timeout=600,
-                         headers={"authorization": "Bearer " + t,
-                                  "x-api-version": "7", "x-content-type": ctype,
-                                  "x-add-random-suffix": "1", "Content-Type": ctype})
-    if r.status_code >= 300:
-        raise RuntimeError("blob " + r.text[:150])
-    return r.json().get("url", "")
+    # Modal volume ONLY. The Vercel Blob fallback is gone: it needed
+    # BLOB_READ_WRITE_TOKEN, which no longer exists, so a volume hiccup used
+    # to surface as a bogus "token missing" and kill the render. Fail loudly.
+    import blobstore
+    url = blobstore.put(p, name)
+    print("PUT modal %s" % url, flush=True)
+    return url
 
 
 def rss_mb():
@@ -368,14 +376,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         gc.collect()
         rel, rel_sr = load(out)
         secs = rel.shape[1] / float(rel_sr)
-        upl, ctype, ext, enc_err = encode_out(out, tmp, secs <= 65.0)
-        url = put(upl, "fx/%s-mix-%s%s" % (uuid.uuid4().hex, want.lower(), ext), ctype)
+        files, enc_err = encode_all(out, tmp, secs <= 65.0)
+        _stem = uuid.uuid4().hex
+        urls = {}
+        for _p, _ct, _ex in files:
+            urls[_ex.lstrip(".")] = put(
+                _p, "fx/%s-mix-%s%s" % (_stem, want.lower(), _ex), _ct)
+        url = urls.get("flac") or urls.get("mp3") or ""
         got = lufs(rel, rel_sr)
         report["loudness"] = want
-        report["format"] = ext.lstrip(".")
+        report["format"] = ",".join(sorted(urls.keys()))
         if enc_err:
             report["encode_error"] = enc_err
-        return {"url": url, "seconds": round(rel.shape[1] / float(rel_sr), 2),
+        return {"url": url, "files": urls,
+                "seconds": round(rel.shape[1] / float(rel_sr), 2),
                 "peak_dbfs": round(peakdb(rel), 2),
                 "lufs": (None if got is None else round(got, 2)),
                 "sample_rate": int(rel_sr),

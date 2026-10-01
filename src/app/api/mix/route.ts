@@ -1,5 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { sendRenderEmail } from "@/lib/mail";
+import { getMongoClient } from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUser, consumeCredit, refundCredit } from "@/lib/credits";
@@ -37,6 +38,10 @@ async function ensureTable() {
   )`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS artist_name TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
 }
 
 async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[], ms = 45000) {
@@ -187,6 +192,12 @@ export async function POST(req: NextRequest) {
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : "afrobeats";
+  // Display name for the finished downloads. Sanitised HERE so the browser
+  // can never inject a path separator or a control character.
+  const artist = String(body?.artist || "")
+    .replace(/[^\p{L}\p{N} ._&'()-]/gu, "").trim().slice(0, 60);
+  const title = String(body?.title || "")
+    .replace(/[^\p{L}\p{N} ._&'()-]/gu, "").trim().slice(0, 60);
   const wantsPreview = body?.preview === true;
   const mode = body?.mode === "master" ? "master" : "mix";
   let creditType: string | null = null;
@@ -264,8 +275,8 @@ export async function POST(req: NextRequest) {
 
   const id = crypto.randomUUID();
   try {
-    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type)
-      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType})`;
+    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title)
+      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null})`;
   } catch (e) {
     // The credit was already spent but no job exists to refund it - give it back now.
     if (creditType) await refundCredit(userId, creditType as any);
@@ -295,6 +306,27 @@ async function notify(userId: string, status: "ready" | "failed", opts?: any) {
   const to = await ownerEmail(userId);
   if (!to) return;
   await sendRenderEmail(to, status, opts);
+}
+
+// Full renders are listed on the dashboard (Mongo `mixes`, read by
+// /api/mixes). Previews are not. Best-effort: a Mongo hiccup must never
+// break the render poll.
+async function saveToDashboard(userId: string, row: any, mp3: string, flac: string) {
+  try {
+    if (!mp3 && !flac) return;
+    const a = String(row?.artist_name || "").trim();
+    const t = String(row?.song_title || "").trim();
+    const name = a && t ? `${a} - ${t}` : t || a || "My mix";
+    const client = await getMongoClient();
+    await client.db("wrattyg").collection("mixes").insertOne({
+      userId, name,
+      url: mp3 || flac, mp3: mp3 || "", flac: flac || "",
+      loudness: String(row?.loudness || ""), preset: String(row?.preset || ""),
+      createdAt: new Date(),
+    });
+  } catch (e) {
+    console.error("[mixes] dashboard save failed", e);
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -329,10 +361,18 @@ export async function GET(req: NextRequest) {
   if (d && d.status === "done" && d.url) {
     // RETURNING id -> empty means another poll already flipped it, so we
     // email exactly once instead of on every 5s poll.
+    // RETURNING id -> empty means another poll already flipped it, so we
+    // save + email exactly once instead of on every 5s poll.
+    const flacU = String(d.result?.files?.flac || "");
+    const mp3U = String(d.result?.files?.mp3 || "");
     const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
+              flac_key=${flacU || null}, mp3_key=${mp3U || null},
               result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW()
               WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
-    if (tr.length && !row.max_seconds) await notify(userId, "ready", { url: d.url });
+    if (tr.length && !row.max_seconds) {
+      await saveToDashboard(userId, row, mp3U, flacU);
+      await notify(userId, "ready", { url: mp3U || d.url });
+    }
   } else if (d && d.status === "failed") {
     const err = String(d.error || "mix failed");
     await failJob(id, err);
