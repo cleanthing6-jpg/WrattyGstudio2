@@ -134,6 +134,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("afrobeats");
   const [lufs, setLufs] = useState(-8);
+  const [toast, setToast] = useState("");
   const [roexLoudness, setRoexLoudness] = useState("HIGH");
   const [bpm, setBpm] = useState(100);
   const [beatLockMode, setBeatLockMode] = useState(false);
@@ -340,6 +341,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           const sd = await s.json().catch(() => ({}));
           if (sd.error) throw new Error(sd.error);
           if (sd.status === "preview" && sd.url) {
+            setToast("🎧 Preview ready — 30 seconds.");
             setPreviewUrl(sd.url);
             setMsg("Preview ready — listen below 🎧");
             break;
@@ -373,7 +375,10 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000);
         const gd = await g.json().catch(() => ({}));
         if (gd.error) throw new Error(gd.error);
-        if (gd.status === "done" && gd.url) finalR = gd.url;
+        if (gd.status === "done" && gd.url) {
+          finalR = gd.url;
+          setToast("✅ Your mix is ready — scroll down to listen and save it.");
+        }
         if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
         else setMsg("Mixing… (" + ((i + 1) * 5) + "s since start)");
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
@@ -426,6 +431,12 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           <option value={-14}>-14 — Streaming calm</option>
         </select>
 
+      {toast && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+          <span>{toast}</span>
+          <button onClick={() => setToast("")} className="ml-2 shrink-0 text-green-700 underline">dismiss</button>
+        </div>
+      )}
       <label className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
         <input type="checkbox" checked={false} disabled onChange={() => setBeatLockMode(false)} />
         Protect my beat - vocals only go to the mixer
