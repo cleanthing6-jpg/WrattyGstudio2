@@ -112,3 +112,13 @@ export async function setTier(userId: string, tier: string) {
   await getUser(userId);
   await sql`UPDATE users SET tier = ${tier} WHERE id = ${userId}`;
 }
+
+// Give a credit back. Used when a job fails AFTER the credit was spent.
+// GREATEST(0, ...) means a double call can never push usage negative.
+export async function refundCredit(userId: string, type: CreditType) {
+  if (type === "mix") {
+    await sql`UPDATE users SET mixes_used = GREATEST(0, mixes_used - 1) WHERE id = ${userId}`;
+  } else if (type === "master") {
+    await sql`UPDATE users SET masters_used = GREATEST(0, masters_used - 1) WHERE id = ${userId}`;
+  }
+}

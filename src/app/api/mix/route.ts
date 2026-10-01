@@ -2,7 +2,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { sendRenderEmail } from "@/lib/mail";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { getUser, consumeCredit } from "@/lib/credits";
+import { getUser, consumeCredit, refundCredit } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -36,6 +36,7 @@ async function ensureTable() {
     updated_at TIMESTAMP DEFAULT NOW()
   )`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`;
 }
 
 async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[], ms = 45000) {
@@ -66,23 +67,74 @@ async function mixer(path: string, init: RequestInit, tries: number, retryCodes:
   return { ok: false, status: 0, data: null, error: "mixer unreachable: " + last };
 }
 
-// A job left 'running' too long means Render died mid-mix.
+
+// Fail a job AND give the credit back in ONE statement. The status guard
+// means exactly one caller can win, so a credit is never refunded twice.
+async function failJob(id: string, error: string) {
+  await sql`
+    WITH f AS (
+      UPDATE mix_jobs SET status='failed', error=${error}, updated_at=NOW()
+      WHERE id=${id} AND status IN ('queued','running')
+      RETURNING user_id, credit_type
+    ), r AS (
+      UPDATE users u SET
+        mixes_used   = CASE WHEN sub.ct = 'mix'    THEN GREATEST(0, u.mixes_used - 1)   ELSE u.mixes_used   END,
+        masters_used = CASE WHEN sub.ct = 'master' THEN GREATEST(0, u.masters_used - 1) ELSE u.masters_used END
+      FROM (SELECT user_id, max(credit_type) AS ct FROM f GROUP BY user_id) sub
+      WHERE u.id = sub.user_id
+      RETURNING u.id
+    )
+    SELECT 1
+  `;
+}
+
 async function reapStale() {
-  // A job left "running" too long means Render died mid-mix.
-  await sql`UPDATE mix_jobs
-    SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
-    WHERE status='running' AND (updated_at < NOW() - INTERVAL '8 minutes' OR created_at < NOW() - INTERVAL '20 minutes')`;
-  // A job left "queued" means the engine call failed before the job was claimed.
-  // Without this, ONE dead job blocks the user forever (MAX_PER_USER = 1).
-  await sql`UPDATE mix_jobs
-    SET status='failed', error='Mixer queue expired - please try again', updated_at=NOW()
-    WHERE status='queued' AND created_at < NOW() - INTERVAL '3 minutes'`;
-  // A job left 'running' with no Modal id (start call never completed) would
-  // block the user forever. Reap those too.
-  await sql`UPDATE mix_jobs SET status='failed',
-            error='Render never started - please try again', updated_at=NOW()
-            WHERE status='running' AND runner_job IS NULL
-              AND updated_at < NOW() - INTERVAL '10 minutes'`;
+  // Every statement below fails jobs AND refunds any credit they spent.
+  await sql`
+    WITH f AS (
+      UPDATE mix_jobs SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
+      WHERE status='running' AND (updated_at < NOW() - INTERVAL '8 minutes' OR created_at < NOW() - INTERVAL '20 minutes')
+      RETURNING user_id, credit_type
+    ), r AS (
+      UPDATE users u SET
+        mixes_used   = GREATEST(0, u.mixes_used   - sub.m),
+        masters_used = GREATEST(0, u.masters_used - sub.mm)
+      FROM (SELECT user_id, count(*) FILTER (WHERE credit_type='mix') AS m,
+                   count(*) FILTER (WHERE credit_type='master') AS mm
+            FROM f GROUP BY user_id) sub
+      WHERE u.id = sub.user_id RETURNING u.id
+    ) SELECT 1
+  `;
+  await sql`
+    WITH f AS (
+      UPDATE mix_jobs SET status='failed', error='Mixer queue expired - please try again', updated_at=NOW()
+      WHERE status='queued' AND created_at < NOW() - INTERVAL '3 minutes'
+      RETURNING user_id, credit_type
+    ), r AS (
+      UPDATE users u SET
+        mixes_used   = GREATEST(0, u.mixes_used   - sub.m),
+        masters_used = GREATEST(0, u.masters_used - sub.mm)
+      FROM (SELECT user_id, count(*) FILTER (WHERE credit_type='mix') AS m,
+                   count(*) FILTER (WHERE credit_type='master') AS mm
+            FROM f GROUP BY user_id) sub
+      WHERE u.id = sub.user_id RETURNING u.id
+    ) SELECT 1
+  `;
+  await sql`
+    WITH f AS (
+      UPDATE mix_jobs SET status='failed', error='Render never started - please try again', updated_at=NOW()
+      WHERE status='running' AND runner_job IS NULL AND updated_at < NOW() - INTERVAL '10 minutes'
+      RETURNING user_id, credit_type
+    ), r AS (
+      UPDATE users u SET
+        mixes_used   = GREATEST(0, u.mixes_used   - sub.m),
+        masters_used = GREATEST(0, u.masters_used - sub.mm)
+      FROM (SELECT user_id, count(*) FILTER (WHERE credit_type='mix') AS m,
+                   count(*) FILTER (WHERE credit_type='master') AS mm
+            FROM f GROUP BY user_id) sub
+      WHERE u.id = sub.user_id RETURNING u.id
+    ) SELECT 1
+  `;
 }
 
 // Start the oldest queued job, but only if nothing is running.
@@ -107,8 +159,7 @@ async function pump(depth = 0): Promise<void> {
   }, 3, [429, 502, 503]);
 
   if (!r.ok || !(r.data && r.data.job)) {
-    await sql`UPDATE mix_jobs SET status='failed',
-              error=${String(r.error || "mixer did not start")}, updated_at=NOW() WHERE id=${job.id}`;
+    await failJob(job.id, String(r.error || "mixer did not start"));
     if (depth < 5) await pump(depth + 1);   // never stall the queue
     return;
   }
@@ -138,6 +189,7 @@ export async function POST(req: NextRequest) {
   const preset = body?.preset ? String(body.preset) : "afrobeats";
   const wantsPreview = body?.preview === true;
   const mode = body?.mode === "master" ? "master" : "mix";
+  let creditType: string | null = null;
   const user = await getUser(userId);
   const tier = String(user.tier || "free");
   const ownerId = (process.env.OWNER_USER_ID || "user_3JwUmxdbT5FMshejHI7swJNHs9t").trim();
@@ -164,6 +216,7 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    creditType = "master";
     maxSeconds = null;
   } else {
     const ok = await consumeCredit(userId, "mix");
@@ -173,6 +226,7 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    creditType = "mix";
     maxSeconds = null;
   }
 
@@ -188,17 +242,35 @@ export async function POST(req: NextRequest) {
   await reapStale();
   // Pressing Mix again means the previous run was abandoned - drop it so it
   // can never block the new one and can never pile up.
-  await sql`UPDATE mix_jobs SET status='failed',
-            error='Superseded by your newer request', updated_at=NOW()
-            WHERE user_id = ${userId} AND status IN ('queued','running')
-              AND created_at < NOW() - INTERVAL '3 minutes'`;
+  await sql`
+    WITH f AS (
+      UPDATE mix_jobs SET status='failed', error='Superseded by your newer request', updated_at=NOW()
+      WHERE user_id = ${userId} AND status IN ('queued','running')
+        AND created_at < NOW() - INTERVAL '3 minutes'
+      RETURNING user_id, credit_type
+    ), r AS (
+      UPDATE users u SET
+        mixes_used   = GREATEST(0, u.mixes_used   - sub.m),
+        masters_used = GREATEST(0, u.masters_used - sub.mm)
+      FROM (SELECT user_id, count(*) FILTER (WHERE credit_type='mix') AS m,
+                   count(*) FILTER (WHERE credit_type='master') AS mm
+            FROM f GROUP BY user_id) sub
+      WHERE u.id = sub.user_id RETURNING u.id
+    ) SELECT 1
+  `;
 
   // No per-user rejection. A new request supersedes your own older
   // job instead of blocking you; the shared queue still protects the engine.
 
   const id = crypto.randomUUID();
-  await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds)
-    VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds})`;
+  try {
+    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type)
+      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType})`;
+  } catch (e) {
+    // The credit was already spent but no job exists to refund it - give it back now.
+    if (creditType) await refundCredit(userId, creditType as any);
+    throw e;
+  }
 
   const rows = (await sql`SELECT * FROM mix_jobs WHERE id=${id}`) as any[];
   const row = rows[0] || {};
@@ -263,18 +335,15 @@ export async function GET(req: NextRequest) {
     if (tr.length && !row.max_seconds) await notify(userId, "ready", { url: d.url });
   } else if (d && d.status === "failed") {
     const err = String(d.error || "mix failed");
-    const tr = (await sql`UPDATE mix_jobs SET status='failed',
-              error=${err}, updated_at=NOW()
-              WHERE id=${id} AND status <> 'failed' RETURNING id`) as any[];
-    if (tr.length && !row.max_seconds) await notify(userId, "failed", { error: err });
+    await failJob(id, err);
+    if (!row.max_seconds) await notify(userId, "failed", { error: err });
   } else if (d && d.status === "none") {
     // Only believe "none" once the job is old enough that Modal must have
     // registered it. Below that it is a startup race, not a failure.
     const ag = (await sql`SELECT EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age
       FROM mix_jobs WHERE id=${id}`) as any[];
     if (Number(ag[0]?.age || 0) > 180) {
-      await sql`UPDATE mix_jobs SET status='failed',
-                error='Mixer restarted before finishing - please try again', updated_at=NOW() WHERE id=${id}`;
+      await failJob(id, "Mixer restarted before finishing - please try again");
     }
   }
 
