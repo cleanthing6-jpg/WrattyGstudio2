@@ -5,15 +5,15 @@ import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
 import SupportChat from "@/components/SupportChat";
 
-const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> = {
-  free: { beats: 0, covers: 0, mixes: 0, price: "Free" },
-  starter: { beats: 0, covers: 0, mixes: 1, price: "\u20a67,500" },
-  pro: { beats: 0, covers: 0, mixes: 5, price: "\u20a625,000" },
-  studio: { beats: 0, covers: 0, mixes: 10, price: "\u20a645,000" },
-  "master-single": { beats: 0, covers: 0, mixes: 1, price: "\u20a65,000" },
-  "master-ep": { beats: 0, covers: 0, mixes: 5, price: "\u20a617,500" },
-  "master-album": { beats: 0, covers: 0, mixes: 10, price: "\u20a631,500" },
-};
+const TIER_LIMITS: Record<string, { name: string; mixes: number; masters: number; price: string }> = {
+  free: { name: "Free", mixes: 0, masters: 0, price: "Free" },
+  starter: { name: "Single", mixes: 1, masters: 0, price: "\u20a67,500" },
+  pro: { name: "EP Pack", mixes: 5, masters: 0, price: "\u20a625,000" },
+  studio: { name: "Album", mixes: 10, masters: 0, price: "\u20a645,000" },
+  "master-single": { name: "Master Single", mixes: 0, masters: 1, price: "\u20a65,000" },
+  "master-ep": { name: "Master EP", mixes: 0, masters: 5, price: "\u20a617,500" },
+  "master-album": { name: "Master Album", mixes: 0, masters: 10, price: "\u20a631,500" },
+}
 
 export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -51,13 +51,17 @@ export default function Dashboard() {
   const plan = (usage && (usage.tier || "free")) || "free";
   const lim = TIER_LIMITS[plan] || TIER_LIMITS.free;
   const used = usage || {};
-  const usedBeats = used.beats_used ?? used.used?.beats ?? 0;
-  const usedCovers = used.covers_used ?? used.used?.covers ?? 0;
   const usedMixes = used.mixes_used ?? used.used?.mixes ?? 0;
+  const usedMasters = used.masters_used ?? used.used?.masters ?? 0;
 
-  const statCards = [
+  const allCards = [
     { icon: "🎛️", label: "Mix & Master", used: usedMixes, total: lim.mixes, chip: "bg-red-100 text-red-700", bar: "bg-red-500", href: "/studio?type=mix" },
+    { icon: "🎚️", label: "Master only", used: usedMasters, total: lim.masters, chip: "bg-yellow-100 text-yellow-700", bar: "bg-yellow-500", href: "/master" },
   ];
+  const statCards = allCards.filter((c) => c.total > 0 || c.used > 0);
+  if (statCards.length === 0) {
+    statCards.push({ icon: "🎧", label: "Free preview", used: 0, total: 0, chip: "bg-green-100 text-green-700", bar: "bg-green-500", href: "/studio?type=mix" });
+  }
 
   return (
     <div className="min-h-screen bg-[#faf9f4] text-slate-900">
@@ -66,7 +70,7 @@ export default function Dashboard() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-yellow-500 grid place-items-center text-white font-black">W</span>
-            <span className="font-extrabold tracking-tight text-lg">Wratty<span className="text-green-600">G</span>studio</span>
+            <span className="font-extrabold tracking-tight text-lg">WraG<span className="text-green-600">studio</span></span>
           </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm text-slate-600">
             <Link href="/dashboard" className="font-bold text-green-700">Dashboard</Link>
@@ -92,7 +96,7 @@ export default function Dashboard() {
             <Link key={c.label} href={c.href} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-green-400 transition">
               <div className="flex items-center justify-between">
                 <div className={"w-11 h-11 rounded-xl grid place-items-center text-xl " + c.chip}>{c.icon}</div>
-                <span className="text-xs font-bold text-slate-400">{c.used} / {c.total}</span>
+                <span className="text-xs font-bold text-slate-400">{c.total > 0 ? c.used + " / " + c.total : "Try it"}</span>
               </div>
               <h3 className="mt-4 font-bold text-slate-900">{c.label}</h3>
               <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -137,12 +141,13 @@ export default function Dashboard() {
           <div className="grid sm:grid-cols-3 gap-4">
             {Object.entries(TIER_LIMITS).filter(([k]) => k !== "free").map(([key, p]) => (
               <div key={key} className={"bg-white rounded-2xl p-5 border shadow-sm " + (key === "studio" ? "ring-2 ring-green-600 border-transparent" : "border-slate-200")}>
-                <h3 className="font-bold capitalize">{key}</h3>
+                <h3 className="font-bold">{p.name}</h3>
                 <p className="mt-1 text-2xl font-black">{p.price}</p>
                 <ul className="mt-3 space-y-1 text-xs text-slate-600">
-                  <li>🎛️ {p.mixes > 0 ? p.mixes + " pro mix & master" : "No pro mix included"}</li>
+                  {p.mixes > 0 && <li>{"\U0001f39b\ufe0f " + p.mixes + (p.mixes === 1 ? " finished mix + master" : " finished mixes + masters")}</li>}
+                  {p.masters > 0 && <li>{"\U0001f39a\ufe0f " + p.masters + " stereo " + (p.masters === 1 ? "mix" : "mixes") + " mastered"}</li>}
                 </ul>
-                <Link href="/pricing" className={"mt-4 block text-center px-4 py-2 rounded-full text-sm font-bold " + (key === "studio" ? "bg-green-600 text-white" : "border border-slate-300 text-slate-700")}>Choose {key}</Link>
+                <Link href="/pricing" className={"mt-4 block text-center px-4 py-2 rounded-full text-sm font-bold " + (key === "studio" ? "bg-green-600 text-white" : "border border-slate-300 text-slate-700")}>Choose {p.name}</Link>
               </div>
             ))}
           </div>
