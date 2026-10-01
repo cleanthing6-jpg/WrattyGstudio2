@@ -28,7 +28,7 @@ export default function ABPreview({
   aLabel = "Original",
   bLabel = "Mastered",
   startSec = 0,
-  durationSec = 45,
+  durationSec = 30,
 }: Props) {
   const aRef = useRef<HTMLAudioElement>(null);
   const bRef = useRef<HTMLAudioElement>(null);

@@ -14,7 +14,7 @@ export type Plan = {
 // Tier ids deliberately kept as free/starter/pro/studio so nothing
 // in the backend, DB or Paystack needs renaming.
 export const PLANS: Plan[] = [
-  { id: "free",    name: "Free",     tracks: 0,  ngn: 0,     usd: 0,  tagline: "1 watermarked 60s preview" },
+  { id: "free",    name: "Free",     tracks: 0,  ngn: 0,     usd: 0,  tagline: "1 watermarked 30s preview" },
   { id: "starter", name: "Single",   tracks: 1,  ngn: 7500,  usd: 12, tagline: "1 finished mix + master" },
   { id: "pro",     name: "EP Pack",  tracks: 5,  ngn: 25000, usd: 45, tagline: "5 tracks, ~N5,000 each", popular: true },
   { id: "studio",  name: "Album",    tracks: 10, ngn: 45000, usd: 80, tagline: "10 tracks, best value" },
