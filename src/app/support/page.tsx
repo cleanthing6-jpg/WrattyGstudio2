@@ -9,7 +9,7 @@ export default function Support() {
       <ul className="list-disc pl-5">
         <li className="mb-1">Plan not active after paying? Reply with your reference - we activate it manually.</li>
         <li className="mb-1">Render stuck? A stuck job is reaped automatically; just submit again.</li>
-        <li className="mb-1">No email when a render finishes? Check spam, then add us to contacts.</li>
+        <li className="mb-1">Render status updates live on the page - refresh if it looks stuck.</li>
       </ul>
     </main>
   );
