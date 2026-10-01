@@ -40,12 +40,37 @@ export default function SupportChat() {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg"
-      >
-        💬 Help
-      </button>
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+        <span className="animate-pulse rounded-full bg-slate-900/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg">
+          Need help? Tap the DJ
+        </span>
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open support chat"
+          title="Chat with support"
+          className="group relative grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-green-500 via-emerald-600 to-slate-900 text-white shadow-2xl ring-4 ring-white/70 transition-transform duration-200 hover:scale-110 active:scale-95"
+        >
+          <span className="absolute inset-0 animate-ping rounded-full bg-green-400/40" />
+          <svg
+            viewBox="0 0 64 64"
+            className="relative h-12 w-12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M13 34v-3a19 19 0 0 1 38 0v3" />
+            <rect x="7" y="32" width="9" height="15" rx="4.5" fill="currentColor" stroke="none" />
+            <rect x="48" y="32" width="9" height="15" rx="4.5" fill="currentColor" stroke="none" />
+            <circle cx="32" cy="34" r="10.5" />
+            <path d="M28 38c1.2 1.8 6.8 1.8 8 0" />
+          </svg>
+          <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-white text-[11px] font-black text-green-700 shadow">
+            ?
+          </span>
+        </button>
+      </div>
     );
   }
 
