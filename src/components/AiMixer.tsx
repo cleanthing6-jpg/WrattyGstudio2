@@ -157,7 +157,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr(""); setMasterUrl("");
     setMsg(full ? "Creating your full master - this can take a few minutes..." : "Creating mastering preview...");
     try {
-      const r = await fetch("/api/roex-master", {
+      const r = await fetch("/api/master-render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: mixUrl, style, loudness: roexLoudness, preview: !full }),
@@ -167,7 +167,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       for (let i = 0; i < (full ? 180 : 48); i++) {
         await new Promise((res) => setTimeout(res, 5000));
-        const s2 = await fetch("/api/roex-master?taskId=" + encodeURIComponent(data.taskId));
+        const s2 = await fetch("/api/master-render?taskId=" + encodeURIComponent(data.taskId));
         const st = await s2.json().catch(() => ({}));
         if (!s2.ok) throw new Error(st.error || ("Mastering failed (HTTP " + s2.status + ")"));
         if (/failed|error/i.test(String(st.status))) throw new Error(st.error || "Mastering failed");
