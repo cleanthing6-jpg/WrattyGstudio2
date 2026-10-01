@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+import { fxTicket } from "@/lib/fxTicket";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,9 +47,14 @@ export async function GET(
   const base = artist && title ? `${artist} - ${title}` : title || artist || "My mix";
   const name = `${base}.${fmt === "flac" ? "flac" : "mp3"}`;
 
+  const tk = fxTicket("read");
   const up = await fetch(target, {
     cache: "no-store",
-    headers: req.headers.get("range") ? { Range: req.headers.get("range")! } : undefined,
+    redirect: "manual",
+    headers: {
+      ...(req.headers.get("range") ? { Range: req.headers.get("range")! } : {}),
+      ...(tk ? { "x-fx-ticket": tk } : {}),
+    },
   });
   const ctype = up.headers.get("content-type") || "";
   const body = up.body;
