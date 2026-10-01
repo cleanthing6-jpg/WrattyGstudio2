@@ -1,74 +1,55 @@
 import { sql } from "./db";
-import { PLANS, MASTER_PLANS } from "./pricing";
+import { findPlanById } from "./pricing";
 
 export type CreditType = "beat" | "cover" | "mix" | "master";
 
-// Every tier id the DB may hold: free, the mix+master packs, and the
-// mastering-only packs. Derived from lib/pricing.ts so they cannot drift.
-const MIX_TIER_IDS = PLANS.filter((p) => p.id !== "free").map((p) => p.id);
-const MASTER_TIER_IDS = MASTER_PLANS.map((p) => p.id);
-const ALL_TIER_IDS = ["free", ...MIX_TIER_IDS, ...MASTER_TIER_IDS];
+let ready = false;
 
-export type Limits = { beats: number; covers: number; mixes: number; masters: number };
-
-export function limitsFor(tier: string): Limits {
-  const mix = PLANS.find((p) => p.id === tier);
-  const master = MASTER_PLANS.find((p) => p.id === tier);
-  return {
-    beats: 0,
-    covers: 0,
-    mixes: mix && tier !== "free" ? mix.tracks : 0,
-    masters: master ? master.tracks : 0,
-  };
-}
-
-function isTier(value: string): boolean {
-  return ALL_TIER_IDS.includes(value);
-}
-
-let columnsReady = false;
-
-// Adds the columns this module needs, once per process.
-async function ensureColumns() {
-  if (columnsReady) return;
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS usage_reset_at TIMESTAMPTZ DEFAULT NOW()`;
+// Adds the balance columns once per process, and backfills existing paid
+// tiers with the entitlement they actually bought (old terms, not new).
+async function ensureSchema() {
+  if (ready) return;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS mixes_used INT DEFAULT 0`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS masters_used INT DEFAULT 0`;
-  columnsReady = true;
-}
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS mix_credits INT DEFAULT 0`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS master_credits INT DEFAULT 0`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS usage_reset_at TIMESTAMPTZ DEFAULT NOW()`;
 
-// Rolling 30-day window: zero the counters once the window expires.
-// NOTE: this makes every purchase refill monthly. See README note.
-async function rollUsageWindow(userId: string) {
+  // Idempotent: only fires for legacy paid rows that have no granted total yet.
   await sql`
     UPDATE users
-    SET mixes_used = 0,
-        beats_used = 0,
-        covers_used = 0,
-        masters_used = 0,
-        usage_reset_at = NOW()
-    WHERE id = ${userId} AND usage_reset_at < NOW() - INTERVAL '30 days'
+    SET mix_credits = CASE tier
+      WHEN 'starter' THEN 5
+      WHEN 'pro' THEN 20
+      WHEN 'studio' THEN 50
+      ELSE mix_credits
+    END
+    WHERE tier IN ('starter','pro','studio') AND mix_credits = 0
   `;
+  ready = true;
 }
 
 export async function getUser(userId: string) {
   await sql`
-    INSERT INTO users (id)
-    VALUES (${userId})
+    INSERT INTO users (id) VALUES (${userId})
     ON CONFLICT (id) DO NOTHING
   `;
-
-  await ensureColumns();
-  await rollUsageWindow(userId);
-
+  await ensureSchema();
   const rows = await sql`SELECT * FROM users WHERE id = ${userId}`;
   if (rows.length === 0) throw new Error("Unable to create user");
   return rows[0];
 }
 
+function left(user: any) {
+  return {
+    mixes: Math.max(0, Number(user.mix_credits ?? 0) - Number(user.mixes_used ?? 0)),
+    masters: Math.max(0, Number(user.master_credits ?? 0) - Number(user.masters_used ?? 0)),
+  };
+}
+
 export async function checkCredit(userId: string, type: CreditType) {
   const user = await getUser(userId);
-  const tier = isTier(String(user.tier)) ? String(user.tier) : "free";
-  const lim = limitsFor(tier);
+  const b = left(user);
 
   const used =
     type === "beat" ? Number(user.beats_used ?? 0)
@@ -76,49 +57,30 @@ export async function checkCredit(userId: string, type: CreditType) {
     : type === "mix" ? Number(user.mixes_used ?? 0)
     : Number(user.masters_used ?? 0);
 
-  const limit =
-    type === "beat" ? lim.beats
-    : type === "cover" ? lim.covers
-    : type === "mix" ? lim.mixes
-    : lim.masters;
+  const remaining = type === "mix" ? b.mixes : type === "master" ? b.masters : 0;
 
-  return { allowed: used < limit, used, limit, tier };
+  // `remaining` is what is LEFT, not a ceiling - so allowed means "more than zero".
+  return { allowed: remaining > 0, used, remaining, limit: remaining, tier: String(user.tier || "free") };
 }
 
+// Atomic: the WHERE clause re-reads the granted total, so concurrent
+// requests can never push usage past the balance.
 export async function consumeCredit(userId: string, type: CreditType): Promise<boolean> {
-  const user = await getUser(userId);
-  const tier = isTier(String(user.tier)) ? String(user.tier) : "free";
-  const lim = limitsFor(tier);
+  await getUser(userId);
 
-  const max =
-    type === "beat" ? lim.beats
-    : type === "cover" ? lim.covers
-    : type === "mix" ? lim.mixes
-    : lim.masters;
-
-  // The WHERE clause re-checks the live value, so concurrent requests
-  // cannot push usage past the limit.
   let result;
   if (type === "beat") {
-    result = await sql`
-      UPDATE users SET beats_used = beats_used + 1
-      WHERE id = ${userId} AND beats_used < ${max}
-      RETURNING beats_used`;
+    result = await sql`UPDATE users SET beats_used = beats_used + 1
+      WHERE id = ${userId} AND beats_used < 0 RETURNING beats_used`;
   } else if (type === "cover") {
-    result = await sql`
-      UPDATE users SET covers_used = covers_used + 1
-      WHERE id = ${userId} AND covers_used < ${max}
-      RETURNING covers_used`;
+    result = await sql`UPDATE users SET covers_used = covers_used + 1
+      WHERE id = ${userId} AND covers_used < 0 RETURNING covers_used`;
   } else if (type === "mix") {
-    result = await sql`
-      UPDATE users SET mixes_used = mixes_used + 1
-      WHERE id = ${userId} AND mixes_used < ${max}
-      RETURNING mixes_used`;
+    result = await sql`UPDATE users SET mixes_used = mixes_used + 1
+      WHERE id = ${userId} AND mixes_used < mix_credits RETURNING mixes_used`;
   } else {
-    result = await sql`
-      UPDATE users SET masters_used = masters_used + 1
-      WHERE id = ${userId} AND masters_used < ${max}
-      RETURNING masters_used`;
+    result = await sql`UPDATE users SET masters_used = masters_used + 1
+      WHERE id = ${userId} AND masters_used < master_credits RETURNING masters_used`;
   }
 
   return (
@@ -127,19 +89,26 @@ export async function consumeCredit(userId: string, type: CreditType): Promise<b
   );
 }
 
-export async function setTier(userId: string, tier: string) {
-  if (!isTier(tier)) throw new Error("Invalid tier: " + tier);
+// Adds purchased credits. Never resets usage, never wipes the other balance.
+export async function grantCredits(userId: string, tier: string) {
+  const plan = findPlanById(tier);
+  if (!plan) throw new Error("Unknown tier: " + tier);
+  const addMix = plan.service === "master-only" ? 0 : plan.tracks;
+  const addMaster = plan.service === "master-only" ? plan.tracks : 0;
 
   await getUser(userId);
-
   await sql`
     UPDATE users
-    SET tier = ${tier},
-        beats_used = 0,
-        covers_used = 0,
-        mixes_used = 0,
-        masters_used = 0,
-        usage_reset_at = NOW()
+    SET mix_credits = mix_credits + ${addMix},
+        master_credits = master_credits + ${addMaster},
+        tier = ${tier}
     WHERE id = ${userId}
   `;
+}
+
+// Display label only. Does NOT grant or reset anything.
+export async function setTier(userId: string, tier: string) {
+  if (tier !== "free" && !findPlanById(tier)) throw new Error("Invalid tier: " + tier);
+  await getUser(userId);
+  await sql`UPDATE users SET tier = ${tier} WHERE id = ${userId}`;
 }

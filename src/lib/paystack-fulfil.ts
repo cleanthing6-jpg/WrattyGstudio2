@@ -1,5 +1,5 @@
 import { sql } from "@/lib/db";
-import { setTier } from "@/lib/credits";
+import { getUser, grantCredits } from "@/lib/credits";
 import { findPlanById } from "@/lib/pricing";
 
 // Derived from lib/pricing.ts - the single source of truth.
@@ -62,25 +62,31 @@ export async function fulfilPaystackReference(reference: string) {
     throw new Error("Payment verification failed");
   }
 
-  // Atomic claim: exactly one caller (callback OR webhook) may grant.
-  const claimed = (await sql`
-    INSERT INTO paystack_refs (reference, user_id, tier, status)
-    VALUES (${reference}, ${userId}, ${tier}, 'granting')
-    ON CONFLICT (reference) DO UPDATE SET status = 'granting'
-      WHERE paystack_refs.status NOT IN ('granted', 'granting')
-    RETURNING reference
+  const plan = findPlanById(tier);
+  if (!plan) throw new Error("Unknown tier: " + tier);
+  const addMix = plan.service === "master-only" ? 0 : plan.tracks;
+  const addMaster = plan.service === "master-only" ? plan.tracks : 0;
+
+  // Ensure the balance columns exist before touching them.
+  await getUser(userId);
+
+  // ONE statement = atomic. The credit grant and the reference record
+  // commit together, so a crash can never double-grant or lose a paid order.
+  const granted = (await sql`
+    WITH claim AS (
+      INSERT INTO paystack_refs (reference, user_id, tier, status)
+      VALUES (${reference}, ${userId}, ${tier}, 'granted')
+      ON CONFLICT (reference) DO UPDATE SET status = 'granted'
+        WHERE paystack_refs.status NOT IN ('granted', 'granting')
+      RETURNING reference
+    )
+    UPDATE users
+    SET mix_credits = mix_credits + ${addMix},
+        master_credits = master_credits + ${addMaster},
+        tier = ${tier}
+    WHERE id = ${userId} AND EXISTS (SELECT 1 FROM claim)
+    RETURNING mix_credits, master_credits
   `) as any[];
-  if (!claimed.length) return "already_granted";
 
-  try {
-    await setTier(userId, tier);
-  } catch (e) {
-    // Release so a retry can grant, instead of stranding a paid reference.
-    await sql`UPDATE paystack_refs SET status='pending'
-              WHERE reference=${reference} AND status='granting'`;
-    throw e;
-  }
-
-  await sql`UPDATE paystack_refs SET status='granted' WHERE reference=${reference}`;
-  return "granted";
+  return granted.length ? "granted" : "already_granted";
 }

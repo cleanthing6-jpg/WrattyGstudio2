@@ -1,9 +1,19 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { checkCredit } from "@/lib/credits";
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const mix = await checkCredit(userId, "mix");
-  return NextResponse.json({ tier: mix.tier, beats_used: 0, beats_left: 0, covers_used: 0, covers_left: 0, mixes_used: mix.used, mixes_left: mix.limit - mix.used });
+  const master = await checkCredit(userId, "master");
+
+  return NextResponse.json({
+    tier: mix.tier,
+    mixes_used: mix.used,
+    mixes_left: mix.limit,
+    masters_used: master.used,
+    masters_left: master.limit,
+  });
 }
