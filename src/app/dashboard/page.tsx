@@ -4,13 +4,20 @@ import Link from "next/link";
 import MixesList from "@/components/MixesList";
 import { useEffect, useState } from "react";
 import SupportChat from "@/components/SupportChat";
+import { PLANS } from "@/lib/pricing";
 
-const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> = {
-  free: { beats: 0, covers: 0, mixes: 1, price: "Free" },
-  starter: { beats: 0, covers: 0, mixes: 5, price: "₦3,000" },
-  pro: { beats: 0, covers: 0, mixes: 20, price: "₦7,000" },
-  studio: { beats: 0, covers: 0, mixes: 50, price: "₦15,000" },
-};
+const TIER_LIMITS: Record<string, { beats: number; covers: number; mixes: number; price: string }> =
+  Object.fromEntries(
+    PLANS.map((p) => [
+      p.id,
+      {
+        beats: 0,
+        covers: 0,
+        mixes: p.tracks,
+        price: p.ngn ? "\u20a6" + p.ngn.toLocaleString("en-NG") : "Free",
+      },
+    ])
+  );
 
 export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();

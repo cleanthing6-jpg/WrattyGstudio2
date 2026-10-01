@@ -9,7 +9,7 @@ const SYSTEM = [
   "Answer in 2-4 short sentences. Be warm and direct.",
   "NEVER invent a price, a refund promise, a turnaround time, or a feature.",
   "",
-  "PLANS: Free = 1 mix (no beats or covers). Starter = N3,000 / 5 mixes. Pro = N7,000 / 20 mixes. Studio = N15,000 / 50 mixes.",
+  "PLANS (mix + master): Free = one 60-second watermarked preview, no full download. Single = N7,500 for 1 track. EP Pack = N25,000 for 5 tracks. Album = N45,000 for 10 tracks. International customers pay in USD: $12 / $45 / $80.",
   "",
   "FREE PREVIEW: Every account can generate a free AI preview before paying. Always encourage users to try it first.",
   "",
