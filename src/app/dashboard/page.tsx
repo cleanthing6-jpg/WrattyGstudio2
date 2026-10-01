@@ -144,8 +144,8 @@ export default function Dashboard() {
                 <h3 className="font-bold">{p.name}</h3>
                 <p className="mt-1 text-2xl font-black">{p.price}</p>
                 <ul className="mt-3 space-y-1 text-xs text-slate-600">
-                  {p.mixes > 0 && <li>{"\U0001f39b\ufe0f " + p.mixes + (p.mixes === 1 ? " finished mix + master" : " finished mixes + masters")}</li>}
-                  {p.masters > 0 && <li>{"\U0001f39a\ufe0f " + p.masters + " stereo " + (p.masters === 1 ? "mix" : "mixes") + " mastered"}</li>}
+                  {p.mixes > 0 && <li>{"🎛️ " + p.mixes + (p.mixes === 1 ? " finished mix + master" : " finished mixes + masters")}</li>}
+                  {p.masters > 0 && <li>{"🎚️ " + p.masters + " stereo " + (p.masters === 1 ? "mix" : "mixes") + " mastered"}</li>}
                 </ul>
                 <Link href="/pricing" className={"mt-4 block text-center px-4 py-2 rounded-full text-sm font-bold " + (key === "studio" ? "bg-green-600 text-white" : "border border-slate-300 text-slate-700")}>Choose {p.name}</Link>
               </div>
