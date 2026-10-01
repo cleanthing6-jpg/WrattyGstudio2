@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { STUDIO_KNOWLEDGE } from "@/lib/studioKnowledge";
+import { fixedAnswer } from "@/lib/supportAnswers";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -128,7 +129,7 @@ async function generate(key: string, model: string, message: string): Promise<Tr
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts: [{ text: message }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "minimal" } },
       }),
       signal: AbortSignal.timeout(15000),
     });
@@ -155,6 +156,9 @@ export async function POST(req: Request) {
   if (!message) {
     return NextResponse.json({ answer: "Ask me anything about renders, plans, uploads or refunds." });
   }
+
+    const fixed = fixedAnswer(message);
+  if (fixed) return NextResponse.json({ answer: fixed });
 
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
