@@ -11,7 +11,7 @@ export default function Terms() {
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Availability</h2>
       <p className="mb-3">The service is provided as-is. Rendering times vary with load. We are not liable for lost profits or missed deadlines.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Contact</h2>
-      <p>your.real.address@gmail.com</p>
+      <p>wrattyg@gmail.com</p>
     </main>
   );
 }

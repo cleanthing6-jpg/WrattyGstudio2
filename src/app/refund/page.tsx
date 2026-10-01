@@ -11,7 +11,7 @@ export default function Refund() {
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">When we do not</h2>
       <p className="mb-3">Change of mind after using your render credits, or dissatisfaction with a mix you could have previewed first. Unused credits stay on your account.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">How to ask</h2>
-      <p>Email your.real.address@gmail.com with your Paystack reference. Refunds go back to the original payment method.</p>
+      <p>Email wrattyg@gmail.com with your Paystack reference. Refunds go back to the original payment method.</p>
     </main>
   );
 }

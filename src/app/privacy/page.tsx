@@ -12,7 +12,7 @@ export default function Privacy() {
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Your audio</h2>
       <p className="mb-3">Uploads are stored so we can render them, and deleted on a rolling schedule. Renders are yours - you keep all rights to your music.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Contact</h2>
-      <p>Questions or deletion requests: your.real.address@gmail.com</p>
+      <p>Questions or deletion requests: wrattyg@gmail.com</p>
     </main>
   );
 }
