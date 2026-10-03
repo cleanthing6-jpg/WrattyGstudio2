@@ -48,7 +48,10 @@ export async function GET(req: NextRequest) {
   const r = await mixGET(inner);
   const d = await r.json().catch(() => ({}));
 
-  if (d?.status === "done" && d?.url) return NextResponse.json({ status: "preview", url: d.url });
+  if (d?.status === "done" && d?.url) {
+    const url = `/api/download?id=${encodeURIComponent("job:" + taskId)}&format=mp3`;
+    return NextResponse.json({ status: "preview", url });
+  }
   if (d?.status === "failed") return NextResponse.json({ status: "failed", error: d?.error || "Preview failed" });
   return NextResponse.json({ status: d?.status || "queued", url: "", position: d?.position || 0 });
 }

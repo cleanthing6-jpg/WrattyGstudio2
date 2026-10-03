@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { sql } from "@/lib/db";
 import { POST as mixPOST, GET as mixGET } from "../mix/route";
 
 export const runtime = "nodejs";
@@ -10,8 +12,26 @@ const LOUDNESS = ["LOW", "MEDIUM", "HIGH"];
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const url = String(body?.url || "");
-  if (!/^https:\/\//.test(url)) return NextResponse.json({ error: "url required" }, { status: 400 });
+  let url = String(body?.url || "");
+
+  // The browser only ever holds same-origin /api/download?... URLs, which the
+  // Modal worker cannot fetch (no Clerk session, and it requires https).
+  // Resolve the real stored source from the job id instead.
+  const jobId = String(body?.jobId || "");
+  if (!/^https:\/\//.test(url) && jobId) {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const rows = (await sql`
+      SELECT url, mp3_key, flac_key, result FROM mix_jobs
+      WHERE id = ${jobId} AND user_id = ${userId}`) as any[];
+    const row = rows[0];
+    if (!row) return NextResponse.json({ error: "job not found" }, { status: 404 });
+    let res: any = row.result;
+    if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
+    const files = (res && res.files) || {};
+    url = String(row.flac_key || row.mp3_key || files.mp3 || files.flac || row.url || "");
+  }
+  if (!/^https:\/\//.test(url)) return NextResponse.json({ error: "url or jobId required" }, { status: 400 });
 
   const want = String(body?.loudness || "").toUpperCase();
   const loudness = LOUDNESS.includes(want) ? want : "HIGH";

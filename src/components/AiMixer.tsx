@@ -162,7 +162,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await fetch("/api/master-render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: mixUrl, style, loudness: masterLoudness, preview: !full }),
+        body: JSON.stringify({ url: mixUrl, jobId: taskId, style, loudness: masterLoudness, preview: !full }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
