@@ -41,7 +41,13 @@ export function MixesList() {
 
   useEffect(() => { load(); }, []);
 
-  async function remove(id: string, restore = false) {
+    async function removeHard(id: string) {
+    if (!confirm("Delete this render permanently? This cannot be undone.")) return;
+    const res = await fetch("/api/mixes?id=" + encodeURIComponent(id) + "&hard=1", { method: "DELETE" });
+    if (res.ok) { load(); } else { alert("Delete failed"); }
+  }
+
+async function remove(id: string, restore = false) {
     if (!restore && !confirm("Delete this mix?")) return;
     await fetch("/api/mixes?id=" + encodeURIComponent(id) + (restore ? "&restore=1" : ""), { method: "DELETE" });
     await load();
@@ -106,6 +112,12 @@ export function MixesList() {
                 className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
               >
                 {m.deleted ? "Restore" : "Delete"}
+              </button>
+              <button
+                onClick={() => removeHard(m.id)}
+                className="ml-2 text-xs bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1.5 rounded-lg"
+              >
+                Delete permanently
               </button>
             </div>
 

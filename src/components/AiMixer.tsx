@@ -315,7 +315,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setPreviewUrl(blobUrl);
         setFinalUrl(blobUrl);
         setMsg("Beat-Lock master ready. Saving to dashboard...");
-        const label = (beatStem.name || "BeatLock").replace(/\.[^.]+$/, "") + " - Master";
+        const nm = [artist, songTitle].filter(Boolean).join(" - ");
+        const label = nm || (beatStem.name || "BeatLock").replace(/\.[^.]+$/, "") + " - Master";
         uploadErrorRef.current = "";
         const up = await withTimeout(startUpload([new File([blob], label + ".wav", { type: "audio/wav" })]), 240000, "Saving Beat-Lock master");
         const item: any = up && up[0];

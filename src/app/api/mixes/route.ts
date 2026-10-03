@@ -221,21 +221,21 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    // Engine renders are listed from Postgres, so "dismiss" = hide, never
-    // delete. The rendered file stays available.
+    // Engine renders live in Postgres. Default = hide (reversible, Restore).
+    // ?restore=1 un-hides it. ?hard=1 deletes the row permanently.
     if (id.startsWith("job:")) {
-      await sql`UPDATE mix_jobs SET hidden_at = NOW()
-                WHERE id = ${id.slice(4)} AND user_id = ${userId}`;
+      await ensureMixCols();
+      const jobId = id.slice(4);
+      if (req.nextUrl.searchParams.get("hard") === "1") {
+        await sql`DELETE FROM mix_jobs WHERE id = ${jobId} AND user_id = ${userId}`;
+        return NextResponse.json({ ok: true, deleted: true });
+      }
+      const restore = req.nextUrl.searchParams.get("restore") === "1";
+      await sql`UPDATE mix_jobs SET hidden_at = CASE WHEN ${restore} THEN NULL ELSE NOW() END
+                WHERE id = ${jobId} AND user_id = ${userId}`;
       return NextResponse.json({ ok: true });
     }
 
-    if (id.startsWith("job:")) {
-      await ensureMixCols();
-      const restore = req.nextUrl.searchParams.get("restore") === "1";
-      await sql`UPDATE mix_jobs SET hidden_at = CASE WHEN ${restore} THEN NULL ELSE NOW() END
-                WHERE id = ${id.slice(4)} AND user_id = ${userId}`;
-      return NextResponse.json({ ok: true });
-    }
     const client = await getMongoClient();
     const col = client.db("wrattyg").collection("mixes");
     await col.deleteOne({ _id: new ObjectId(id), userId });
@@ -244,3 +244,4 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: (e && e.message) || String(e) }, { status: 500 });
   }
 }
+
