@@ -227,6 +227,36 @@ export async function DELETE(req: NextRequest) {
       await ensureMixCols();
       const jobId = id.slice(4);
       if (req.nextUrl.searchParams.get("hard") === "1") {
+        // Remove the audio from the Modal volume BEFORE dropping the row.
+        // If cleanup fails we keep the row so the user can retry.
+        const rows = (await sql`
+          SELECT result, url, mp3_key, flac_key FROM mix_jobs
+          WHERE id = ${jobId} AND user_id = ${userId}`) as any[];
+        const r0: any = rows[0] || {};
+        let res0: any = r0.result;
+        if (typeof res0 === "string") { try { res0 = JSON.parse(res0); } catch { res0 = {}; } }
+        const files0 = (res0 && res0.files) || {};
+        const keys: string[] = [];
+        for (const u of [files0.mp3, files0.flac, r0.mp3_key, r0.flac_key, r0.url]) {
+          const m = String(u || "").match(/wratty-files-web\.modal\.run\/f\/(fx\/[^?#]+)$/);
+          if (m && (m[1].endsWith(".mp3") || m[1].endsWith(".flac"))) keys.push(m[1]);
+        }
+        const uniq = Array.from(new Set(keys));
+        if (uniq.length) {
+          const cleanupUrl = (process.env.MODAL_CLEANUP_URL || "https://wrattyg--wratty-cleanup-api.modal.run").replace(/\/$/, "");
+          try {
+            const c = await fetch(cleanupUrl + "/delete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + (process.env.FX_INTERNAL_SECRET || "") },
+              body: JSON.stringify({ keys: uniq }),
+            });
+            if (!c.ok) {
+              return NextResponse.json({ error: "Could not delete the audio file (HTTP " + c.status + "); row kept so you can retry" }, { status: 502 });
+            }
+          } catch {
+            return NextResponse.json({ error: "Could not reach the file cleanup service; row kept so you can retry" }, { status: 502 });
+          }
+        }
         await sql`DELETE FROM mix_jobs WHERE id = ${jobId} AND user_id = ${userId}`;
         return NextResponse.json({ ok: true, deleted: true });
       }
