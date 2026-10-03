@@ -344,7 +344,7 @@ function clientJobResponse(row: any) {
   const isFlac = /\.flac(?:$|[?#])/i.test(sourceUrl);
   const rawMp3 = String(row.mp3_key || (files && files.mp3) || (isFlac ? "" : sourceUrl));
   const rawFlac = String(row.flac_key || (files && files.flac) || (isFlac ? sourceUrl : ""));
-  const fileUrl = (f) =>
+  const fileUrl = (f: "mp3" | "flac") =>
     "/api/download?id=" + encodeURIComponent("job:" + row.id) + "&format=" + f;
   const mp3 = rawMp3.indexOf("https://") === 0 ? fileUrl("mp3") : "";
   const flac = rawFlac.indexOf("https://") === 0 ? fileUrl("flac") : "";
