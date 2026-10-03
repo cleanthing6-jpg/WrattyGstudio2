@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { STUDIO_KNOWLEDGE } from "@/lib/studioKnowledge";
 import { fixedAnswer } from "@/lib/supportAnswers";
@@ -146,7 +147,20 @@ async function generate(key: string, model: string, message: string): Promise<Tr
   }
 }
 
+
+const HITS = new Map<string, number[]>();
+function limited(ip: string, max = 20, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const arr = (HITS.get(ip) || []).filter((t) => now - t < windowMs);
+  arr.push(now); HITS.set(ip, arr);
+  if (HITS.size > 5000) HITS.clear();
+  return arr.length > max;
+}
+
 export async function POST(req: Request) {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+  if (limited(ip))
+    return NextResponse.json({ answer: "Too many messages just now - please wait a minute." }, { status: 429 });
   let message = "";
   try {
     const body = await req.json();
@@ -186,6 +200,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  const { userId } = await auth();
+  const owner = (process.env.OWNER_USER_ID || "").trim();
+  if (!owner || userId !== owner)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   const key = process.env.GEMINI_API_KEY;
   if (!key) return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
   const avail = await availableModels(key);

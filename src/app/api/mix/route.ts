@@ -191,7 +191,26 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch {}
   const stems = (Array.isArray(body?.stems) ? body.stems : [])
     .map((s: any) => ({ url: String(s?.url || ""), role: String(s?.role || s?.name || "stem") }))
-    .filter((s: any) => /^https:\/\//.test(s.url));
+    .filter((s: any) => {
+      // The Modal worker FETCHES this url, so an arbitrary https url is an
+      // SSRF vector. Block loopback / private / link-local targets - the
+      // cloud metadata endpoint (169.254.169.254) is the one that matters
+      // most. Every legitimate external host (R2, the splitter) still passes.
+      if (!/^https:\/\//.test(s.url)) return false;
+      try {
+        const h = new URL(s.url).hostname.toLowerCase();
+        if (!h) return false;
+        if (h === "localhost" || h.endsWith(".localhost") ||
+            h.endsWith(".local") || h.endsWith(".internal")) return false;
+        if (/^(127|10)\./.test(h)) return false;
+        if (/^192\.168\./.test(h)) return false;
+        if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return false;
+        if (/^169\.254\./.test(h)) return false;
+        if (h === "0.0.0.0" || h === "::1" || h === "[::1]") return false;
+        if (h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80")) return false;
+        return true;
+      } catch { return false; }
+    });
   if (!stems.length) return NextResponse.json({ error: "stems[] with https urls required" }, { status: 400 });
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();

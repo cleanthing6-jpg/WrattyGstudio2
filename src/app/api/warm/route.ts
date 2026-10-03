@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -6,6 +7,8 @@ export const maxDuration = 60;
 // Wakes the Render mixer so it is already booted by the time the user
 // finishes uploading stems. Fire-and-forget from the client.
 export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
   const base = (process.env.MIX_API_URL || "").replace(/\/+$/, "");
   if (!base) return NextResponse.json({ ok: false, error: "MIX_API_URL not set" });
   try {
