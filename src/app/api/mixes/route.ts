@@ -101,7 +101,10 @@ export async function GET(req: NextRequest) {
         WHERE user_id = ${userId} AND status = 'done'
           AND max_seconds IS NULL
           AND COALESCE(url, '') <> ''
-        ORDER BY created_at DESC LIMIT 1000`) as any[];
+          AND (${req.nextUrl.searchParams.get("all") === "1"}
+               OR NULLIF(BTRIM(artist_name), '') IS NOT NULL
+               OR NULLIF(BTRIM(song_title), '') IS NOT NULL)
+        ORDER BY created_at DESC, id DESC LIMIT 1000`) as any[];
     } catch (e: any) {
       renderError = (e && e.message) || String(e);
       console.error("[mixes] render list failed", e);
@@ -155,6 +158,7 @@ export async function GET(req: NextRequest) {
       if (!all && mode && mode !== "master") return false;
       const a = String(r.artist_name || "").trim().toLowerCase();
       const t = String(r.song_title || "").trim().toLowerCase();
+      if (!all && !(a || t)) return false;   // pre-naming rows -> ?all=1
       const key = a || t ? a + "|" + t : "id:" + r.id;
       if (seen.has(key)) return false;
       seen.add(key);
