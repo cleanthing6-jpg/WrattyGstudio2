@@ -72,7 +72,7 @@ async function ensureMixCols() {
 // Dashboard lists TWO sources: finished engine renders (Postgres mix_jobs,
 // done, full renders only) and the legacy Mongo list (Beat-Lock saves).
 // Either source failing must not blank the other.
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -141,7 +141,27 @@ export async function GET() {
       }
     }
 
-    const rendered = jobs.map((r: any) => {
+    // The dashboard is a library of FINISHED MASTERS - one card per song.
+    // One song can leave two jobs (a mix pass and a master pass) and every
+    // retry leaves another, so collapse them: masters only, newest first,
+    // keyed by artist|title. Unnamed rows key on their own id so they never
+    // merge with each other. ?all=1 shows everything, mix passes included.
+    const all = req.nextUrl.searchParams.get("all") === "1";
+    const seen = new Set<string>();
+    const kept = jobs.filter((r: any) => {
+      let res: any = r.result;
+      if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
+      const mode = String((res && res.mode) || "").toLowerCase();
+      if (!all && mode && mode !== "master") return false;
+      const a = String(r.artist_name || "").trim().toLowerCase();
+      const t = String(r.song_title || "").trim().toLowerCase();
+      const key = a || t ? a + "|" + t : "id:" + r.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const rendered = kept.map((r: any) => {
       let res: any = r.result;
       if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
       const files = (res && res.files) || {};
@@ -161,7 +181,7 @@ export async function GET() {
       })),
     ];
 
-    const body: any = { mixes };
+    const body: any = { mixes, jobs: jobs.length, shown: kept.length };
     if (hint) body.hint = hint;
     if (renderError) body.renderError = renderError;
     if (mongoError) body.mongoError = mongoError;
