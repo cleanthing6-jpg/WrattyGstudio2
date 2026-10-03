@@ -3,30 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { ObjectId } from "mongodb";
 import { getMongoClient } from "@/lib/mongodb";
 import { sql } from "@/lib/db";
-
-let _cols = false;
 // Runs once per server process. The dashboard may be the FIRST request after a
 // deploy, and the render query below filters on these columns - if they don't
 // exist yet the query throws. Only flag ready once every ALTER succeeded.
-async function ensureMixCols() {
-  if (_cols) return;
-  await sql`CREATE TABLE IF NOT EXISTS mix_jobs (
-    id TEXT PRIMARY KEY, user_id TEXT NOT NULL, status TEXT NOT NULL,
-    stems JSONB, loudness TEXT, preset TEXT, max_seconds INTEGER,
-    credit_type TEXT, runner_job TEXT, url TEXT, result JSONB,
-    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`;
-  const stmts = [
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS artist_name TEXT`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`,
-    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`,
-  ];
-  await Promise.all(stmts);
-  _cols = true;
-}
 
 // A job can finish in Modal while the browser has already navigated away - then
 // nothing ever flips the row to 'done' and it never reaches the dashboard. Ask
@@ -70,32 +49,50 @@ async function reconcile(userId: string) {
     console.error("[mixes] reconcile query failed", e);
   }
 }
+let _cols = false;
+async function ensureMixCols() {
+  if (_cols) return;
+  await sql`CREATE TABLE IF NOT EXISTS mix_jobs (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL, status TEXT NOT NULL,
+    stems JSONB, loudness TEXT, preset TEXT, max_seconds INTEGER,
+    credit_type TEXT, runner_job TEXT, url TEXT, result JSONB,
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`;
+  await Promise.all([
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS artist_name TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`,
+  ]);
+  _cols = true;
+}
 
-export async function GET(req: NextRequest) {
+// Dashboard lists TWO sources: finished engine renders (Postgres mix_jobs,
+// done, full renders only) and the legacy Mongo list (Beat-Lock saves).
+// Either source failing must not blank the other.
+export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    try { await ensureMixCols(); } catch (e) { console.error("[mixes] columns", e); }
-    await reconcile(userId);
-
-    // Mongo holds the LEGACY list. A Mongo outage must not kill the whole
-    // endpoint - finished engine renders live in Postgres and still deserve to
-    // show. Degrade instead of returning 500.
-    let rows: any[] = [];
     let mongoError: string | null = null;
+    let renderError: string | null = null;
+
+    let legacy: any[] = [];
     try {
       const client = await getMongoClient();
-      const col = client.db("wrattyg").collection("mixes");
-      rows = await col.find({ userId }).sort({ createdAt: -1 }).toArray();
+      legacy = await client.db("wrattyg").collection("mixes")
+        .find({ userId }).sort({ createdAt: -1 }).toArray();
     } catch (e: any) {
       mongoError = (e && e.message) || String(e);
       console.error("[mixes] mongo failed", e);
     }
 
     let jobs: any[] = [];
-    let renderError: string | null = null;
     try {
+      await ensureMixCols();
       jobs = (await sql`
         SELECT id, artist_name, song_title, url, result, loudness, preset, created_at
         FROM mix_jobs
@@ -104,41 +101,31 @@ export async function GET(req: NextRequest) {
           AND COALESCE(url, '') <> ''
         ORDER BY created_at DESC LIMIT 100`) as any[];
     } catch (e: any) {
-      // Never swallow this - an empty dashboard and a broken query look the same.
       renderError = (e && e.message) || String(e);
       console.error("[mixes] render list failed", e);
     }
 
-    const parsed = (v: any) => {
-      if (typeof v === "string") { try { return JSON.parse(v); } catch { return {}; } }
-      return v || {};
-    };
-    const tagged = new Set(rows.map((r: any) => String(r.jobId || "")).filter(Boolean));
+    const rendered = jobs.map((r: any) => {
+      let res: any = r.result;
+      if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
+      const files = (res && res.files) || {};
+      const mp3 = String(files.mp3 || "");
+      const flac = String(files.flac || "");
+      const a = String(r.artist_name || "").trim();
+      const t = String(r.song_title || "").trim();
+      const name = a && t ? a + " - " + t : t || a || "My mix";
+      return { id: "job:" + r.id, name, url: mp3 || flac || String(r.url || ""), mp3, flac, createdAt: r.created_at };
+    });
 
-    const renderMixes = jobs
-      .filter((k: any) => !tagged.has(String(k.id)))
-      .map((k: any) => {
-        const f = parsed(k.result).files || {};
-        const a = String(k.artist_name || "").trim();
-        const t = String(k.song_title || "").trim();
-        return {
-          id: "job:" + k.id,
-          name: a && t ? a + " - " + t : t || a || "My mix",
-          url: String(k.url || ""),
-          mp3: String(f.mp3 || k.url || ""),
-          flac: String(f.flac || ""),
-          loudness: k.loudness || "",
-          preset: k.preset || "",
-          createdAt: k.created_at,
-        };
-      });
-
-    const body: any = {
-      mixes: [...renderMixes, ...rows.map((r: any) => ({
+    const mixes = [
+      ...rendered,
+      ...legacy.map((r: any) => ({
         id: r._id.toString(), name: r.name, url: r.url,
         mp3: r.mp3 || r.url || "", flac: r.flac || "", createdAt: r.createdAt,
-      }))],
-    };
+      })),
+    ];
+
+    const body: any = { mixes };
     if (renderError) body.renderError = renderError;
     if (mongoError) body.mongoError = mongoError;
     return NextResponse.json(body);
@@ -180,6 +167,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (id.startsWith("job:")) {
+      await ensureMixCols();
+      await sql`UPDATE mix_jobs SET hidden_at = NOW()
+                WHERE id = ${id.slice(4)} AND user_id = ${userId}`;
+      return NextResponse.json({ ok: true });
+    }
     const client = await getMongoClient();
     const col = client.db("wrattyg").collection("mixes");
     await col.deleteOne({ _id: new ObjectId(id), userId });
