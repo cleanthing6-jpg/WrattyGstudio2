@@ -40,6 +40,7 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS artist_name TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mode TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
   // Dismissed renders stay in the table (the file is still there) but drop
@@ -101,7 +102,7 @@ async function reapStale() {
   await sql`
     WITH f AS (
       UPDATE mix_jobs SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
-      WHERE status='running' AND (updated_at < NOW() - INTERVAL '8 minutes' OR created_at < NOW() - INTERVAL '20 minutes')
+      WHERE status='running' AND (updated_at < NOW() - INTERVAL '70 minutes' OR created_at < NOW() - INTERVAL '75 minutes')
       RETURNING user_id, credit_type
     ), r AS (
       UPDATE users u SET
@@ -278,8 +279,8 @@ export async function POST(req: NextRequest) {
 
   const id = crypto.randomUUID();
   try {
-    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title)
-      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null})`;
+    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title), mode)
+      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null}, ${mode})`;
   } catch (e) {
     // The credit was already spent but no job exists to refund it - give it back now.
     if (creditType) await refundCredit(userId, creditType as any);
@@ -314,22 +315,54 @@ async function notify(userId: string, status: "ready" | "failed", opts?: any) {
 // Full renders are listed on the dashboard (Mongo `mixes`, read by
 // /api/mixes). Previews are not. Best-effort: a Mongo hiccup must never
 // break the render poll.
-async function saveToDashboard(userId: string, row: any, mp3: string, flac: string) {
+async function saveToDashboard(
+  userId: string, row: any, mp3: string, flac: string
+): Promise<{ saved: boolean; name: string }> {
+  const a = String(row?.artist_name || "").trim();
+  const t = String(row?.song_title || "").trim();
+  const name = a && t ? `${a} - ${t}` : t || a || "My mix";
+  const jobId = String(row?.id || "");
+  if (!jobId || (!mp3 && !flac)) return { saved: false, name };
   try {
-    if (!mp3 && !flac) return;
-    const a = String(row?.artist_name || "").trim();
-    const t = String(row?.song_title || "").trim();
-    const name = a && t ? `${a} - ${t}` : t || a || "My mix";
     const client = await getMongoClient();
-    await client.db("wrattyg").collection("mixes").insertOne({
-      userId, name, jobId: String(row?.id || ""),
-      url: mp3 || flac, mp3: mp3 || "", flac: flac || "",
-      loudness: String(row?.loudness || ""), preset: String(row?.preset || ""),
-      createdAt: new Date(),
-    });
+    const col = client.db("wrattyg").collection("mixes");
+    try {
+      await col.createIndex({ userId: 1, jobId: 1 }, { unique: true });
+    } catch (ie) {
+      console.error("[mixes] index not created (dupes?)", ie);
+    }
+    await col.updateOne(
+      { userId, jobId },
+      {
+        $set: {
+          name, url: mp3 || flac, mp3: mp3 || "", flac: flac || "",
+          loudness: String(row?.loudness || ""), preset: String(row?.preset || ""),
+          mode: String(row?.mode || ""),
+        },
+        $setOnInsert: { userId, jobId, createdAt: new Date() },
+      },
+      { upsert: true },
+    );
+    return { saved: true, name };
   } catch (e) {
-    console.error("[mixes] dashboard save failed", e);
+    console.error("[mixes] dashboard save failed", { jobId, error: e });
+    return { saved: false, name };
   }
+}
+
+
+function filesOf(row: any) {
+  let result: any = row && row.result;
+  if (typeof result === "string") {
+    try { result = JSON.parse(result); } catch { result = {}; }
+  }
+  const files = (result && result.files) || {};
+  const src = String((row && row.url) || "");
+  const low = src.toLowerCase();
+  return {
+    mp3: String((row && row.mp3_key) || files.mp3 || (low.indexOf(".mp3") >= 0 ? src : "")),
+    flac: String((row && row.flac_key) || files.flac || (low.indexOf(".flac") >= 0 ? src : "")),
+  };
 }
 
 
@@ -378,8 +411,19 @@ export async function GET(req: NextRequest) {
   if (row.status === "queued") {
     return NextResponse.json(clientJobResponse({ ...row, position: await positionOf(id) }));
   }
-  if (row.status === "done" || row.status === "failed") {
+  if (row.status === "failed") {
     return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
+  }
+  if (row.status === "done") {
+    const f = filesOf(row);
+    const saved = row.max_seconds
+      ? { saved: false, name: "" }
+      : await saveToDashboard(userId, row, f.mp3, f.flac);
+    return NextResponse.json({
+      ...clientJobResponse({ ...row, position: 0 }),
+      dashboardSaved: saved.saved,
+      dashboardName: saved.name,
+    });
   }
 
   // The row is marked running BEFORE Modal's job id is stored. Polling in
@@ -390,6 +434,7 @@ export async function GET(req: NextRequest) {
   }
   const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 1, [502, 503, 504], 20000);
   const d = r.ok ? r.data : null;
+  let dashboardSave: { saved: boolean; name: string } = { saved: false, name: "" };
 
   if (d && d.status === "done" && d.url) {
     // RETURNING id -> empty means another poll already flipped it, so we
@@ -402,8 +447,10 @@ export async function GET(req: NextRequest) {
               flac_key=${flacU || null}, mp3_key=${mp3U || null},
               result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW()
               WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
+    if (!row.max_seconds) {
+      dashboardSave = await saveToDashboard(userId, row, mp3U, flacU);
+    }
     if (tr.length && !row.max_seconds) {
-      await saveToDashboard(userId, row, mp3U, flacU);
       await notify(userId, "ready", { url: mp3U || d.url });
     }
   } else if (d && d.status === "failed") {
@@ -423,5 +470,9 @@ export async function GET(req: NextRequest) {
   await pump();
 
   const after = (await sql`SELECT * FROM mix_jobs WHERE id=${id}`) as any[];
-  return NextResponse.json(clientJobResponse({ ...(after[0] || row), position: 0 }));
+  return NextResponse.json({
+    ...clientJobResponse({ ...(after[0] || row), position: 0 }),
+    dashboardSaved: dashboardSave.saved,
+    dashboardName: dashboardSave.name,
+  });
 }

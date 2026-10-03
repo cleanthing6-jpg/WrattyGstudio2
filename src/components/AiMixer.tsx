@@ -162,7 +162,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await fetch("/api/master-render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: mixUrl, jobId: taskId, style, loudness: masterLoudness, preview: !full }),
+        body: JSON.stringify({ url: mixUrl, jobId: taskId, artist, title: songTitle, mode: "master", style, loudness: masterLoudness, preview: !full }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
@@ -174,7 +174,13 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!s2.ok) throw new Error(st.error || ("Mastering failed (HTTP " + s2.status + ")"));
         if (/failed|error/i.test(String(st.status))) throw new Error(st.error || "Mastering failed");
         const got = st.masterUrl || st.url || st.previewUrl;
-        if (got) { setMasterUrl(got); setMsg("Master ready"); return; }
+        if (got) {
+          setMasterUrl(got);
+          setMsg(st.dashboardSaved === true
+            ? "Saved to your dashboard: " + (String(st.dashboardName || "") || "My mix")
+            : "Master ready");
+          return;
+        }
       }
       throw new Error(full ? "Full master timed out - try again" : "Mastering preview timed out");
     } catch (e: any) {
@@ -373,6 +379,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
       let finalR = d && d.url ? d.url : "";
+      let dashboardSaved = false;
+      let dashboardName = "";
       for (let i = 0; i < 120 && !finalR; i++) {
         await new Promise((res) => setTimeout(res, 5000));
         const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000);
@@ -380,6 +388,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "done" && gd.url) {
           finalR = gd.url;
+          dashboardSaved = gd.dashboardSaved === true;
+          dashboardName = String(gd.dashboardName || "");
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
         }
         if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
@@ -388,6 +398,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       }
       if (!finalR) setMsg("Still working - don't resubmit, it can take a few minutes.");
       setFinalUrl(finalR);
+      if (dashboardSaved) {
+        setMsg("Saved to your dashboard: " + (dashboardName || "My mix"));
+      }
       setMsg("Full mix ready — download below 🎉");
     } catch (e: any) {
       setErr(e?.message || "Full mix failed");

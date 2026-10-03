@@ -52,7 +52,14 @@ export async function POST(req: NextRequest) {
   const inner = new NextRequest(req.url, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stems: [{ url, role: "mix" }], loudness, preview: preview }),
+    body: JSON.stringify({
+      stems: [{ url, role: "mix" }],
+      loudness,
+      preview: preview,
+      artist: String(body?.artist || ""),
+      title: String(body?.title || ""),
+      mode: "master",
+    }),
   });
 
   const r = await mixPOST(inner);
@@ -75,7 +82,15 @@ export async function GET(req: NextRequest) {
   const r = await mixGET(inner);
   const d = await r.json().catch(() => ({}));
 
-  if (d?.status === "done" && d?.url) return NextResponse.json({ status: "done", url: d.url, previewUrl: d.url });
+  if (d?.status === "done" && d?.url) {
+    return NextResponse.json({
+      status: "done",
+      url: d.url,
+      previewUrl: d.url,
+      dashboardSaved: d.dashboardSaved === true,
+      dashboardName: String(d.dashboardName || ""),
+    });
+  }
   if (d?.status === "failed") return NextResponse.json({ status: "failed", error: d?.error || "Master failed" });
   return NextResponse.json({ status: d?.status || "queued", previewUrl: "" });
 }
