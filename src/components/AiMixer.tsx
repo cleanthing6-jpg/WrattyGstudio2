@@ -338,9 +338,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stems: done, style, preview: true }),
-        }), 120000, "RoEx request");
+        }), 120000, "Mix request");
         const data = await post.json().catch(() => ({}));
-        if (!post.ok || !data.taskId) throw new Error(data.error || "RoEx could not start the mix (code " + post.status + ")");
+        if (!post.ok || !data.taskId) throw new Error(data.error || "Could not start the mix (code " + post.status + ")");
         setTaskId(data.taskId);
 
         for (let i = 0; i < 120; i++) {

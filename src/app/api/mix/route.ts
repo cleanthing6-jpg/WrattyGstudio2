@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
 
   const id = crypto.randomUUID();
   try {
-    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title), mode)
+    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title, mode)
       VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null}, ${mode})`;
   } catch (e) {
     // The credit was already spent but no job exists to refund it - give it back now.
