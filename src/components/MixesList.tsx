@@ -55,17 +55,20 @@ async function remove(id: string, restore = false) {
 
   // The file host gates every read behind a signed ticket, which the browser
   // cannot send - so playback goes through our proxy too (it mints the ticket).
-  function fileProxyUrl(raw: string) {
-  return raw ? `/api/f?u=${encodeURIComponent(raw)}` : "";
+function mediaUrl(m: Mix, fmt: "mp3" | "flac", dl: boolean) {
+  const raw = fmt === "flac" ? (m.flac || "") : (m.mp3 || m.url || "");
+  if (!raw) return "";
+  const actual = fmt === "flac" || /\.flac(?:$|[?#])/i.test(raw) ? "flac" : "mp3";
+  return "/api/download?id=" + encodeURIComponent(m.id) + "&format=" + actual + (dl ? "&dl=1" : "");
 }
 
 function srcFor(m: Mix, fmt: "mp3" | "flac") {
     if (m.id.startsWith("job:")) return "/api/download?id=" + encodeURIComponent(m.id) + "&format=" + fmt;
-    return fileProxyUrl(fmt === "flac" ? (m.flac || "") : (m.mp3 || m.url));
+    return mediaUrl(m, fmt, false);
   }
   function hrefFor(m: Mix, fmt: "mp3" | "flac") {
     if (m.id.startsWith("job:")) return "/api/download?id=" + encodeURIComponent(m.id) + "&format=" + fmt + "&dl=1";
-    return fileProxyUrl(fmt === "flac" ? (m.flac || "") : (m.mp3 || m.url));
+    return mediaUrl(m, fmt, true);
   }
 
   return (

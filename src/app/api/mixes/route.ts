@@ -26,7 +26,7 @@ async function reconcile(userId: string) {
         const res = await fetch(base + "/?id=" + encodeURIComponent(String(r.runner_job)), {
           cache: "no-store",
           headers: secret ? { Authorization: "Bearer " + secret } : undefined,
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(4000),
         });
         if (!res.ok) continue;
         const d: any = await res.json().catch(() => null);
@@ -40,7 +40,7 @@ async function reconcile(userId: string) {
           UPDATE mix_jobs SET status='done', url=${url},
             flac_key=${flac || null}, mp3_key=${mp3 || null},
             result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW()
-          WHERE id=${r.id} AND status <> 'done'`;
+          WHERE id=${r.id} AND status IN ('queued','running')`;
       } catch (e) {
         console.error("[mixes] reconcile failed", r.id, e);
       }
@@ -60,6 +60,7 @@ async function ensureMixCols() {
   await Promise.all([
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS artist_name TEXT`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS song_title  TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mode TEXT`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`,
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
     let jobs: any[] = [];
     try {
       await ensureMixCols();
+      await reconcile(userId);
       jobs = (await sql`
         SELECT id, artist_name, song_title, url, result, loudness, preset, created_at,
                (hidden_at IS NOT NULL) AS deleted
@@ -151,7 +153,6 @@ export async function GET(req: NextRequest) {
     const kept = jobs.filter((r: any) => {
       let res: any = r.result;
       if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
-      const mode = String((res && res.mode) || "").toLowerCase();
       // named renders always show; dedupe below keeps the newest pass per song
       const a = String(r.artist_name || "").trim().toLowerCase();
       const t = String(r.song_title || "").trim().toLowerCase();
