@@ -89,8 +89,28 @@ def to_sr(a, si, so):
     return np.stack([np.interp(x, i, c.astype(np.float64)).astype(np.float32) for c in a])
 
 
+def _fx_ticket(scope="read", ttl=600):
+    import hashlib
+    import hmac
+    import os
+    import time
+
+    key = os.environ.get("FX_INTERNAL_SECRET", "")
+    if not key:
+        return ""
+    exp = int(time.time()) + ttl
+    sig = hmac.new(
+        key.encode(), f"{scope}|{exp}".encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{exp}.{sig}"
+
+
 def grab(u, dst):
-    with requests.get(u, stream=True, timeout=120) as r:
+    tk = _fx_ticket("read")
+    headers = {"x-fx-ticket": tk} if tk else {}
+    if not tk:
+        raise RuntimeError("FX_INTERNAL_SECRET is missing in the mix worker")
+    with requests.get(u, headers=headers, stream=True, timeout=120) as r:
         r.raise_for_status()
         with open(dst, "wb") as fh:
             for c in r.iter_content(1 << 16):
@@ -323,7 +343,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["master_mid_cut_db"] = -2.0
             # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
             # margin and forces extra limiting that shaves crest.
-            tgt = tgt + float(cfg.get("master_lift_db", 1.5))
+            tgt = tgt + float(cfg.get("master_lift_db", 2.2))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
@@ -333,6 +353,16 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
 
         setjob(jid, "clip+limit")
+        # ORDER MATTERS FOR DYNAMICS (chasing the FOLA reference):
+        # set the gain FIRST, then clip, then limit ONCE. The old order
+        # clipped, limited, then re-limited after every gain step - each
+        # re-limit shaved crest (LRA 2.8 vs FOLA 4.1 at the same true peak).
+        for _ in range(3):
+            f = lufs(mixed, sr)
+            if f is None or abs(tgt - f) < 0.15:
+                break
+            _step = max(-9.0, min(9.0, tgt - f))
+            mixed = mixed * (10.0 ** (_step / 20.0))
         # Clipper OFF by default: shaving peaks costs kick transients and
         # adds edge. Only presets that explicitly ask for it keep it.
         _clip_on = bool(cfg.get("clip")) and mode not in ("passthrough", "master")
@@ -342,29 +372,15 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if _clip_on:
             mixed = auto.clip(mixed, sr)
         elif cfg.get("soft_clip") or mode == "master":
-            # Loudness = true peak - PLR. At -1.0 dBTP the route to -10 LUFS
-            # is a gentle PLR shave, not more limiting.
-            mixed = auto.soft_clip(mixed, sr, knee=0.60 if mode == "master" else 0.70)
+            # Master clips a touch harder so loudness comes from peak
+            # rounding, not from the limiter - that is what keeps LRA up.
+            mixed = auto.soft_clip(mixed, sr, knee=0.55 if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
                                "post_peak_dbfs": round(peakdb(mixed), 2),
                                "samples_over_threshold": _hits}
         mixed, tp, brick = auto.limit(mixed, sr, -0.1)
-        # Scale-then-limit means every limiting pass pulls integrated loudness back
-        # down, so two iterations could not converge: a -9.1 LUFS master target
-        # landed at -10.70. Overshoot the correction, iterate until it lands,
-        # then record the residual error.
-        # Two non-overshooting corrections. The old 6-pass x1.25 loop
-        # re-limited the signal 6x, shaving crest (14 -> 9.45) and LRA
-        # (2.6 -> 1.3). Aim at the target exactly, max 2 passes.
-        for _ in range(3):
-            f = lufs(mixed, sr)
-            if f is None or abs(tgt - f) < 0.15:
-                break
-            _step = max(-9.0, min(9.0, tgt - f))
-            mixed = mixed * (10.0 ** (_step / 20.0))
-            mixed, tp, brick = auto.limit(mixed, sr, -0.1)
         _fin = lufs(mixed, sr)
         report["loudness_error_db"] = None if _fin is None else round(tgt - _fin, 2)
         report["true_peak_dbfs"] = round(tp, 2)
