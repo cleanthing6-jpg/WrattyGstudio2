@@ -121,6 +121,19 @@ type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
 type MixMode = "split" | "mix";
 type SplitResult = { name: string; stems: { type: string; url: string }[] };
 type StemRole = "lead" | "backup" | "adlib" | "beat";
+// Browser playback only. Stems/ masters live in R2 behind a presigned
+// url that dies after 7 days; the cards route through /api/file, which
+// re-signs on every load. DO NOT use this for the urls handed to the
+// mix engine - the Modal worker needs a cookie-free presigned url.
+function playSrc(url: string): string {
+  if (!url) return "";
+  if (url.indexOf("/api/file") === 0 || url.indexOf("/api/file?") > -1) return url;
+  if (/^https?:\/\//i.test(url) && /\/(?:stems|masters)\//.test(url)) {
+    return "/api/file?u=" + encodeURIComponent(url);
+  }
+  return url;
+}
+
 type UploadedFile = { url: string; name: string; role: StemRole };
 type ReadyStem = { url: string; name: string; role: StemRole };
 
@@ -407,7 +420,7 @@ function StudioInner() {
                         {r.stems.map((s) => (
                           <div key={s.type + s.url} className="bg-white border border-slate-200 rounded-xl p-3 mb-2">
                             <div className="font-semibold text-sm mb-2">{s.type}</div>
-                            <audio controls src={s.url} className="w-full mb-2" preload="none" />
+                            <audio controls src={playSrc(s.url)} className="w-full mb-2" preload="none" />
                             <a href={s.url} target="_blank" rel="noreferrer" download className="text-sm font-semibold text-green-600">Download {s.type} ⬇️</a>
                           </div>
                         ))}
@@ -443,7 +456,7 @@ function StudioInner() {
                             <option value="adlib">Ad-lib</option>
                             <option value="beat">Beat / instrumental</option>
                           </select>
-                          <audio controls src={f.url} className="w-full mt-1" preload="none" />
+                          <audio controls src={playSrc(f.url)} className="w-full mt-1" preload="none" />
                         </div>
                         <button onClick={() => removeFile(f.url)} className="ml-2 text-red-500 hover:text-red-700 text-lg leading-none">&times;</button>
                       </div>
