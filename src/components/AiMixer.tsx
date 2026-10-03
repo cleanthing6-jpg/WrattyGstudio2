@@ -319,7 +319,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const blob = encodeWav(mastered);
         const blobUrl = URL.createObjectURL(blob);
         setPreviewUrl(blobUrl);
-        setFinalUrl(blobUrl);
+        setFinalUrl("");
         setMsg("Beat-Lock master ready. Saving to dashboard...");
         const nm = [artist, songTitle].filter(Boolean).join(" - ");
         const label = nm || (beatStem.name || "BeatLock").replace(/\.[^.]+$/, "") + " - Master";
@@ -328,9 +328,15 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const item: any = up && up[0];
         const fileUrl = (item && (item.ufsUrl || item.url)) || (item && item.serverData && (item.serverData.ufsUrl || item.serverData.url)) || "";
         if (!fileUrl) throw new Error("Beat-Lock upload returned no URL: " + (uploadErrorRef.current || "unknown"));
+        if (!/^https:\/\//.test(fileUrl)) throw new Error("Beat-Lock URL must be HTTPS");
+        if (!/^https:\/\//.test(fileUrl)) throw new Error("Beat-Lock upload URL must be HTTPS");
+        if (new URL(fileUrl).pathname === "/api/file") {
+          throw new Error("Beat-Lock upload returned a browser-only URL; presigned getUrl is missing");
+        }
         const save = await fetch("/api/mixes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: label, url: fileUrl }) });
         if (!save.ok) throw new Error("Beat-Lock save failed HTTP " + save.status);
         setTaskId("");
+        setFinalUrl(fileUrl);
         setMsg("Done - Beat-Lock mastered & saved: " + label);
       } else {
         setMsg("Sending stems to your engine…");
