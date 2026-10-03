@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
         WHERE user_id = ${userId} AND status = 'done'
           AND max_seconds IS NULL
           AND COALESCE(url, '') <> ''
-        ORDER BY created_at DESC LIMIT 100`) as any[];
+        ORDER BY created_at DESC LIMIT 1000`) as any[];
     } catch (e: any) {
       renderError = (e && e.message) || String(e);
       console.error("[mixes] render list failed", e);
@@ -169,7 +169,12 @@ export async function GET(req: NextRequest) {
       const flac = String(files.flac || "");
       const a = String(r.artist_name || "").trim();
       const t = String(r.song_title || "").trim();
-      const name = a && t ? a + " - " + t : t || a || "My mix";
+      const when = r.created_at
+        ? new Date(r.created_at).toISOString().slice(0, 16).replace("T", " ")
+        : "";
+      const name = a && t
+        ? a + " - " + t
+        : (t || a) || ("Untitled master" + (when ? " - " + when : ""));
       return { id: "job:" + r.id, name, url: mp3 || flac || String(r.url || ""), mp3, flac, deleted: !!r.deleted, createdAt: r.created_at };
     });
 
