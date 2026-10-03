@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       let res: any = r.result;
       if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
       const mode = String((res && res.mode) || "").toLowerCase();
-      if (!all && mode && mode !== "master") return false;
+      // named renders always show; dedupe below keeps the newest pass per song
       const a = String(r.artist_name || "").trim().toLowerCase();
       const t = String(r.song_title || "").trim().toLowerCase();
       if (!all && !(a || t)) return false;   // pre-naming rows -> ?all=1
