@@ -79,6 +79,7 @@ export async function GET() {
 
     let mongoError: string | null = null;
     let renderError: string | null = null;
+    let hint = "";
 
     let legacy: any[] = [];
     try {
@@ -94,15 +95,50 @@ export async function GET() {
     try {
       await ensureMixCols();
       jobs = (await sql`
-        SELECT id, artist_name, song_title, url, result, loudness, preset, created_at
+        SELECT id, artist_name, song_title, url, result, loudness, preset, created_at,
+               (hidden_at IS NOT NULL) AS deleted
         FROM mix_jobs
         WHERE user_id = ${userId} AND status = 'done'
-          AND max_seconds IS NULL AND hidden_at IS NULL
+          AND max_seconds IS NULL
           AND COALESCE(url, '') <> ''
         ORDER BY created_at DESC LIMIT 100`) as any[];
     } catch (e: any) {
       renderError = (e && e.message) || String(e);
       console.error("[mixes] render list failed", e);
+    }
+
+    // Empty list? Say WHY instead of showing a bare "no mixes". Best-effort.
+    if (jobs.length === 0) {
+      try {
+        const st = (await sql`
+          SELECT COUNT(*)::int AS total,
+                 (COUNT(*) FILTER (WHERE status = 'done'))::int AS done,
+                 (COUNT(*) FILTER (WHERE status = 'done' AND hidden_at IS NOT NULL))::int AS hidden,
+                 (COUNT(*) FILTER (WHERE status = 'done' AND max_seconds IS NOT NULL))::int AS previews,
+                 (COUNT(*) FILTER (WHERE status = 'done' AND COALESCE(url,'') = ''))::int AS no_url,
+                 (COUNT(*) FILTER (WHERE status IN ('queued','running')))::int AS pending,
+                 (COUNT(*) FILTER (WHERE status = 'failed'))::int AS failed
+          FROM mix_jobs WHERE user_id = ${userId}`) as any[];
+        const g = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs`) as any[];
+        const r: any = st[0] || {};
+        if (Number(r.total || 0) === 0 && Number(g[0]?.n || 0) > 0) {
+          hint = "your renders are under a different account id - sign in with the account that made them";
+        } else if (Number(r.hidden || 0) > 0) {
+          hint = "you have " + r.hidden + " deleted render(s) - press Restore";
+        } else if (Number(r.no_url || 0) > 0) {
+          hint = "a render finished but saved no file url";
+        } else if (Number(r.pending || 0) > 0) {
+          hint = "a render is still running - refresh in a minute";
+        } else if (Number(r.failed || 0) > 0) {
+          hint = r.failed + " render(s) failed - check the Modal logs";
+        } else if (Number(r.previews || 0) > 0) {
+          hint = "only previews so far - run a full render";
+        } else {
+          hint = "no renders on this account yet";
+        }
+      } catch (e: any) {
+        console.error("[mixes] stats failed", e);
+      }
     }
 
     const rendered = jobs.map((r: any) => {
@@ -114,7 +150,7 @@ export async function GET() {
       const a = String(r.artist_name || "").trim();
       const t = String(r.song_title || "").trim();
       const name = a && t ? a + " - " + t : t || a || "My mix";
-      return { id: "job:" + r.id, name, url: mp3 || flac || String(r.url || ""), mp3, flac, createdAt: r.created_at };
+      return { id: "job:" + r.id, name, url: mp3 || flac || String(r.url || ""), mp3, flac, deleted: !!r.deleted, createdAt: r.created_at };
     });
 
     const mixes = [
@@ -126,6 +162,7 @@ export async function GET() {
     ];
 
     const body: any = { mixes };
+    if (hint) body.hint = hint;
     if (renderError) body.renderError = renderError;
     if (mongoError) body.mongoError = mongoError;
     return NextResponse.json(body);
@@ -169,7 +206,8 @@ export async function DELETE(req: NextRequest) {
 
     if (id.startsWith("job:")) {
       await ensureMixCols();
-      await sql`UPDATE mix_jobs SET hidden_at = NOW()
+      const restore = req.nextUrl.searchParams.get("restore") === "1";
+      await sql`UPDATE mix_jobs SET hidden_at = CASE WHEN ${restore} THEN NULL ELSE NOW() END
                 WHERE id = ${id.slice(4)} AND user_id = ${userId}`;
       return NextResponse.json({ ok: true });
     }

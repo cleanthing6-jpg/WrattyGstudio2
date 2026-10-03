@@ -9,6 +9,7 @@ type Mix = {
   mp3?: string;
   flac?: string;
   createdAt?: string;
+  deleted?: boolean;
 };
 
 export function MixesList() {
@@ -17,6 +18,7 @@ export function MixesList() {
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
   const [playErr, setPlayErr] = useState("");
+  const [hint, setHint] = useState("");
 
   async function load() {
     setLoading(true); setErr(""); setNote("");
@@ -25,6 +27,7 @@ export function MixesList() {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d?.error || "Could not load your mixes");
       setMixes(Array.isArray(d?.mixes) ? d.mixes : []);
+      setHint(String(d?.hint || ""));
       const bits: string[] = [];
       if (d?.renderError) bits.push("renders: " + d.renderError);
       if (d?.mongoError) bits.push("legacy: " + d.mongoError);
@@ -38,10 +41,10 @@ export function MixesList() {
 
   useEffect(() => { load(); }, []);
 
-  async function remove(id: string) {
-    if (!confirm("Delete this mix?")) return;
-    await fetch("/api/mixes?id=" + encodeURIComponent(id), { method: "DELETE" });
-    setMixes((m) => m.filter((x) => x.id !== id));
+  async function remove(id: string, restore = false) {
+    if (!restore && !confirm("Delete this mix?")) return;
+    await fetch("/api/mixes?id=" + encodeURIComponent(id) + (restore ? "&restore=1" : ""), { method: "DELETE" });
+    await load();
   }
 
   // Playback goes STRAIGHT to the file host. <audio> needs neither CORS nor a
@@ -70,26 +73,39 @@ export function MixesList() {
       )}
       {loading && <p className="text-sm text-gray-500">Loading your mixes…</p>}
       {!loading && !err && mixes.length === 0 && (
-        <p className="text-sm text-gray-500">No mixes yet — your finished renders appear here.</p>
+        <p className="text-sm text-gray-500">No mixes yet — your finished renders appear here.{hint ? " (" + hint + ")" : ""}</p>
       )}
 
       {mixes.map((m) => {
         const hasFlac = m.id.startsWith("job:") ? true : !!m.flac;
         const hasMp3 = !!(m.mp3 || m.url);
         return (
-          <div key={m.id} className="rounded-xl border border-gray-200 p-4">
+          <div
+            key={m.id}
+            className={
+              "rounded-xl border p-4 " +
+              (m.deleted ? "border-dashed border-gray-300 opacity-60" : "border-gray-200")
+            }
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-900">{m.name}</p>
+                <p className="truncate text-sm font-semibold text-gray-900">
+                  {m.name}
+                  {m.deleted && (
+                    <span className="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-bold uppercase text-gray-600">
+                      deleted
+                    </span>
+                  )}
+                </p>
                 {m.createdAt && (
                   <p className="text-xs text-gray-500">{new Date(m.createdAt).toLocaleString()}</p>
                 )}
               </div>
               <button
-                onClick={() => remove(m.id)}
+                onClick={() => remove(m.id, !!m.deleted)}
                 className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
               >
-                Delete
+                {m.deleted ? "Restore" : "Delete"}
               </button>
             </div>
 
