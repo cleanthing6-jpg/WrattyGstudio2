@@ -16,6 +16,7 @@ export function MixesList() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
+  const [playErr, setPlayErr] = useState("");
 
   async function load() {
     setLoading(true); setErr(""); setNote("");
@@ -43,8 +44,10 @@ export function MixesList() {
     setMixes((m) => m.filter((x) => x.id !== id));
   }
 
+  // Playback goes STRAIGHT to the file host. <audio> needs neither CORS nor a
+  // filename, and routing it through our own proxy only added a failure point.
+  // The proxy is for downloads, where the name actually matters.
   function srcFor(m: Mix, fmt: "mp3" | "flac") {
-    if (m.id.startsWith("job:")) return "/api/download?id=" + encodeURIComponent(m.id) + "&format=" + fmt;
     return fmt === "flac" ? (m.flac || "") : (m.mp3 || m.url);
   }
   function hrefFor(m: Mix, fmt: "mp3" | "flac") {
@@ -91,7 +94,18 @@ export function MixesList() {
             </div>
 
             {hasMp3 && (
-              <audio controls src={srcFor(m, "mp3")} className="w-full mt-2" preload="none" />
+              <audio
+                controls
+                src={srcFor(m, "mp3")}
+                className="w-full mt-2"
+                preload="none"
+                onError={() => setPlayErr(m.id)}
+              />
+            )}
+            {playErr === m.id && (
+              <p className="mt-1 text-xs font-semibold text-red-600">
+                This file would not play. Download it with the button below.
+              </p>
             )}
 
             <div className="flex flex-wrap gap-2 mt-2">

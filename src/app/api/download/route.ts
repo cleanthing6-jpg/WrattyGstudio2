@@ -96,7 +96,15 @@ export async function GET(req: NextRequest) {
   try {
     up = await fetch(target, { cache: "no-store", redirect: "manual", headers: range ? { Range: range } : undefined });
   } catch { return NextResponse.json({ error: "Upstream unreachable" }, { status: 502 }); }
+  if (up.status === 416) {
+    // A bad seek is not our failure - hand the browser the real answer.
+    const h = new Headers();
+    const cr = up.headers.get("content-range");
+    if (cr) h.set("content-range", cr);
+    return new Response(up.body, { status: 416, headers: h });
+  }
   if (up.status !== 200 && up.status !== 206) {
+    console.error("[download] upstream", up.status, target);
     return NextResponse.json({ error: "Upstream " + up.status }, { status: 502 });
   }
 
@@ -109,9 +117,9 @@ export async function GET(req: NextRequest) {
     const v = up.headers.get(h);
     if (v) headers.set(h, v);
   }
-  if (!headers.has("accept-ranges")) headers.set("accept-ranges", "bytes");
   headers.set("cache-control", "private, no-store");
   headers.set("content-disposition", disposition(name, dl));
+  console.log("[download]", id, fmt, up.status, name);
 
   return new Response(up.body, { status: up.status, headers });
 }
