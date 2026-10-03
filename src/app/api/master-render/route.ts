@@ -17,7 +17,14 @@ export async function POST(req: NextRequest) {
   // The browser only ever holds same-origin /api/download?... URLs, which the
   // Modal worker cannot fetch (no Clerk session, and it requires https).
   // Resolve the real stored source from the job id instead.
-  const jobId = String(body?.jobId || "");
+  let jobId = String(body?.jobId || "");
+  if (!/^https:\/\//.test(url)) {
+    try {
+      const parsed = new URL(url, req.url);
+      const m = (parsed.searchParams.get("id") || "").match(/^job:(.+)$/);
+      if (m) jobId = m[1];
+    } catch {}
+  }
   if (!/^https:\/\//.test(url) && jobId) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

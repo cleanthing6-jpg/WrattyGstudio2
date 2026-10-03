@@ -332,6 +332,36 @@ async function saveToDashboard(userId: string, row: any, mp3: string, flac: stri
   }
 }
 
+
+function clientJobResponse(row: any) {
+  if (!row || !row.id) return row;
+  let result: any = row.result;
+  if (typeof result === "string") {
+    try { result = JSON.parse(result); } catch { result = null; }
+  }
+  const files = result && typeof result === "object" ? result.files : null;
+  const sourceUrl = String(row.url || (result && result.url) || "");
+  const isFlac = /\.flac(?:$|[?#])/i.test(sourceUrl);
+  const rawMp3 = String(row.mp3_key || (files && files.mp3) || (isFlac ? "" : sourceUrl));
+  const rawFlac = String(row.flac_key || (files && files.flac) || (isFlac ? sourceUrl : ""));
+  const fileUrl = (f) =>
+    "/api/download?id=" + encodeURIComponent("job:" + row.id) + "&format=" + f;
+  const mp3 = rawMp3.indexOf("https://") === 0 ? fileUrl("mp3") : "";
+  const flac = rawFlac.indexOf("https://") === 0 ? fileUrl("flac") : "";
+  const publicUrl = (isFlac ? flac : mp3) || mp3 || flac;
+  let safeResult = result;
+  if (result && typeof result === "object") {
+    safeResult = { ...result };
+    if (files && typeof files === "object") {
+      safeResult.files = { ...files };
+      if (rawMp3) safeResult.files.mp3 = mp3;
+      if (rawFlac) safeResult.files.flac = flac;
+    }
+    if (typeof safeResult.url === "string") safeResult.url = publicUrl;
+  }
+  return { ...row, url: publicUrl, mp3_key: mp3, flac_key: flac, result: safeResult };
+}
+
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -346,17 +376,17 @@ export async function GET(req: NextRequest) {
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   if (row.status === "queued") {
-    return NextResponse.json({ ...row, position: await positionOf(id) });
+    return NextResponse.json(clientJobResponse({ ...row, position: await positionOf(id) }));
   }
   if (row.status === "done" || row.status === "failed") {
-    return NextResponse.json({ ...row, position: 0 });
+    return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
   }
 
   // The row is marked running BEFORE Modal's job id is stored. Polling in
   // that window asks Modal with an empty id, gets "none", and would mark a
   // perfectly healthy render as failed. Wait for the id.
   if (!row.runner_job) {
-    return NextResponse.json({ ...row, position: 0 });
+    return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
   }
   const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 1, [502, 503, 504], 20000);
   const d = r.ok ? r.data : null;
@@ -393,5 +423,5 @@ export async function GET(req: NextRequest) {
   await pump();
 
   const after = (await sql`SELECT * FROM mix_jobs WHERE id=${id}`) as any[];
-  return NextResponse.json({ ...(after[0] || row), position: 0 });
+  return NextResponse.json(clientJobResponse({ ...(after[0] || row), position: 0 }));
 }
