@@ -47,10 +47,10 @@ export function MixesList() {
     await load();
   }
 
-  // Playback goes STRAIGHT to the file host. <audio> needs neither CORS nor a
-  // filename, and routing it through our own proxy only added a failure point.
-  // The proxy is for downloads, where the name actually matters.
+  // The file host gates every read behind a signed ticket, which the browser
+  // cannot send - so playback goes through our proxy too (it mints the ticket).
   function srcFor(m: Mix, fmt: "mp3" | "flac") {
+    if (m.id.startsWith("job:")) return "/api/download?id=" + encodeURIComponent(m.id) + "&format=" + fmt;
     return fmt === "flac" ? (m.flac || "") : (m.mp3 || m.url);
   }
   function hrefFor(m: Mix, fmt: "mp3" | "flac") {

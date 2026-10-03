@@ -1,21 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import crypto from "crypto";
 import { sql } from "@/lib/db";
 import { getMongoClient } from "@/lib/mongodb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Same-origin audio proxy. Browsers IGNORE the HTML download="..." attribute
-// for cross-origin files, and *.modal.run is a different origin - so pointing
-// at it directly could never give the file a real name. We fetch server-side
-// and set Content-Disposition ourselves. Also lets us gate the Modal host
-// later without breaking saved links.
-const FILES_HOSTS = new Set(
-  [process.env.FILES_BASE_URL || "https://wrattyg--wratty-files-web.modal.run"]
-    .map((u) => { try { return new URL(u).host; } catch { return ""; } })
-    .filter(Boolean)
-);
+// The file host (Modal "wratty-files") gates GET /f/ behind a short-lived
+// signed ticket, so the browser cannot fetch renders directly - it can't send
+// the header, and a plain <audio src> gets 401. Everything therefore goes
+// through this route, which mints the ticket server-side. The shared secret
+// never reaches the client.
+const BASE = (process.env.FILES_BASE_URL || "https://wrattyg--wratty-files-web.modal.run")
+  .replace(/\/+$/, "");
+
+const FILES_HOSTS = (() => {
+  try { return new Set([new URL(BASE).host]); } catch { return new Set<string>(); }
+})();
+
+// ticket_ok() on the Modal side signs "<scope>|<exp>". The scope depends on
+// which revision of modal_files.py is deployed, so we try "read" and fall
+// back to the original "stem-upload". Signing is cheap; a wrong guess only
+// costs one 401.
+function ticket(scope: string, ttlSec = 600): string {
+  const key = process.env.FX_INTERNAL_SECRET || "";
+  if (!key) return "";
+  const exp = Math.floor(Date.now() / 1000) + ttlSec;
+  const sig = crypto.createHmac("sha256", key).update(scope + "|" + exp).digest("hex");
+  return exp + "." + sig;
+}
 
 const safeName = (s: string) =>
   (s || "").normalize("NFC")
@@ -33,6 +47,23 @@ function disposition(name: string, dl: boolean) {
     "; filename*=UTF-8''" + rfc5987(name);
 }
 
+async function upstream(target: string, range: string | null): Promise<Response | null> {
+  for (const scope of ["read", "stem-upload"]) {
+    const tk = ticket(scope);
+    const headers: Record<string, string> = {};
+    if (range) headers["range"] = range;
+    if (tk) headers["x-fx-ticket"] = tk;
+    try {
+      const up = await fetch(target, { cache: "no-store", redirect: "manual", headers });
+      if (up.status !== 401) return up;   // only a ticket rejection is worth retrying
+      console.warn("[download] 401 with scope", scope, target);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,12 +74,9 @@ export async function GET(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   let target = "";
-  let a = "";
-  let t = "";
   let label = "";
 
   if (id.startsWith("job:")) {
-    // Finished engine render - Postgres holds the names and both URLs.
     const rows = (await sql`
       SELECT artist_name, song_title, url, mp3_key, flac_key, result FROM mix_jobs
       WHERE id = ${id.slice(4)} AND user_id = ${userId}`) as any[];
@@ -59,17 +87,15 @@ export async function GET(req: NextRequest) {
     if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
     const files = (res && res.files) || {};
 
-    // EXACT format only - an "MP3" button must never hand back a FLAC.
+    // EXACT format only - an "MP3" request must never hand back a FLAC.
     target = String(fmt === "flac" ? (row.flac_key || files.flac || "") : (row.mp3_key || files.mp3 || ""));
     if (!/^https:\/\//.test(target)) {
       return NextResponse.json({ error: "No " + fmt.toUpperCase() + " stored for this render" }, { status: 404 });
     }
-    a = String(row.artist_name || "").trim();
-    t = String(row.song_title || "").trim();
+    const a = String(row.artist_name || "").trim();
+    const t = String(row.song_title || "").trim();
     label = a && t ? a + " - " + t : t || a;
   } else {
-    // Legacy dashboard entry - Mongo record must belong to this user and
-    // point only at the files host.
     let doc: any = null;
     try {
       const { ObjectId } = await import("mongodb");
@@ -77,7 +103,6 @@ export async function GET(req: NextRequest) {
       doc = await client.db("wrattyg").collection("mixes").findOne({ _id: new ObjectId(id), userId });
     } catch { doc = null; }
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
     target = String(fmt === "flac" ? (doc.flac || "") : (doc.mp3 || doc.url || ""));
     if (!/^https:\/\//.test(target)) {
       return NextResponse.json({ error: "No " + fmt.toUpperCase() + " stored for this mix" }, { status: 404 });
@@ -90,14 +115,10 @@ export async function GET(req: NextRequest) {
   if (!FILES_HOSTS.has(u.host)) return NextResponse.json({ error: "host not allowed" }, { status: 400 });
 
   const ext = /\.flac$/i.test(u.pathname) ? "flac" : /\.mp3$/i.test(u.pathname) ? "mp3" : fmt;
+  const up = await upstream(target, req.headers.get("range"));
+  if (!up) return NextResponse.json({ error: "Upstream unreachable or ticket rejected" }, { status: 502 });
 
-  const range = req.headers.get("range");
-  let up: Response;
-  try {
-    up = await fetch(target, { cache: "no-store", redirect: "manual", headers: range ? { Range: range } : undefined });
-  } catch { return NextResponse.json({ error: "Upstream unreachable" }, { status: 502 }); }
   if (up.status === 416) {
-    // A bad seek is not our failure - hand the browser the real answer.
     const h = new Headers();
     const cr = up.headers.get("content-range");
     if (cr) h.set("content-range", cr);
@@ -108,9 +129,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Upstream " + up.status }, { status: 502 });
   }
 
-  const base = safeName(label) || "mix";
-  const name = base + "." + ext;
-
+  const name = (safeName(label) || "mix") + "." + ext;
   const headers = new Headers();
   headers.set("content-type", ext === "flac" ? "audio/flac" : "audio/mpeg");
   for (const h of ["content-length", "content-range", "accept-ranges"]) {
