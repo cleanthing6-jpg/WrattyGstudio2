@@ -154,8 +154,7 @@ def encode_all(src, tmp, is_preview):
         data, sr = sf.read(src, dtype="float32", always_2d=True)
         out = []
         mp3 = os.path.join(tmp, "mix.mp3")
-        sf.write(mp3, data, sr, format="MP3", subtype="MPEG_LAYER_III",
-                 compression_level=0.6)
+        sf.write(mp3, data, sr, format="MP3", subtype="MPEG_LAYER_III", bitrate_mode="CONSTANT", compression_level=0.0)
         out.append((mp3, "audio/mpeg", ".mp3"))
         if not is_preview:
             flac = os.path.join(tmp, "mix.flac")
@@ -176,8 +175,7 @@ def encode_out(src, tmp, is_preview):
         data, sr = sf.read(src, dtype="float32", always_2d=True)
         if is_preview:
             dst = os.path.join(tmp, "mix.mp3")
-            sf.write(dst, data, sr, format="MP3", subtype="MPEG_LAYER_III",
-                     compression_level=0.6)
+            sf.write(dst, data, sr, format="MP3", subtype="MPEG_LAYER_III", bitrate_mode="CONSTANT", compression_level=0.0)
             return dst, "audio/mpeg", ".mp3", None
         dst = os.path.join(tmp, "mix.flac")
         sf.write(dst, data, sr, format="FLAC", subtype="PCM_16", compression_level=0.5)
