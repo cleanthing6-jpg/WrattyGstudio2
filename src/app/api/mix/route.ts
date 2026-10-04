@@ -48,6 +48,12 @@ async function ensureTable() {
   // Dismissed renders stay in the table (the file is still there) but drop
   // off the dashboard list.
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`;
+  await sql`CREATE TABLE IF NOT EXISTS preview_quota (
+    user_id TEXT NOT NULL,
+    day DATE NOT NULL,
+    used INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day)
+  )`;
 }
 
 async function mixer(path: string, init: RequestInit, tries: number, retryCodes: number[], ms = 45000) {
@@ -271,9 +277,19 @@ export async function POST(req: NextRequest) {
   console.log("[mix-debug]", { ownerConfigured: !!ownerId, isOwner, wantsPreview, tier, maxSeconds });
   await ensureTable();
     if (!isOwner && (wantsPreview || tier === "free")) {
-      const recent = (await sql`SELECT COUNT(*)::int AS n FROM mix_jobs
-        WHERE user_id = ${userId} AND created_at > NOW() - INTERVAL '24 hours'`) as any[];
-      if (Number(recent[0]?.n || 0) >= 10) {
+      // Atomic: the ON CONFLICT takes a row lock, so two concurrent requests
+      // serialise and cannot both read "9". RETURNING is empty when the WHERE
+      // fails - that is our signal the day's 10 slots are gone. No refund on
+      // failure: a slot covers the ATTEMPT (exactly like the old count-all
+      // query did) and it closes the fail-to-regain-slots loop.
+      const claimed = (await sql`
+        INSERT INTO preview_quota (user_id, day, used)
+        VALUES (${userId}, (NOW() AT TIME ZONE 'UTC')::date, 1)
+        ON CONFLICT (user_id, day)
+        DO UPDATE SET used = preview_quota.used + 1
+          WHERE preview_quota.used < 10
+        RETURNING used`) as any[];
+      if (!claimed.length) {
         return NextResponse.json({ error: "Daily preview limit reached - upgrade for full mixes" }, { status: 429 });
       }
     }
