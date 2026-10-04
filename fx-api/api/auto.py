@@ -752,7 +752,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 ROLE_BUS = {
     # plate = reverb depth, delay = tempo-echo depth (split on purpose)
     "lead":    {"glue": None,          "plate": 0.75, "delay": 0.65, "exciter": True},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.85, "delay": 0.50, "exciter": True},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True},
 }
 
