@@ -395,7 +395,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if _clip_on:
             mixed = auto.clip(mixed, sr)
         elif cfg.get("soft_clip") or mode == "master":
-            # Master clips a touch harder so loudness comes from peak
+            # Master clips gently so loudness comes from peak
             # rounding, not from the limiter - that is what keeps LRA up.
             mixed = auto.soft_clip(mixed, sr, knee=0.60 if mode == "master" else 0.70)
             report["soft_clip"] = True
