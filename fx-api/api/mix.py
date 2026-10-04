@@ -366,7 +366,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["master_mid_cut_db"] = -2.0
             # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
             # margin and forces extra limiting that shaves crest.
-            tgt = tgt + float(cfg.get("master_lift_db", 2.2))
+            tgt = tgt + float(cfg.get("master_lift_db", 4.0))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
