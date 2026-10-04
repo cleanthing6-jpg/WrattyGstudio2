@@ -364,9 +364,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 PeakFilter(cutoff_frequency_hz=350.0, gain_db=-2.0, q=0.9),
             ])(mixed, sr).astype(np.float32)
             report["master_mid_cut_db"] = -2.0
-            # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
-            # margin and forces extra limiting that shaves crest.
-            tgt = tgt + float(cfg.get("master_lift_db", 4.0))
+            # -9 LUFS: tested. lift 3.9 lands ~-9.0 at the -1.0 dBTP
+            # ceiling. More lift only adds soft-clip engagement, not level.
+            tgt = tgt + float(cfg.get("master_lift_db", 3.9))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
