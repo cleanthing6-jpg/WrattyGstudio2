@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { sql } from "@/lib/db";
 import { getMongoClient } from "@/lib/mongodb";
+import { sendAlert } from "@/lib/alert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -36,7 +37,7 @@ function keysOf(row: any): string[] {
   return Array.from(found);
 }
 
-export async function POST(req: NextRequest) {
+async function runSweep(req: NextRequest) {
   if (!authed(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
@@ -120,5 +121,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (kept > 0 || errors.length) {
+    void sendAlert(
+      "Retention sweep had problems",
+      "deleted=" + deleted + " kept=" + kept + "\n" + errors.slice(0, 10).join("\n")
+    );
+  }
   return NextResponse.json({ ok: true, deleted, kept, errors: errors.slice(0, 20) });
+}
+
+
+export async function POST(req: NextRequest) {
+  try {
+    return await runSweep(req);
+  } catch (e: any) {
+    void sendAlert("Retention sweep crashed", String(e?.message || e));
+    return NextResponse.json({ error: "sweep failed" }, { status: 500 });
+  }
 }

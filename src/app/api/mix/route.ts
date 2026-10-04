@@ -4,6 +4,7 @@ import { getMongoClient } from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUser, consumeCredit, refundCredit } from "@/lib/credits";
+import { sendAlert } from "@/lib/alert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -81,6 +82,8 @@ async function mixer(path: string, init: RequestInit, tries: number, retryCodes:
 // Fail a job AND give the credit back in ONE statement. The status guard
 // means exactly one caller can win, so a credit is never refunded twice.
 async function failJob(id: string, error: string) {
+  // Alert the OWNER (throttled to 1/hour) without blocking the refund.
+  void sendAlert("A mix failed", "job " + id + "\n" + error);
   await sql`
     WITH f AS (
       UPDATE mix_jobs SET status='failed', error=${error}, updated_at=NOW()
