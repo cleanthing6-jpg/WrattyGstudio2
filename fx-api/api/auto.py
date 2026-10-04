@@ -57,7 +57,7 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.20, "plate_db": -16.5, "slap_db": -11.0,
+        "width": 1.20, "plate_db": -16.5, "slap_db": -12.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
@@ -710,14 +710,14 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         bpm = 100.0
     bpm = float(min(max(bpm, 40.0), 240.0))
     beat_s = 60.0 / bpm
-    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.5), int(sr * 0.60)))
+    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.25), int(sr * 0.60)))
     wet = None
     slap = None
     try:
         slap = Pedalboard([
             Delay(delay_seconds=d / float(sr), feedback=0.22, mix=1.0),
             HighpassFilter(cutoff_frequency_hz=300.0),
-            LowpassFilter(cutoff_frequency_hz=5500.0),
+            LowpassFilter(cutoff_frequency_hz=4000.0),
         ])(voc, sr).astype(np.float32)
         wet = slap
     except Exception:
