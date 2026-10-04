@@ -366,7 +366,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["master_mid_cut_db"] = -2.0
             # -9 LUFS: tested. lift 3.9 lands ~-9.0 at the -1.0 dBTP
             # ceiling. More lift only adds soft-clip engagement, not level.
-            tgt = tgt + float(cfg.get("master_lift_db", 3.9))
+            tgt = tgt + float(cfg.get("master_lift_db", 3.0))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
