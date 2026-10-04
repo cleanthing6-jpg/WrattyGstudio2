@@ -45,3 +45,39 @@ def api():
         return JSONResponse({"ok": True, "deleted": deleted, "missing": missing, "bad": bad})
 
     return web
+
+
+# Runs daily at 03:00 UTC. Starts in DRY-RUN: it only logs what it WOULD
+# delete, so the policy can be reviewed before anything is removed.
+# Flip `{"live": True}` to enable real deletion.
+@app.function(
+    image=modal.Image.debian_slim(),
+    secrets=[SECRET],
+    schedule=modal.Cron("0 3 * * *"),
+    timeout=600,
+)
+def retention_sweep():
+    import json
+    import os
+    import urllib.request
+
+    app_url = (os.environ.get("APP_URL") or "").rstrip("/")
+    key = os.environ.get("FX_INTERNAL_SECRET", "")
+    if not app_url or not key:
+        print("retention: APP_URL or FX_INTERNAL_SECRET missing", flush=True)
+        return
+
+    body = json.dumps({"live": False}).encode()   # <- DRY RUN
+    req = urllib.request.Request(
+        app_url + "/api/retention/sweep",
+        data=body,
+        headers={"Content-Type": "application/json",
+                 "Authorization": "Bearer " + key},
+        method="POST",
+    )
+    try:
+        # 180s: the Render service may be cold-starting after 15 min idle.
+        with urllib.request.urlopen(req, timeout=180) as r:
+            print("retention:", r.status, r.read()[:600].decode(), flush=True)
+    except Exception as e:
+        print("retention failed:", e, flush=True)

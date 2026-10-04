@@ -10,7 +10,7 @@ export default function Privacy() {
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">How we use it</h2>
       <p className="mb-3">To run your renders, enforce plan limits, and email you when a render finishes. We do not sell your data.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Your audio</h2>
-      <p className="mb-3">Uploads are stored so we can render them, and deleted on a rolling schedule. Renders are yours - you keep all rights to your music.</p>
+      <p className="mb-3">Uploads are stored so we can render them and kept while your account is active. Finished renders stay available to download for 30 days - keep your own copy. Renders are yours - you keep all rights to your music.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Contact</h2>
       <p>Questions or deletion requests: wrattyg@gmail.com</p>
     </main>
