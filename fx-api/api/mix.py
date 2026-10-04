@@ -105,6 +105,30 @@ def _fx_ticket(scope="read", ttl=600):
     return f"{exp}.{sig}"
 
 
+def _reject_private(url):
+    """The submitted host is checked in the API, but a redirect can land
+    anywhere. Re-check the FINAL url after requests has followed any
+    redirects, so a public host cannot bounce us at the metadata endpoint."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    host = (urlparse(url).hostname or "").lower()
+    if not host or host == "localhost" or host.endswith((".local", ".internal")):
+        raise RuntimeError("refusing to fetch a private host")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        raise RuntimeError("could not resolve stem host")
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise RuntimeError("refusing to fetch a private address")
+
 def grab(u, dst):
     tk = _fx_ticket("read")
     headers = {"x-fx-ticket": tk} if tk else {}
@@ -112,6 +136,7 @@ def grab(u, dst):
         raise RuntimeError("FX_INTERNAL_SECRET is missing in the mix worker")
     with requests.get(u, headers=headers, stream=True, timeout=120) as r:
         r.raise_for_status()
+        _reject_private(r.url)
         with open(dst, "wb") as fh:
             for c in r.iter_content(1 << 16):
                 fh.write(c)
