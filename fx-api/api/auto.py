@@ -56,8 +56,8 @@ ROLE_TREAT = {
 PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
-        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.20, "plate_db": -17.5, "slap_db": -12.0,
+        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
+        "width": 1.20, "plate_db": -14.5, "slap_db": -9.5,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
