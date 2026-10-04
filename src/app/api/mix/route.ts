@@ -17,8 +17,9 @@ const MIX = (/^https?:\/\//.test(RAW_MIX)
 ).replace(/\/+$/, "");
 const SECRET = process.env.FX_INTERNAL_SECRET || "";
 
-// Free Render = one 512MB instance. Only ONE mix may run at a time.
-const MAX_RUNNING = 1;
+// Renders run in their own Modal containers (2 CPU / 8GB each), NOT on
+// Render. This cap is the only thing limiting how many run at once.
+const MAX_RUNNING = 10;
 // Each user may hold at most one mix (queued or running).
 
 async function ensureTable() {
@@ -153,7 +154,7 @@ async function pump(depth = 0): Promise<void> {
     UPDATE mix_jobs SET status='running', updated_at=NOW()
     WHERE id = (SELECT id FROM mix_jobs WHERE status='queued' ORDER BY created_at ASC LIMIT 1)
       AND (SELECT COUNT(*) FROM mix_jobs
-        WHERE status='running' AND updated_at > NOW() - INTERVAL '8 minutes') < ${MAX_RUNNING}
+        WHERE status='running' AND updated_at > NOW() - INTERVAL '70 minutes') < ${MAX_RUNNING}
     RETURNING *
   `) as any[];
   const job = started[0];
