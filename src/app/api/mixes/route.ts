@@ -78,7 +78,6 @@ export async function GET(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    let mongoError: string | null = null;
     let renderError: string | null = null;
     let hint = "";
 
@@ -88,7 +87,6 @@ export async function GET(req: NextRequest) {
       legacy = await client.db("wrattyg").collection("mixes")
         .find({ userId }).sort({ createdAt: -1 }).toArray();
     } catch (e: any) {
-      mongoError = (e && e.message) || String(e);
       console.error("[mixes] mongo failed", e);
     }
 
@@ -190,7 +188,6 @@ export async function GET(req: NextRequest) {
     const body: any = { mixes, jobs: jobs.length, shown: kept.length };
     if (hint) body.hint = hint;
     if (renderError) body.renderError = renderError;
-    if (mongoError) body.mongoError = mongoError;
     return NextResponse.json(body);
   } catch (e: any) {
     console.error("[mixes] GET failed", e);
