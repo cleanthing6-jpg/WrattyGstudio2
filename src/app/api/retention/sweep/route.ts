@@ -49,11 +49,16 @@ export async function POST(req: NextRequest) {
   const inFlight = Number(busy[0]?.n || 0);
 
   // updated_at = when the job actually finished, not when it was queued.
+  // Full renders: 30 days. 30-second previews: 7 days (they are throwaway).
   const rows = (await sql`
     SELECT id, user_id, mp3_key, flac_key, url, updated_at
     FROM mix_jobs
-    WHERE status = 'done' AND max_seconds IS NULL
-      AND updated_at < NOW() - INTERVAL '30 days'
+    WHERE status = 'done'
+      AND (
+        (max_seconds IS NULL     AND updated_at < NOW() - INTERVAL '30 days')
+        OR
+        (max_seconds IS NOT NULL AND updated_at < NOW() - INTERVAL '7 days')
+      )
     ORDER BY updated_at ASC
     LIMIT 200`) as any[];
 

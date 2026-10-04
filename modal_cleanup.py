@@ -67,7 +67,7 @@ def retention_sweep():
         print("retention: APP_URL or FX_INTERNAL_SECRET missing", flush=True)
         return
 
-    body = json.dumps({"live": False}).encode()   # <- DRY RUN
+    body = json.dumps({"live": True}).encode()    # LIVE
     req = urllib.request.Request(
         app_url + "/api/retention/sweep",
         data=body,
