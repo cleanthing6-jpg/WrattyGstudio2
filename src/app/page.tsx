@@ -64,7 +64,7 @@ export default function Home() {
         <section className="max-w-6xl mx-auto px-4 pt-16 pb-10 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs text-slate-600 shadow-sm">
             <span className="flex gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /><span className="w-2 h-2 rounded-full bg-yellow-400" /><span className="w-2 h-2 rounded-full bg-red-500" /></span>
-            AI Mix &amp; Master studio for African sounds
+            Idan Mix &amp; Master studio for African sounds
           </span>
           <h1 className="mt-6 text-5xl md:text-7xl font-black tracking-tight leading-[1.02]">
             Upload. Mix.

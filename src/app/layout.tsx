@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "WraGstudio",
-  description: "AI mixing and mastering for African sounds. Upload your song, get a release-ready mix and master.",
+  description: "AI mixing and mastering for African sounds, powered by the Idan engine. Upload your song, get a release-ready mix and master.",
 };
 
 export default function RootLayout({

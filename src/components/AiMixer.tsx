@@ -376,7 +376,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     if (!taskId || busy || !prepared.length) return;
     setBusy(true); setErr("");
     try {
-      setMsg("Unlocking the full AI mix — this spends credits…");
+      setMsg("Unlocking the full Idan mix — this spends credits…");
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -417,7 +417,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
   return (
     <div className="rounded-xl border border-blue-200 bg-white p-4">
-      <h3 className="text-lg font-bold mb-1">✨ AI Mix &amp; Master (Pro Engine)</h3>
+      <h3 className="text-lg font-bold mb-1">✨ Idan Mix &amp; Master (Pro Engine)</h3>
       <p className="text-xs text-gray-500 mb-3">Afrobeats mix and master engine. The 30-second preview is free.</p>
 
       <label className="block text-xs font-semibold text-gray-600 mb-1">Musical style</label>
@@ -514,7 +514,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       {finalUrl && (
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-1">Full AI mix</p>
+          <p className="text-xs font-semibold text-gray-600 mb-1">Full Idan mix</p>
           <audio controls src={finalUrl} className="w-full" />
           <a href={finalUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">⬇️ Open / save full mix</a>
         </div>
