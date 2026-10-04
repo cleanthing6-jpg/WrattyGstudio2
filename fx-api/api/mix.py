@@ -366,7 +366,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["master_mid_cut_db"] = -2.0
             # -10 LUFS, not -9: at a -1.0 dBTP ceiling, -9 needs 8 dB of
             # margin and forces extra limiting that shaves crest.
-            tgt = tgt + float(cfg.get("master_lift_db", 1.5))
+            tgt = tgt + float(cfg.get("master_lift_db", 2.2))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
@@ -397,7 +397,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         elif cfg.get("soft_clip") or mode == "master":
             # Master clips gently so loudness comes from peak
             # rounding, not from the limiter - that is what keeps LRA up.
-            mixed = auto.soft_clip(mixed, sr, knee=0.60 if mode == "master" else 0.70)
+            mixed = auto.soft_clip(mixed, sr, knee=0.55 if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
