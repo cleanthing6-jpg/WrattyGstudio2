@@ -322,9 +322,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _side[None, :], sr)[0]
             try:
                 from pedalboard import LowShelfFilter as _LSF
-                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=4.0)])(
+                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=7.0)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
-                ## round 3 ready - shelf untouched
+                report["low_mid_shelf_db"] = 7.0
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
@@ -389,7 +389,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["master_mid_cut_db"] = -2.0
             # -9 LUFS: tested. lift 3.9 lands ~-9.0 at the -1.0 dBTP
             # ceiling. More lift only adds soft-clip engagement, not level.
-            tgt = tgt + float(cfg.get("master_lift_db", 1.5))
+            tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)
