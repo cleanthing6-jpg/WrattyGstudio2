@@ -17,6 +17,11 @@ import auto
 def _dyn9010(x, sr, win=0.4):
     """Macro-dynamics: 90th-10th percentile of 0.4s RMS (dB).
     Same metric compare.py prints, so the log is directly comparable."""
+    x = np.asarray(x)
+    if x.ndim > 1:                    # (ch, samples) or (samples, ch) -> mono
+        ax = 0 if x.shape[0] <= x.shape[1] else 1
+        x = x.mean(axis=ax)
+    x = x.reshape(-1).astype(np.float64)
     w = max(1, int(win * sr))
     n = len(x) // w
     if n < 5:
