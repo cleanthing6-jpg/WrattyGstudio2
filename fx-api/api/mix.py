@@ -330,19 +330,6 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["low_mid_guard_hz"] = 600.0
             report["low_mid_side_trim_db"] = -6.0
 
-        # Gentle stereo air shelf. A shelf lifts mid AND side equally, so the
-        # 5.5-16 kHz side/mid balance matched to the references is preserved
-        # while the whole top opens up. Sits before the -6 dBFS normalise, so
-        # limiter headroom is unchanged.
-        if mode != "passthrough":
-            try:
-                from pedalboard import HighShelfFilter as _HSF
-                mixed = np.asarray(Pedalboard([_HSF(cutoff_frequency_hz=10000.0, gain_db=0.5)])(
-                    mixed, sr), dtype=np.float32)
-                report["air_shelf_db"] = 0.5
-            except Exception as _e:
-                report["air_shelf_error"] = str(_e)[:120]
-
         if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
             setjob(jid, "glue bus")
