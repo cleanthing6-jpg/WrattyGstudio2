@@ -78,7 +78,7 @@ PRESETS = {
 }
 ROLE_DELTAS = {
     "afrobeats": {
-        "lead": {"air": -1.3, "sat": 0.4},
+        "lead": {"air": -0.5, "sat": 0.4},
         "adlib": {"air": 0.2, "sat": 0.2, "pres": -0.2},
         "backing": {"pres": -0.2},
     },
