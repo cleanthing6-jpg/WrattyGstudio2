@@ -14,6 +14,20 @@ from pedalboard.io import AudioFile
 
 import auto
 
+def _dyn9010(x, sr, win=0.4):
+    """Macro-dynamics: 90th-10th percentile of 0.4s RMS (dB).
+    Same metric compare.py prints, so the log is directly comparable."""
+    w = max(1, int(win * sr))
+    n = len(x) // w
+    if n < 5:
+        return None
+    seg = x[:n * w].reshape(n, w)
+    r = 20.0 * np.log10(np.sqrt((seg ** 2).mean(axis=1)) + 1e-12)
+    r = r[r > -60.0]
+    if len(r) < 5:
+        return None
+    return float(np.percentile(r, 90) - np.percentile(r, 10))
+
 try:
     import pyloudnorm as pyln
 except Exception:
@@ -403,8 +417,12 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                                "pre_peak_dbfs": round(_pre, 2),
                                "post_peak_dbfs": round(peakdb(mixed), 2),
                                "samples_over_threshold": _hits}
+        _dyn_pre = _dyn9010(mixed, sr)
         mixed, tp, brick = auto.limit(mixed, sr, auto.CEILING_DB)
         _fin = lufs(mixed, sr)
+        _dyn_post = _dyn9010(mixed, sr)
+        report["dyn_pre_limit"] = None if _dyn_pre is None else round(_dyn_pre, 2)
+        report["dyn_post_limit"] = None if _dyn_post is None else round(_dyn_post, 2)
         report["loudness_error_db"] = None if _fin is None else round(tgt - _fin, 2)
         report["true_peak_dbfs"] = round(tp, 2)
         report["limiter"] = "brickwall" if brick else "fallback"
