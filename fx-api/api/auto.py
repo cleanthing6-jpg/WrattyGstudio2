@@ -38,7 +38,7 @@ DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 1.8,
+    "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
                 "harsh": 1.5, "air": 2.8, "ratio": 2.0, "atk": 20.0, "rel": 100.0,
                 "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
@@ -892,7 +892,7 @@ def _role_chain(voc, sr, st, role):
         if g < -0.2:
             ch.append(PeakFilter(4400.0, g, 1.2)); moves.append(["harsh 4.4k", round(g, 2)])
     if st["presence"] < -2.5 and t["pres"] > 0:
-        g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 0.5 + 0.4)
+        g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, g, 0.8)); moves.append(["presence 3k", round(g, 2)])
     _thr = float(np.clip(_rms_db(voc) - 4.0, -45.0, -8.0))
