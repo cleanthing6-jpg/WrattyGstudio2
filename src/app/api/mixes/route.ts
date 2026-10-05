@@ -66,6 +66,7 @@ async function ensureMixCols() {
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMP`,
   ]);
   _cols = true;
 }
@@ -100,6 +101,7 @@ export async function GET(req: NextRequest) {
         FROM mix_jobs
         WHERE user_id = ${userId} AND status = 'done'
           AND max_seconds IS NULL
+          AND superseded_at IS NULL
           AND COALESCE(url, '') <> ''
         ORDER BY created_at DESC, id DESC LIMIT 1000`) as any[];
     } catch (e: any) {

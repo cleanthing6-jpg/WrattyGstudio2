@@ -67,6 +67,26 @@ export async function POST(req: NextRequest) {
   if (!r.ok || !d?.job) {
     return NextResponse.json({ error: d?.error || "Could not start mastering" }, { status: r.status || 502 });
   }
+
+  // The mix job (mode two_track, ~-14 LUFS) is an INTERMEDIATE mix, never a
+  // deliverable. It used to reach the dashboard the moment mixing finished, so
+  // anyone who refreshed while mastering still ran downloaded an unmastered,
+  // 4 LU quiet file. Now that a master exists for it, retire the intermediate
+  // so it can never be served as a finished render again. Best-effort: a
+  // failure here must not break mastering.
+  if (jobId) {
+    try {
+      const { userId: uid } = await auth();
+      if (uid) {
+        await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMP`;
+        await sql`UPDATE mix_jobs SET superseded_at = NOW()
+                  WHERE id = ${jobId} AND user_id = ${uid}`;
+      }
+    } catch (e) {
+      console.error("[master-render] could not retire intermediate mix", e);
+    }
+  }
+
   return NextResponse.json({ taskId: d.job });
 }
 
