@@ -313,7 +313,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 # Exact FFT band trim. HP5500-HP9000 is not a flat bandpass
                 # (effective gain ~0.28, and it leaked into 1.5-4 kHz), so the
                 # original split could never exceed -2.9 dB. Brickwall instead.
-                _SIDE_TRIM = 1.0   # 1.0 = off | 0.70 = -3.1 | 0.45 = -6.9 dB
+                _SIDE_TRIM = 0.8   # 1.0 = off | 0.70 = -3.1 | 0.45 = -6.9 dB
                 _n = _side.shape[-1]
                 _F = np.fft.rfft(_side.astype(np.float64))
                 _f = np.fft.rfftfreq(_n, 1.0 / sr)
