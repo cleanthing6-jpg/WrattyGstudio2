@@ -17,8 +17,6 @@ export async function GET() {
   return NextResponse.json({
     userId,
     ownerSet: owner.length > 0,
-    ownerLen: owner.length,
-    ownerTail: owner.slice(-6),
     match: !!owner && userId === owner,
     tier,
     mixesUsed: used,
