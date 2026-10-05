@@ -15,6 +15,10 @@ from pedalboard.io import AudioFile
 import auto
 
 def _dyn9010(x, sr, win=0.4):
+    x = np.asarray(x)
+    if x.ndim > 1:
+        x = x.mean(axis=0 if x.shape[0] <= x.shape[1] else 1)
+    x = x.reshape(-1).astype(np.float64)
     """Macro-dynamics: 90th-10th percentile of 0.4s RMS (dB).
     Same metric compare.py prints, so the log is directly comparable."""
     x = np.asarray(x)
