@@ -42,8 +42,13 @@ export async function POST(req: NextRequest) {
 
   const want = String(body?.loudness || "").toUpperCase();
   const loudness = LOUDNESS.includes(want) ? want : "HIGH";
-  // default is the 30s preview; client sends preview:false for the full render
-  const preview = body?.preview !== false;
+  // OWNERSHIP IS DECIDED HERE - never in the browser. The client's isOwner
+  // state comes from a /api/me fetch; when that failed or was stale the owner
+  // was silently downgraded to a 30s preview. Ignoring the client flag also
+  // closes the hole where anyone could POST preview:false for a free master.
+  const { userId: _uid } = await auth();
+  const _OWNER = (process.env.OWNER_USER_ID || "").trim();
+  const preview = !(_OWNER && _uid === _OWNER);   // owner => full, else 30s
 
   const headers = new Headers(req.headers);
   headers.set("content-type", "application/json");

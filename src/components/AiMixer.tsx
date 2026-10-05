@@ -149,8 +149,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   // Owner is decided by the server (OWNER_USER_ID) - one source of truth.
   const [isOwner, setIsOwner] = useState(false);
   useEffect(() => {
-    fetch("/api/me").then((r) => r.json())
-      .then((d) => setIsOwner(!!d?.isOwner)).catch(() => {});
+    fetch("/api/me", { cache: "no-store" }).then((r) => r.json())
+      .then((d) => setIsOwner(!!d?.isOwner))
+      .catch(() => setIsOwner(false));
   }, []);
 
   
@@ -162,7 +163,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await fetch("/api/master-render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: mixUrl, jobId: taskId, artist, title: songTitle, mode: "master", style, loudness: masterLoudness, preview: !full }),
+        body: JSON.stringify({ url: mixUrl, jobId: taskId, artist, title: songTitle, mode: "master", style, loudness: masterLoudness }),   // server decides preview vs full
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");

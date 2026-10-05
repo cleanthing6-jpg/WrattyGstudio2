@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";   // ownership must never be cached
 
 // Single source of truth for "am I the owner" - the client must not guess.
 export async function GET() {
