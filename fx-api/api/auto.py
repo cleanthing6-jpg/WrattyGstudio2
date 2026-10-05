@@ -150,8 +150,8 @@ SEND_WET = 0.11
 DOUBLE_DB = -30.0
 WIDEN = 1.0
 LOW_MONO_HZ = 120.0
-CEILING_DB = -1.5   # canonical true-peak ceiling; TARGETS['tp'] must match
-TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -1.5}
+CEILING_DB = -0.3   # canonical true-peak ceiling; TARGETS['tp'] must match
+TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -0.3}
 
 BEAT_ROLES = ("beat", "instrumental", "inst", "instrument", "music",
               "2track", "two track", "backing track")
