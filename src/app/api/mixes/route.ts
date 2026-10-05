@@ -196,20 +196,26 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const body = await req.json();
-    const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
-    const url = typeof body.url === "string" ? body.url.trim() : "";
-    if (!name || !url) return NextResponse.json({ error: "Name and URL required" }, { status: 400 });
-    const client = await getMongoClient();
-    const col = client.db("wrattyg").collection("mixes");
-    const res = await col.insertOne({ userId, name, url, createdAt: new Date() });
-    return NextResponse.json({ id: res.insertedId.toString() });
-  } catch (e: any) {
-    return NextResponse.json({ error: (e && e.message) || String(e) }, { status: 500 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
+  const url = typeof body.url === "string" ? body.url.trim() : "";
+  if (!name || !url) return NextResponse.json({ error: "Name and URL required" }, { status: 400 });
+
+  // Renders already show on the dashboard via mix_jobs. A "save" may only ever
+  // reference a file this user already owns - never an arbitrary URL.
+  await ensureMixCols();
+  const rows = (await sql`
+    SELECT id FROM mix_jobs
+    WHERE user_id = ${userId}
+      AND (url = ${url} OR mp3_key = ${url} OR flac_key = ${url})
+    LIMIT 1`) as any[];
+  if (!rows.length) {
+    return NextResponse.json({ error: "That file is not one of your renders" }, { status: 404 });
   }
+  return NextResponse.json({ ok: true, id: "job:" + rows[0].id });
 }
 
 export async function DELETE(req: NextRequest) {
