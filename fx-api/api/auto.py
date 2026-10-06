@@ -57,23 +57,23 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.20, "plate_db": -16.5, "slap_db": -8.0, "master_mid_cut_db": -2.0,
+        "width": 1.20, "plate_db": -16.5, "slap_db": -8.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0, "master_mid_cut_db": -2.0,
+        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
     },
     "pop": {
         "target_lufs": -11.5, "glue_ratio": 1.6, "glue_gr_db": 1.0,
-        "width": 1.10, "plate_db": -16.0, "slap_db": -20.0, "master_mid_cut_db": -2.0,
+        "width": 1.10, "plate_db": -16.0, "slap_db": -20.0,
     },
     "rnb": {
         "target_lufs": -14.0, "glue_ratio": 1.4, "glue_gr_db": 0.5,
-        "width": 1.08, "plate_db": -13.0, "slap_db": -16.0, "master_mid_cut_db": -2.0,
+        "width": 1.08, "plate_db": -13.0, "slap_db": -16.0,
     },
     "rap": {
         "target_lufs": -11.0, "glue_ratio": 1.8, "glue_gr_db": 1.2,
-        "width": 1.06, "plate_db": -18.0, "slap_db": -22.0, "soft_clip": True, "master_mid_cut_db": -2.0,
+        "width": 1.06, "plate_db": -18.0, "slap_db": -22.0, "soft_clip": True,
     },
 }
 ROLE_DELTAS = {
