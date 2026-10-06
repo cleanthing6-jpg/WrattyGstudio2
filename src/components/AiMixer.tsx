@@ -207,6 +207,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             const got = d.masterUrl || d.url || d.previewUrl;
             if (got) {
               setMasterUrl(got);
+              localStorage.removeItem("activeJob");
               setMsg(d.dashboardSaved === true
                 ? "Saved to your dashboard: " + (String(d.dashboardName || "") || "My mix")
                 : "Master ready");
@@ -435,6 +436,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           if (sd.status === "preview" && sd.url) {
             setToast("🎧 Preview ready — 30 seconds.");
             setPreviewUrl(sd.url);
+            localStorage.removeItem("activeJob");
             setMsg("Preview ready — listen below 🎧");
             break;
           }
@@ -472,6 +474,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "done" && gd.url) {
           finalR = gd.url;
+          localStorage.removeItem("activeJob");
           dashboardSaved = gd.dashboardSaved === true;
           dashboardName = String(gd.dashboardName || "");
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
