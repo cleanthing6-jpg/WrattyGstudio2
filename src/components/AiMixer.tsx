@@ -154,6 +154,80 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       .catch(() => setIsOwner(false));
   }, []);
 
+  // Resume an in-flight render after a refresh / navigation + warn before leaving.
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+
+    const raw = typeof window !== "undefined" ? localStorage.getItem("activeJob") : null;
+    let stop = false;
+    (async () => {
+      if (!raw) return;
+      let rec: any = null;
+      try { rec = JSON.parse(raw); } catch { return; }
+      if (!rec || !rec.kind || !rec.id) return;
+      if (rec.startedAt && Date.now() - rec.startedAt > 45 * 60 * 1000) {
+        localStorage.removeItem("activeJob");
+        return;
+      }
+      setBusy(true); setErr("");
+      setMsg(rec.kind === "preview" ? "Resuming your preview…"
+           : rec.kind === "mix" ? "Resuming your mix…"
+           : "Resuming your master…");
+      try {
+        for (let i = 0; i < 240 && !stop; i++) {
+          await new Promise((r) => setTimeout(r, 5000));
+          if (stop) return;
+          if (rec.kind === "preview") {
+            const res = await fetch("/api/mix-preview?taskId=" + encodeURIComponent(rec.id));
+            const d = await res.json().catch(() => ({}));
+            if (d.error) throw new Error(d.error);
+            if (d.status === "preview" && d.url) {
+              setTaskId(rec.id); setPreviewUrl(d.url);
+              setMsg("Preview ready — listen below \u{1F3A7}");
+              break;
+            }
+          } else if (rec.kind === "mix") {
+            const res = await fetch("/api/mix?id=" + encodeURIComponent(rec.id));
+            const d = await res.json().catch(() => ({}));
+            if (d.error) throw new Error(d.error);
+            if (d.status === "done" && d.url) {
+              setFinalUrl(d.url);
+              setMsg(d.dashboardSaved === true
+                ? "Saved to your dashboard: " + (String(d.dashboardName || "") || "My mix")
+                : "Mix ready");
+              break;
+            }
+            if (d.status === "failed") throw new Error(d.error || "Mix failed");
+          } else if (rec.kind === "master") {
+            const res = await fetch("/api/master-render?taskId=" + encodeURIComponent(rec.id));
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(d.error || ("Mastering failed (HTTP " + res.status + ")"));
+            if (/failed|error/i.test(String(d.status))) throw new Error(d.error || "Mastering failed");
+            const got = d.masterUrl || d.url || d.previewUrl;
+            if (got) {
+              setMasterUrl(got);
+              setMsg(d.dashboardSaved === true
+                ? "Saved to your dashboard: " + (String(d.dashboardName || "") || "My mix")
+                : "Master ready");
+              break;
+            }
+          }
+        }
+      } catch (e: any) {
+        setErr(e && e.message ? e.message : "Resume failed");
+      } finally {
+        localStorage.removeItem("activeJob");
+        setBusy(false);
+      }
+    })();
+
+    return () => {
+      stop = true;
+      window.removeEventListener("beforeunload", warn);
+    };
+  }, []);
+
   
   async function masterTrack(mixUrl: string, full = false) {
     if (!mixUrl || busy) return;
@@ -167,6 +241,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
+      localStorage.setItem("activeJob", JSON.stringify({ kind: "master", id: data.taskId, startedAt: Date.now() }));
 
       for (let i = 0; i < (full ? 180 : 48); i++) {
         await new Promise((res) => setTimeout(res, 5000));
@@ -349,6 +424,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         const data = await post.json().catch(() => ({}));
         if (!post.ok || !data.taskId) throw new Error(data.error || "Could not start the mix (code " + post.status + ")");
         setTaskId(data.taskId);
+        localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
         for (let i = 0; i < 120; i++) {
           setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
@@ -385,6 +461,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
+      localStorage.setItem("activeJob", JSON.stringify({ kind: "mix", id: d.job, startedAt: Date.now() }));
       let finalR = d && d.url ? d.url : "";
       let dashboardSaved = false;
       let dashboardName = "";
