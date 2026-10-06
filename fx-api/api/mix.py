@@ -46,8 +46,8 @@ TARGET = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.5}
 JOBS, LK = {}, threading.Lock()
 
 BUS = Pedalboard([HighpassFilter(cutoff_frequency_hz=30),
-                  PeakFilter(cutoff_frequency_hz=250, gain_db=-2.0, q=0.9),
-                  PeakFilter(cutoff_frequency_hz=3000, gain_db=0.0, q=1.0),
+                  PeakFilter(cutoff_frequency_hz=250, gain_db=-3.0, q=0.9),
+                  PeakFilter(cutoff_frequency_hz=3000, gain_db=1.0, q=1.0),
                   Compressor(threshold_db=-16, ratio=1.8, attack_ms=25, release_ms=150)])
 if BrickwallLimiter is not None:
     LIM = BrickwallLimiter(ceiling_db=-1.5, release_ms=100.0,
@@ -323,7 +323,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             try:
                 from pedalboard import LowShelfFilter as _LSF
                 _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=7.0),
-                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=3.0, q=0.9)])(
+                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=4.5, q=0.9)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
                 report["low_mid_shelf_db"] = 7.0
                 report["body_125_db"] = 3.0
