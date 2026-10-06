@@ -294,14 +294,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             groups[bucket].append(a)
 
         setjob(jid, "analysing")
-        try:
-            mixed, report = auto.mix(groups, sr)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print("MIXFAIL " + str(e)[:300], flush=True)
-            mixed = auto.plain_sum(groups)
-            report = {"mode": "fallback", "error": str(e)[:300]}
+        mixed, report = auto.mix(groups, sr)
 
         report["role_pan"] = {"on": PAN_ENABLED, "hz": PAN_HZ,
                              "backing": _PAN_REPORT["backing"],

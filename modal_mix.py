@@ -81,6 +81,8 @@ def api():
         jid = request.query_params.get("id")
         if not jid:
             return {"ok": True}
+        if not key or request.headers.get("authorization") != "Bearer " + key:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
         return (await jobs.get.aio(jid)) or {"status": "none"}
 
     @web.post("/")
