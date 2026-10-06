@@ -329,7 +329,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 report["body_125_db"] = 3.0
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
-            _side = (_hi + 0.4 * (_side - _hi)).astype(np.float32)
+            _side = (_hi + 0.63 * (_side - _hi)).astype(np.float32)
             # 5.5-9 kHz side trim. Side energy measured ~9 dB high vs
             # Boi Chase / Omalicha / Pain (they sit -14 to -16; we were -6.0).
             # Same M/S method as the low-mid guard above, band-limited via
@@ -353,7 +353,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 report["top_side_trim_error"] = str(_e)[:120]
             mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
             report["low_mid_guard_hz"] = 600.0
-            report["low_mid_side_trim_db"] = -6.0
+            report["low_mid_side_trim_db"] = -4.0
 
         if mode != "passthrough":
             mixed = mixed * (10.0 ** ((-6.0 - peakdb(mixed)) / 20.0))
