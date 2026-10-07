@@ -38,8 +38,8 @@ DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -2.0,  "hpf": 80.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
-                "harsh": 1.5, "air": 2.8, "ratio": 3.0, "atk": 5.0, "rel": 100.0,
+    "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
+                "harsh": 1.5, "air": 2.8, "ratio": 2.0, "atk": 20.0, "rel": 100.0,
                 "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
@@ -725,7 +725,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     plate = _plate(voc, sr)
     if plate is not None:
         try:
-            _n = int(sr * 0.035)   # 35 ms predelay: keeps the dry vocal in front
+            _n = int(sr * 0.045)   # 30 ms predelay: tail starts after the consonant
             if _n > 0 and plate.shape[1] > _n:
                 _p = np.zeros_like(plate)
                 _p[:, _n:] = plate[:, :plate.shape[1] - _n]
@@ -751,7 +751,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 # ---- per-role space: different reverb depth per vocal role ----
 ROLE_BUS = {
     # plate = reverb depth, delay = tempo-echo depth (split on purpose)
-    "lead":    {"glue": None,          "plate": 0.85, "delay": 0.65, "exciter": True},
+    "lead":    {"glue": None,          "plate": 0.55, "delay": 0.40, "exciter": True},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True},
 }
@@ -806,22 +806,6 @@ def _role_buses(pre, sr, bpm, raised):
                                       plate_scale=_pl, delay_scale=_dl, headroom=False)
             if first is None:
                 first = (_ms, _kind)
-        if r == "adlib":
-            try:
-                _bs = 60.0 / float(bpm) if bpm and bpm > 0 else 0.6
-                _dl = max(0.25, min(0.60, _bs * 0.375))
-                _dr = max(0.333, min(0.66, _bs * 0.5))
-                _L = y[0:1]; _R = y[1:2]
-                _lw = Pedalboard([Delay(delay_seconds=_dl, feedback=0.0, mix=1.0),
-                                  HighpassFilter(cutoff_frequency_hz=250.0),
-                                  LowpassFilter(cutoff_frequency_hz=7000.0)])(_L, sr).astype(np.float32)
-                _rw = Pedalboard([Delay(delay_seconds=_dr, feedback=0.0, mix=1.0),
-                                  HighpassFilter(cutoff_frequency_hz=250.0),
-                                  LowpassFilter(cutoff_frequency_hz=7000.0)])(_R, sr).astype(np.float32)
-                _pp = np.concatenate([_rw, _lw], axis=0).astype(np.float32)
-                y = (y + _pp * 0.30).astype(np.float32)
-            except Exception:
-                pass
         out.append(y)
     return _sum(out), first
 
@@ -895,12 +879,10 @@ def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
-    ch.append(PeakFilter(200.0, 1.0, 0.6))
-    moves.append(["warmth 200", 1.0])
     if st["mud"] > 1.0:
         g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
         if g < -0.2:
-            ch.append(PeakFilter(380.0, g, 1.5)); moves.append(["mud 380", round(g, 2)])
+            ch.append(PeakFilter(240.0, g, 0.9)); moves.append(["mud 240", round(g, 2)])
     if st["box"] > 1.0:
         g = -min(MAX_BOX_CUT, t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
         if g < -0.2:
@@ -1199,8 +1181,6 @@ def mix(groups, sr, loud="MEDIUM"):
 
     _dry_voc = core.copy()
     core, _info = _role_buses(_pre, sr, bpm, raised)
-    core = _parallel(core, sr)
-    rep["parallel_comp"] = True
     try:
         beat = _kick_punch(beat, sr)
         rep["kick_punch_db"] = KICK_PUNCH_DB
