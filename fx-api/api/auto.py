@@ -930,14 +930,15 @@ def vocal_process(voc, sr, st, bpm):
 
 
 def _plan(st, pres_min=2.5):
-    """Deeper lead pocket: guarantee at least pres_min dB of duck in the
-    presence band so the lead sits in its own space. Other bands unchanged."""
+    """Commercial-ready lead pocket: guarantees floor cuts across ALL major 
+    frequency bands so the vocal floats inside dense 2-track masters."""
     now = {BODY: st["mask_body"], PRES: st["clarity"], HARSH: st["mask_harsh"]}
     out = {}
+    # Professional minimum floor targets to force room inside the ready-made beat
+    floors = {BODY: 1.8, PRES: float(pres_min), HARSH: 1.5}
     for b in (BODY, PRES, HARSH):
         v = max(0.0, (DUCK_TARGET[b] - now[b]) * 0.9)
-        if b == PRES:
-            v = max(v, float(pres_min))
+        v = max(v, floors[b]) # Force the minimum floor
         out[b] = -min(DUCK_CAP[b], v)
     return out
 
