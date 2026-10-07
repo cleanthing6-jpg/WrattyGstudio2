@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_install_permissions"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.wrattygstudio.app",
+      "sha256_cert_fingerprints": ["744A966F6AD6F18ED3295CD34304A6A76A9D586408DCB D0C5F9783D717320396"]
+    }
+  }
+]
