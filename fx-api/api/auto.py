@@ -717,7 +717,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         slap = Pedalboard([
             Delay(delay_seconds=d / float(sr), feedback=0.10, mix=1.0),
             HighpassFilter(cutoff_frequency_hz=300.0),
-            LowpassFilter(cutoff_frequency_hz=5000.0),
+            LowpassFilter(cutoff_frequency_hz=8500.0), # Opened top end for modern shimmer
         ])(voc, sr).astype(np.float32)
         wet = slap
     except Exception:
@@ -725,7 +725,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     plate = _plate(slap, sr) if (plate_from_delay and slap is not None) else _plate(voc, sr)
     if plate is not None:
         try:
-            _n = int(sr * 0.045)   # 30 ms predelay: tail starts after the consonant
+            _n = int(sr * 0.045)   # Predelay
             if _n > 0 and plate.shape[1] > _n:
                 _p = np.zeros_like(plate)
                 _p[:, _n:] = plate[:, :plate.shape[1] - _n]
@@ -733,6 +733,21 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         except Exception:
             pass
         wet = plate if wet is None else (wet + plate).astype(np.float32)
+
+    # Professional Dynamic Sidechain Ducking via Numpy Envelope Following
+    if wet is not None:
+        try:
+            # 1. Compute rolling energy envelope of the dry vocal track
+            _mono_voc = np.abs(voc[0]) if voc.shape[0] == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
+            _win = int(sr * 0.1) # 100ms smoothing window
+            _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
+            _env = _env / max(1e-5, np.max(_env)) # Normalize envelope
+            
+            # 2. Attenuate ambience up to -4.5dB precisely when vocal is driving hard
+            _duck_mask = 1.0 - (0.40 * _env) 
+            wet = (wet * _duck_mask[None, :]).astype(np.float32)
+        except Exception as _duck_err:
+            print('Ambience sidechain bypass fallback: %s' % _duck_err, flush=True)
     kind = _PLATE.get("kind") or "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
