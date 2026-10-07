@@ -60,9 +60,14 @@ def lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
         HighpassFilter(cutoff_frequency_hz=115.0),
         PeakFilter(cutoff_frequency_hz=300.0, gain_db=-2.5, q=0.9),
         LowshelfFilter(cutoff_frequency_hz=180.0, gain_db=1.0, q=0.7),
-        PeakFilter(cutoff_frequency_hz=3000.0, gain_db=1.5, q=1.2),
-        Compressor(threshold_db=-22.0, ratio=3.0, attack_ms=12.0, release_ms=80.0),
-        Clipping(threshold_db=-3.0),
+        
+        # Heavy Pop Levelling: Pins the sighs and trailing breaths to the front
+        Compressor(threshold_db=-26.0, ratio=4.0, attack_ms=5.0, release_ms=60.0),
+        
+        # Upper-Mid Gloss: Sharpens transient teeth for that metallic radio finish
+        PeakFilter(cutoff_frequency_hz=3500.0, gain_db=3.0, q=1.4),
+        Clipping(threshold_db=-2.0), 
+        
         Compressor(threshold_db=-14.0, ratio=2.0, attack_ms=25.0, release_ms=120.0),
         HighshelfFilter(cutoff_frequency_hz=10000.0, gain_db=3.0, q=0.7),
         Gain(gain_db=-1.5),
