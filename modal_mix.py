@@ -24,13 +24,10 @@ mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0):
     import sys
     import traceback
-
-    
-    import sys, os
-sys.path.insert(0, "/root/api")
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "fx-api/api"))
-import mix
-
+    import os
+    sys.path.insert(0, "/root/api")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "fx-api/api"))
+    import mix
     jobs[job_id] = {"status": "running"}
     try:
         res = mix.do_mix(stems, loudness, job_id, max_seconds, preset)
