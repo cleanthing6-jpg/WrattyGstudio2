@@ -25,8 +25,11 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
     import sys
     import traceback
 
-    import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), "fx-api/api"))
-    import mix
+    
+    import sys, os
+sys.path.insert(0, "/root/api")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "fx-api/api"))
+import mix
 
     jobs[job_id] = {"status": "running"}
     try:
