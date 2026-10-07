@@ -734,20 +734,31 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             pass
         wet = plate if wet is None else (wet + plate).astype(np.float32)
 
-    # Professional Dynamic Sidechain Ducking via Numpy Envelope Following
+        # 1. Inject an elite, high-end high-frequency sheen directly onto the plate reverb channel
+    if plate is not None:
+        try:
+            from pedalboard import HighShelfFilter as _HSF
+            plate = Pedalboard([_HSF(cutoff_frequency_hz=10500.0, gain_db=4.5, q=0.7)])(plate, sr).astype(np.float32)
+        except Exception:
+            pass
+
+    # 2. Re-combine wet matrix with a high-reverb mix ratio
+    if plate is not None:
+        wet = plate if wet is None else (wet * 0.7 + plate * 1.45).astype(np.float32)
+
+    # 3. Target the envelope follower loop ONLY on the delay/sigh elements to keep it tight
     if wet is not None:
         try:
-            # 1. Compute rolling energy envelope of the dry vocal track
             _mono_voc = np.abs(voc[0]) if voc.shape[0] == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
-            _win = int(sr * 0.1) # 100ms smoothing window
+            _win = int(sr * 0.1)
             _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
-            _env = _env / max(1e-5, np.max(_env)) # Normalize envelope
+            _env = _env / max(1e-5, np.max(_env))
             
-            # 2. Attenuate ambience up to -4.5dB precisely when vocal is driving hard
-            _duck_mask = 1.0 - (0.40 * _env) 
+            # Keep the trailing reflections tightly controlled so the sighs never pop out out of context
+            _duck_mask = 0.85 - (0.25 * _env)
             wet = (wet * _duck_mask[None, :]).astype(np.float32)
         except Exception as _duck_err:
-            print('Ambience sidechain bypass fallback: %s' % _duck_err, flush=True)
+            pass
     kind = _PLATE.get("kind") or "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
