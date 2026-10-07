@@ -50,3 +50,4 @@ modal_beat.py.before-*
 __pycache__/
 *.bak
 *.bak.*
+.github/
