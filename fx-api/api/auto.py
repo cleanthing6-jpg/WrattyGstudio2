@@ -924,13 +924,25 @@ def _role_chain(voc, sr, st, role):
     if makeup > 0.05:
         out = (out * (10.0 ** (makeup / 20.0))).astype(np.float32)
     moves.append(["makeup", round(makeup, 2)])
-    out = _saturate(out, sr, drive)
-    moves.append(["saturate", round(drive, 2)])
+    # Professional Engineering Fix: Clean out the harsh sibilance BEFORE saturating
     out, dd = _deess(out, sr, st)
     moves.append(["de-ess", dd])
+    
+    # Apply a tight notch to decouple vocal weight completely from the instruments
     try:
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
-                                          gain_db=min(MAX_AIR, t["air"]), q=0.7)])(out, sr).astype(np.float32)
+        out = Pedalboard([PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.5, q=1.1)])(out, sr).astype(np.float32)
+    except Exception:
+        pass
+        
+    out = _saturate(out, sr, drive)
+    moves.append(["saturate", round(drive, 2)])
+    
+    try:
+        # Boost clean high fidelity air gracefully at the top of the chain
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0,
+                                          gain_db=min(MAX_AIR + 1.0, t["air"] + 0.8), q=0.7)])(out, sr).astype(np.float32)
+    except Exception:
+        pass
     except Exception:
         pass
     moves.append(["air 10k", round(min(MAX_AIR, t["air"]), 2)])
