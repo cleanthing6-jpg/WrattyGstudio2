@@ -57,7 +57,7 @@ def _sends(insert, ir, bpm, reverb_db, delay_db):
 
 def lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
     return _sends(Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=90.0),
+        HighpassFilter(cutoff_frequency_hz=115.0),
         PeakFilter(cutoff_frequency_hz=300.0, gain_db=-2.5, q=0.9),
         LowshelfFilter(cutoff_frequency_hz=180.0, gain_db=1.0, q=0.7),
         PeakFilter(cutoff_frequency_hz=3000.0, gain_db=1.5, q=1.2),
@@ -71,7 +71,7 @@ def lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
 
 def autotuned_lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
     return _sends(Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=90.0),
+        HighpassFilter(cutoff_frequency_hz=115.0),
         PeakFilter(cutoff_frequency_hz=300.0, gain_db=-2.5, q=0.9),
         LowshelfFilter(cutoff_frequency_hz=180.0, gain_db=1.0, q=0.7),
         PeakFilter(cutoff_frequency_hz=3000.0, gain_db=1.0, q=1.2),
