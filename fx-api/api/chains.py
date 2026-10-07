@@ -50,7 +50,7 @@ def _sends(insert, ir, bpm, reverb_db, delay_db):
             Gain(gain_db=0.0),
             _send([plate(ir)], reverb_db),
             _send([_plug(Delay, delay_seconds=60.0 / bpm, feedback=0.30, mix=1.0)],
-                  delay_db, hpf=300.0, lpf=6000.0),
+                  delay_db, hpf=300.0, lpf=9500.0),
         ]),
     ])
 
