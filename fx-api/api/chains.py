@@ -72,43 +72,27 @@ def lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
         HighshelfFilter(cutoff_frequency_hz=10000.0, gain_db=3.0, q=0.7),
         Gain(gain_db=-1.5),
     ]), ir, bpm, reverb_db, delay_db)
-
-
 def autotuned_lead_board(ir=None, bpm=BPM, reverb_db=-16.0, delay_db=-24.0):
     return _sends(Pedalboard([
         HighpassFilter(cutoff_frequency_hz=115.0),
         
-        # 1. The Low-Mid Vacuum: Carves room so it detaches from the beat completely
-        PeakFilter(cutoff_frequency_hz=320.0, gain_db=-4.5, q=1.1),
-        LowshelfFilter(cutoff_frequency_hz=180.0, gain_db=-1.0, q=0.7),
+        # Smooth tone carving
+        PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.5, q=1.0),
+        LowshelfFilter(cutoff_frequency_hz=180.0, gain_db=-1.5, q=0.7),
         
-        # 2. Parallel Headphone Proximity & Sonic Telephonic Matrix
-        Mix([
-            Gain(gain_db=0.0), # Direct tuned lead vocal feed
-            Pedalboard([
-                # Upward Detail Compressor: Pins breaths/whispers to the listener's earpiece
-                Compressor(threshold_db=-32.0, ratio=4.0, attack_ms=4.0, release_ms=50.0),
-                # Bandpass Separation: The telephonic sonic grit pocket
-                HighpassFilter(cutoff_frequency_hz=900.0),
-                LowpassFilter(cutoff_frequency_hz=2800.0),
-                PeakFilter(cutoff_frequency_hz=1800.0, gain_db=4.0, q=1.5),
-                HighshelfFilter(cutoff_frequency_hz=11000.0, gain_db=6.0, q=0.8), # Piercing air sheen
-                Gain(gain_db=-12.0) # Subtly blend it back into the master image
-            ])
-        ]),
+        # Gentle primary pop leveling (No overwhelming parallel distortion)
+        Compressor(threshold_db=-20.0, ratio=2.5, attack_ms=10.0, release_ms=85.0),
         
-        # 3. Mid-Gloss Control: Shaves transients for that smooth pop texture
-        PeakFilter(cutoff_frequency_hz=3500.0, gain_db=3.0, q=1.5),
-        Clipping(threshold_db=-1.5),
+        # Soft upper-mid presence definition
+        PeakFilter(cutoff_frequency_hz=3200.0, gain_db=2.0, q=1.2),
         
-        # 4. Final Levelling Chain
-        Compressor(threshold_db=-14.0, ratio=2.0, attack_ms=20.0, release_ms=100.0),
-        HighshelfFilter(cutoff_frequency_hz=12000.0, gain_db=3.0, q=0.7), # Smooth top air sparkle
-        Gain(gain_db=-1.0),
+        # Smooth output control
+        Compressor(threshold_db=-14.0, ratio=2.0, attack_ms=25.0, release_ms=120.0),
+        
+        # The Pristine Headphone Air (Soft, glossy top end floating at 11kHz)
+        HighshelfFilter(cutoff_frequency_hz=11000.0, gain_db=3.5, q=0.7),
+        Gain(gain_db=-1.5),
     ]), ir, bpm, reverb_db, delay_db)
-
-
-def processed_lead_board(ir=None, bpm=BPM, **kw):
     return Pedalboard([
         HighpassFilter(cutoff_frequency_hz=80.0),
         PeakFilter(cutoff_frequency_hz=280.0, gain_db=-1.5, q=0.9),
