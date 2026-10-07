@@ -31,11 +31,11 @@ BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
-MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 1.5, 2.5
-DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
-DEESS_ATK, DEESS_REL = 1.0, 4.0
-DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
-DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
+MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.0, 3.5
+DEESS_OFFSET_DB = 2.5   # trigger this far above the band's own median
+DEESS_ATK, DEESS_REL = 0.5, 2.0
+DUCK_CAP = {BODY: 2.5, PRES: 5.5, HARSH: 3.0}
+DUCK_TARGET = {BODY: 2.0, PRES: 4.8, HARSH: 2.0}
 
 ROLE_TREAT = {
     "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
@@ -56,12 +56,12 @@ ROLE_TREAT = {
 PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
-        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.00, "plate_db": -16.5, "slap_db": -8.0,
+        "target_lufs": -9.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
+        "width": 1.08, "plate_db": -16.5, "slap_db": -15.0,
     },
     "amapiano": {
-        "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
+        "target_lufs": -10.0, "glue_ratio": 1.5, "glue_gr_db": 0.8,
+        "width": 1.10, "plate_db": -16.0, "slap_db": -20.0,
     },
     "pop": {
         "target_lufs": -11.5, "glue_ratio": 1.6, "glue_gr_db": 1.0,
@@ -78,14 +78,14 @@ PRESETS = {
 }
 ROLE_DELTAS = {
     "afrobeats": {
-        "lead": {"air": 0.0, "sat": 0.4},
-        "adlib": {"air": 0.2, "sat": 0.2, "pres": -0.2},
-        "backing": {"pres": -0.2},
+        "lead": {"air": 0.8, "sat": 0.4},
+        "adlib": {"air": 1.2, "sat": 0.2, "pres": -0.5},
+        "backing": {"pres": -0.4, "width": 0.15},
     },
     "amapiano": {
-        "lead": {"air": 0.2, "sat": 0.1},
-        "adlib": {"air": 0.1, "sat": 0.1, "pres": -0.1},
-        "backing": {"pres": -0.2},
+        "lead": {"air": 0.6, "sat": 0.1},
+        "adlib": {"air": 0.8, "sat": 0.1, "pres": -0.4},
+        "backing": {"pres": -0.3, "width": 0.1},
     },
     "pop": {"lead": {"air": 1.0, "sat": 0.2}},
     "rnb": {"lead": {"air": 0.5, "sat": -0.1}},
