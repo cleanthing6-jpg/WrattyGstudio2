@@ -1,11 +1,8 @@
 """polish.py - dynamic control AFTER the effects. Pure numpy, no scipy.
 
 Used by auto.py's _master() (the full-mix master bus).
-Four primitives:
+One primitive:
   dynamic_eq   - tracking dynamic EQ (harshness + sibilance), stereo-linked
-  two_band_deess - de-esser built on dynamic_eq
-  ms_width     - frequency-dependent width (mono bass, wider air)
-  duck_wet     - reverb/delay return ducked by the dry vocal
 """
 import numpy as np
 
@@ -129,47 +126,3 @@ def dynamic_eq(x, sr, specs=None, get_stats=False):
         out[c] = _istft(Sc * g, win, length=x.shape[1])
     res = out[0] if single else out
     return (res, stats) if get_stats else res
-
-
-def two_band_deess(x, sr, get_stats=False):
-    return dynamic_eq(x, sr, (SIB_LOW, SIB_HI), get_stats=get_stats)
-
-
-def ms_width(x, sr, mono_below=120.0, air_hz=5000.0, air_boost=1.15):
-    x = np.asarray(x, dtype=np.float32)
-    if x.ndim < 2 or x.shape[0] < 2:
-        return x
-    M = ((x[0] + x[1]) * 0.5).astype(np.float32)
-    Sd = ((x[0] - x[1]) * 0.5).astype(np.float32)
-    Sm, win = _stft(Sd)
-    freq = np.fft.rfftfreq(NFFT, 1.0 / float(sr))
-    w = np.ones_like(freq, dtype=np.float32)
-    w[freq < mono_below] = 0.0
-    r = (freq >= mono_below) & (freq < 800.0)
-    w[r] = np.clip((freq[r] - mono_below) / max(1.0, 800.0 - mono_below), 0.0, 1.0)
-    u = freq >= air_hz
-    w[u] = 1.0 + (air_boost - 1.0) * np.clip(
-        (freq[u] - air_hz) / max(1.0, 12000.0 - air_hz), 0.0, 1.0)
-    Sd2 = _istft(Sm * w[None, :], win, length=x.shape[1])
-    return np.stack([M + Sd2, M - Sd2]).astype(np.float32)
-
-
-def duck_wet(dry, wet, sr, depth_db=-3.5, atk_ms=15.0, rel_ms=220.0, thr_db=-32.0):
-    dry = np.asarray(dry, dtype=np.float32)
-    wet = np.asarray(wet, dtype=np.float32)
-    key = dry.mean(axis=0) if dry.ndim > 1 else dry
-    S, _ = _stft(key)
-    env = np.sqrt(np.mean(np.square(np.abs(S)), axis=1))
-    edb = 20.0 * np.log10(env + 1e-12)
-    act = np.clip((edb - thr_db) / 20.0, 0.0, 1.0).astype(np.float32)
-    hop_ms = 1000.0 * HOP / float(sr)
-    sm = _smooth(act, max(1.0, atk_ms / hop_ms), max(1.0, rel_ms / hop_ms))
-    gf = (10.0 ** ((sm * float(depth_db)) / 20.0)).astype(np.float32)
-    n = wet.shape[-1]
-    g = np.ones(n, dtype=np.float32)
-    for i in range(len(gf)):
-        p = i * HOP
-        if p >= n:
-            break
-        g[p:min(p + HOP, n)] = gf[i]
-    return (wet * g).astype(np.float32)
