@@ -235,7 +235,7 @@ def setjob(jid, status, url=""):
 
 # ---- role panning. PAN_ENABLED=False fully reverts. ----
 PAN_ENABLED = True
-PAN_HZ = 80.0
+PAN_HZ = 200.0
 PAN_VALUES = {
     "backing": (-0.85, 0.85, -0.45, 0.45),
     "adlib":   (-0.45, 0.45, 0.30, -0.30),
@@ -313,7 +313,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 report["body_125_db"] = 3.0
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
-            _side = (_hi + 1.0 * (_side - _hi)).astype(np.float32)
+            _side = (_hi + 0.63 * (_side - _hi)).astype(np.float32)
             # 5.5-9 kHz side trim. Side energy measured ~9 dB high vs
             # Boi Chase / Omalicha / Pain (they sit -14 to -16; we were -6.0).
             # Same M/S method as the low-mid guard above, band-limited via
@@ -322,14 +322,14 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 # Exact FFT band trim. HP5500-HP9000 is not a flat bandpass
                 # (effective gain ~0.28, and it leaked into 1.5-4 kHz), so the
                 # original split could never exceed -2.9 dB. Brickwall instead.
-                _SIDE_TRIM = 1.0   # 1.0 = off | 0.70 = -3.1 | 0.45 = -6.9 dB
+                _SIDE_TRIM = 0.8   # 1.0 = off | 0.70 = -3.1 | 0.45 = -6.9 dB
                 _n = _side.shape[-1]
                 _F = np.fft.rfft(_side.astype(np.float64))
                 _f = np.fft.rfftfreq(_n, 1.0 / sr)
                 _m = (_f >= 5500.0) & (_f < 16000.0)
                 _F[_m] *= _SIDE_TRIM
                 _m2 = (_f >= 2500.0) & (_f < 5500.0)
-                _F[_m2] *= 1.0
+                _F[_m2] *= 0.70
                 _side = np.fft.irfft(_F, _n).astype(np.float32)
                 report["top_side_trim_db"] = round(20.0 * np.log10(_SIDE_TRIM), 2)
                 report["top_side_band_hz"] = [5500.0, 16000.0]
