@@ -101,7 +101,7 @@ def backing_board(ir=None, bpm=BPM, reverb_db=-13.0):
         Gain(gain_db=-6.0),
     ])
     return Pedalboard([ins, Mix([Gain(gain_db=0.0),
-                         _send([plate(ir)], reverb_db, hpf=300.0, lpf=7000.0)])])
+                         _send([plate(ir)], reverb_db, hpf=400.0, lpf=11000.0)])])
 
 
 def processed_backing_board(ir=None, bpm=BPM, **kw):
