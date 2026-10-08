@@ -916,12 +916,24 @@ def _role_chain(voc, sr, st, role):
     
     # Apply a tight notch to decouple vocal weight completely from the instruments
     try:
-        out = Pedalboard([PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.5, q=1.1)])(out, sr).astype(np.float32)
+        out = Pedalboard([
+            PeakFilter(cutoff_frequency_hz=320.0, gain_db=-3.5, q=1.1), # Keep the vacuum pocket clean
+            LowshelfFilter(cutoff_frequency_hz=150.0, gain_db=1.5, q=0.7) # Crucial: Preserves heavy vocal weight
+        ])(out, sr).astype(np.float32)
     except Exception:
         pass
         
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
+
+    # 3D Headphone Wrap Exciter: Pulls the crystal clear air right up to the ear pads without clipping
+    try:
+        from pedalboard import HighShelfFilter as _HSF
+        out = Pedalboard([
+            _HSF(cutoff_frequency_hz=12500.0, gain_db=2.5, q=0.7) # Extra expensive sonic sheen layer
+        ])(out, sr).astype(np.float32)
+    except Exception:
+        pass
     
     try:
         # Boost clean high fidelity air gracefully at the top of the chain
