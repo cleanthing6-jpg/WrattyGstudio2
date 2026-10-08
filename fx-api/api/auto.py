@@ -734,11 +734,14 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             pass
         wet = plate if wet is None else (wet + plate).astype(np.float32)
 
-        # 1. Inject an elite, high-end high-frequency sheen directly onto the plate reverb channel
+        # 1. Inject an elite, wide spreading high-sheen space directly onto the plate reverb return channel
     if plate is not None:
         try:
-            from pedalboard import HighShelfFilter as _HSF
-            plate = Pedalboard([_HSF(cutoff_frequency_hz=10500.0, gain_db=4.5, q=0.7)])(plate, sr).astype(np.float32)
+            from pedalboard import HighShelfFilter as _HSF, Chorus as _CHO
+            plate = Pedalboard([
+                _HSF(cutoff_frequency_hz=11000.0, gain_db=5.0, q=0.7), # Clear airy sheen
+                _CHO(rate_hz=0.45, depth=0.15, centre_delay_ms=12.0, feedback=0.1, mix=0.35) # Spreads the tail out wide neatly
+            ])(plate, sr).astype(np.float32)
         except Exception:
             pass
 
@@ -923,7 +926,7 @@ def _role_chain(voc, sr, st, role):
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, g, 0.8)); moves.append(["presence 3k", round(g, 2)])
-    _thr = float(np.clip(_rms_db(voc) - 4.0, -45.0, -8.0))
+    _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
     moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
