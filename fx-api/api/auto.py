@@ -705,37 +705,52 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
     d = max(int(sr * 0.04), min(int(sr * (60.0/bpm) * 0.75), int(sr * 0.60)))
     wet = None
+    slap = None
     
-    # Generate pure, expensive stereo plate room reflections (Zero echo clicks)
-    plate = _plate(voc, sr)
+    try:
+        # Pro Afrobeats Trick: Calculate a tight, rhythmic 1/8 note delay throw
+        _eighth_note_time = (60.0 / bpm) * 0.5
+        
+        # Generate dark, tucked reflections that sync perfectly to the beat note
+        slap = Pedalboard([
+            Delay(delay_seconds=_eighth_note_time, feedback=0.14, mix=0.40), # Dropped mix so it stays hidden
+            HighpassFilter(cutoff_frequency_hz=500.0), # Clears out vocal chest mud
+            LowpassFilter(cutoff_frequency_hz=6500.0), # Damps high sizzle so it stays non-aggressive
+        ])(voc, sr).astype(np.float32)
+        wet = slap
+    except:
+        wet = None
+    
+    # Feed those tight rhythmic reflections into our wide stereo plate room
+    plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, Chorus as _CHO
             plate = Pedalboard([
-                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.0, q=0.7), # Smooth top sheen
-                _CHO(rate_hz=0.40, depth=0.10, centre_delay_ms=10.0, feedback=0.0, mix=0.20) # Soft side spread
+                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.5, q=0.7),
+                _CHO(rate_hz=0.45, depth=0.12, centre_delay_ms=10.0, feedback=0.1, mix=0.25)
             ])(plate, sr).astype(np.float32)
         except: pass
     
     if plate is not None:
-        wet = plate.astype(np.float32)
+        wet = plate if wet is None else (wet * 0.6 + plate * 1.30).astype(np.float32)
         
-    # Smooth envelope ducking to keep the lyrics 100% focused up front
+    # Smooth envelope ducking to keep lyrics clear while you are actively singing
     if wet is not None:
         try:
             _mono_voc = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
             _win = int(sr * 0.1)
             _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
             _env = _env / max(1e-5, np.max(_env))
-            _duck_mask = 1.0 - (0.30 * _env)
+            _duck_mask = 1.0 - (0.35 * _env)
             wet = (wet * _duck_mask[None, :]).astype(np.float32)
         except: pass
         
     kind = "plate" if plate is not None else "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
-    # Safely re-blend on-time dry vocal with a clean room space
-    return (voc + wet * 0.30).astype(np.float32), round(d / float(sr) * 1000.0), kind
+    # Re-blend your on-time dry vocal track perfectly with the sync'd atmosphere
+    return (voc + wet * 0.32).astype(np.float32), round(d / float(sr) * 1000.0), kind
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
