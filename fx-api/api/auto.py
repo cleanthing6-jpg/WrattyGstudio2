@@ -703,44 +703,39 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     try: bpm = float(bpm)
     except: bpm = 100.0
     if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
-    bpm = float(min(max(bpm, 40.0), 240.0))
-    beat_s = 60.0 / bpm
-    d = max(int(sr * 0.04), min(int(sr * beat_s * 0.75), int(sr * 0.60)))
+    d = max(int(sr * 0.04), min(int(sr * (60.0/bpm) * 0.75), int(sr * 0.60)))
     wet = None
-    slap = None
-    try:
-        slap = Pedalboard([
-            Delay(delay_seconds=d / float(sr), feedback=0.15, mix=1.0),
-            HighpassFilter(cutoff_frequency_hz=300.0),
-            LowpassFilter(cutoff_frequency_hz=7500.0),
-        ])(voc, sr).astype(np.float32)
-        wet = slap
-    except:
-        wet = None
-    plate = _plate(slap if slap is not None else voc, sr)
+    
+    # Generate pure, expensive stereo plate room reflections (Zero echo clicks)
+    plate = _plate(voc, sr)
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, Chorus as _CHO
             plate = Pedalboard([
-                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.0, q=0.7),
-                _CHO(rate_hz=0.45, depth=0.12, centre_delay_ms=10.0, feedback=0.0, mix=0.25)
+                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.0, q=0.7), # Smooth top sheen
+                _CHO(rate_hz=0.40, depth=0.10, centre_delay_ms=10.0, feedback=0.0, mix=0.20) # Soft side spread
             ])(plate, sr).astype(np.float32)
         except: pass
+    
     if plate is not None:
-        wet = plate if wet is None else (wet + plate).astype(np.float32)
+        wet = plate.astype(np.float32)
+        
+    # Smooth envelope ducking to keep the lyrics 100% focused up front
     if wet is not None:
         try:
             _mono_voc = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
             _win = int(sr * 0.1)
             _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
             _env = _env / max(1e-5, np.max(_env))
-            _duck_mask = 1.0 - (0.35 * _env)
+            _duck_mask = 1.0 - (0.30 * _env)
             wet = (wet * _duck_mask[None, :]).astype(np.float32)
         except: pass
+        
     kind = "plate" if plate is not None else "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
-    return (voc + wet * 0.35).astype(np.float32), round(d / float(sr) * 1000.0), kind
+    # Safely re-blend on-time dry vocal with a clean room space
+    return (voc + wet * 0.30).astype(np.float32), round(d / float(sr) * 1000.0), kind
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
