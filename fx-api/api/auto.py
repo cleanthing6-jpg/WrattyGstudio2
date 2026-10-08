@@ -740,7 +740,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     kind = "plate" if plate is not None else "none"
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
-    return wet, round(d / float(sr) * 1000.0), kind
+    return (voc + wet * 0.35).astype(np.float32), round(d / float(sr) * 1000.0), kind
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
