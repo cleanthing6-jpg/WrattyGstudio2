@@ -698,102 +698,55 @@ SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
 def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False):
-    if delay_scale is None:
-        delay_scale = scale
-    if plate_scale is None:
-        plate_scale = scale
-    try:
-        bpm = float(bpm)
-    except (TypeError, ValueError):
-        bpm = 100.0
-    if not np.isfinite(bpm) or bpm <= 0:
-        bpm = 100.0
+    if delay_scale is None: delay_scale = scale
+    if plate_scale is None: plate_scale = scale
+    try: bpm = float(bpm)
+    except: bpm = 100.0
+    if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
     bpm = float(min(max(bpm, 40.0), 240.0))
     beat_s = 60.0 / bpm
     d = max(int(sr * 0.04), min(int(sr * beat_s * 0.75), int(sr * 0.60)))
-        wet = None
+    wet = None
     slap = None
     try:
-        # Calculate a perfect musical 1/4 note or 1/8 note throw based on the track's BPM
         _delay_time = 60.0 / max(40.0, float(bpm))
-        if _delay_time > 0.6: _delay_time = _delay_time * 0.5 # Keep it tight and musical
-        
-        # This generates the rolling echoes
+        if _delay_time > 0.6: _delay_time = _delay_time * 0.5
         slap = Pedalboard([
             Delay(delay_seconds=_delay_time, feedback=0.28, mix=1.0),
             HighpassFilter(cutoff_frequency_hz=400.0),
             LowpassFilter(cutoff_frequency_hz=7500.0),
         ])(voc, sr).astype(np.float32)
         wet = slap
-    except Exception:
+    except:
         wet = None
-        
-    # Crucial Fix: Feed the structural musical echo extensions DIRECTLY into the plate reverb
-    # This completely dissolves the raw 'echo' taps into a wide, smooth reverb cloud
     plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
-            _n = int(sr * 0.045)   # Predelay
+            _n = int(sr * 0.045)
             if _n > 0 and plate.shape[1] > _n:
                 _p = np.zeros_like(plate)
                 _p[:, _n:] = plate[:, :plate.shape[1] - _n]
                 plate = _p
-        except Exception:
-            pass
-        wet = plate if wet is None else (wet + plate).astype(np.float32)
-
-        # 1. Inject an elite, wide spreading high-sheen space directly onto the plate reverb return channel
+        except: pass
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, Chorus as _CHO
             plate = Pedalboard([
-                _HSF(cutoff_frequency_hz=11000.0, gain_db=5.0, q=0.7), # Clear airy sheen
-                _CHO(rate_hz=0.45, depth=0.15, centre_delay_ms=12.0, feedback=0.1, mix=0.35) # Spreads the tail out wide neatly
+                _HSF(cutoff_frequency_hz=11000.0, gain_db=5.0, q=0.7),
+                _CHO(rate_hz=0.45, depth=0.15, centre_delay_ms=12.0, feedback=0.1, mix=0.35)
             ])(plate, sr).astype(np.float32)
-        except Exception:
-            pass
-
-    # 2. Re-combine wet matrix with a high-reverb mix ratio
+        except: pass
     if plate is not None:
         wet = plate if wet is None else (wet * 0.7 + plate * 1.45).astype(np.float32)
-
-    # 3. Target the envelope follower loop ONLY on the delay/sigh elements to keep it tight
     if wet is not None:
         try:
-            _mono_voc = np.abs(voc[0]) if voc.shape[0] == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
+            _mono_voc = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
             _win = int(sr * 0.1)
             _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
             _env = _env / max(1e-5, np.max(_env))
-            
-            # Keep the trailing reflections tightly controlled so the sighs never pop out out of context
             _duck_mask = 0.85 - (0.25 * _env)
             wet = (wet * _duck_mask[None, :]).astype(np.float32)
-        except Exception as _duck_err:
-            pass
-    kind = _PLATE.get("kind") or "none"
-    if wet is None:
-        return voc, round(d / float(sr) * 1000.0), "none"
-    w = None
-    if slap is not None:
-        w = (SEND_SLAP * float(delay_scale)) * slap
-    if plate is not None:
-        _pw = (SEND_PLATE * float(plate_scale)) * plate
-        w = _pw if w is None else (w + _pw)
-    if w is None:
-        return voc, round(d / float(sr) * 1000.0), "none"
-    out = (voc + w).astype(np.float32)
-    return (_headroom(out, -1.0) if headroom else out), round(d / float(sr) * 1000.0), kind
-
-
-# ---- per-role space: different reverb depth per vocal role ----
-ROLE_BUS = {
-    # plate = reverb depth, delay = tempo-echo depth (split on purpose)
-    "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True},
-}
-
-
+        except: pass
 def _role_space(voc, sr, scale):
     """Add extra plate depth for a role so it sits in its own space."""
     try:
