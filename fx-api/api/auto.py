@@ -711,18 +711,26 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     bpm = float(min(max(bpm, 40.0), 240.0))
     beat_s = 60.0 / bpm
     d = max(int(sr * 0.04), min(int(sr * beat_s * 0.75), int(sr * 0.60)))
-    wet = None
+        wet = None
     slap = None
     try:
+        # Calculate a perfect musical 1/4 note or 1/8 note throw based on the track's BPM
+        _delay_time = 60.0 / max(40.0, float(bpm))
+        if _delay_time > 0.6: _delay_time = _delay_time * 0.5 # Keep it tight and musical
+        
+        # This generates the rolling echoes
         slap = Pedalboard([
-            Delay(delay_seconds=d / float(sr), feedback=0.10, mix=1.0),
-            HighpassFilter(cutoff_frequency_hz=300.0),
-            LowpassFilter(cutoff_frequency_hz=8500.0), # Opened top end for modern shimmer
+            Delay(delay_seconds=_delay_time, feedback=0.28, mix=1.0),
+            HighpassFilter(cutoff_frequency_hz=400.0),
+            LowpassFilter(cutoff_frequency_hz=7500.0),
         ])(voc, sr).astype(np.float32)
         wet = slap
     except Exception:
         wet = None
-    plate = _plate(slap, sr) if (plate_from_delay and slap is not None) else _plate(voc, sr)
+        
+    # Crucial Fix: Feed the structural musical echo extensions DIRECTLY into the plate reverb
+    # This completely dissolves the raw 'echo' taps into a wide, smooth reverb cloud
+    plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
             _n = int(sr * 0.045)   # Predelay
