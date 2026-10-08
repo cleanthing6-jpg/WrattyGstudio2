@@ -726,9 +726,11 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, Chorus as _CHO
+            from pedalboard import HighpassFilter as _HPF
             plate = Pedalboard([
-                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.5, q=0.7),
-                _CHO(rate_hz=0.45, depth=0.12, centre_delay_ms=10.0, feedback=0.1, mix=0.25)
+                _HPF(cutoff_frequency_hz=380.0), # De-muds the reverb room completely
+                _HSF(cutoff_frequency_hz=11500.0, gain_db=3.8, q=0.7), # Soft silky air sheen
+                _CHO(rate_hz=0.35, depth=0.10, centre_delay_ms=12.0, feedback=0.0, mix=0.22) # Spreads wide neatly
             ])(plate, sr).astype(np.float32)
         except: pass
     
@@ -750,7 +752,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if wet is None:
         return voc, round(d / float(sr) * 1000.0), "none"
     # Re-blend your on-time dry vocal track perfectly with the sync'd atmosphere
-    return (voc + wet * 0.32).astype(np.float32), round(d / float(sr) * 1000.0), kind
+    return (voc + wet * 0.24).astype(np.float32), round(d / float(sr) * 1000.0), kind
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.60, "delay": 0.50, "exciter": True},
