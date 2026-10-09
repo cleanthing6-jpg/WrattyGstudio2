@@ -282,6 +282,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _hi[1] *= float(np.sqrt(1.0 + 0.8 * pan))
                 a = np.ascontiguousarray((_lo + _hi).astype(np.float32))
                 _PAN_REPORT[bucket].append({"stem": i, "pan": pan})
+                if bucket == "backing":
+                    try:
+                        _wm = (a[0] + a[1]) * 0.5
+                        _ws = (a[0] - a[1]) * 0.5 * 1.25
+                        a = np.stack([_wm + _ws, _wm - _ws]).astype(np.float32)
+                    except Exception:
+                        pass
             groups[bucket].append(a)
 
         setjob(jid, "analysing")
