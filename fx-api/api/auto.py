@@ -697,7 +697,7 @@ SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
 SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
-def _ambience(voc, sr, bpm, scale=1.0,def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False):
+def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False):
     import numpy as np
     from pedalboard import Pedalboard, Delay, HighpassFilter, LowpassFilter, HighShelfFilter
     if delay_scale is None: delay_scale = scale
