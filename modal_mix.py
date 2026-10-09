@@ -58,15 +58,14 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
         pass
 
 
-@app.function(image=image, cpu=2.0, memory=8192, timeout=600, secrets=[SECRET], 
+@app.function(
     image=image,
-    cpu=0.5,
-    memory=1024,
-    timeout=150,
+    cpu=4.0,
+    memory=8192,
+    timeout=600,
     scaledown_window=300,
     secrets=[SECRET],
 )
-@modal.asgi_app()
 def api():
     import os
 
