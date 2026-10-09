@@ -722,24 +722,19 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         wet = None
     
     # Feed those tight rhythmic reflections into our wide stereo plate room
-    plate = _plate(slap if slap is not None else voc, sr)
+        plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
-            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, Delay as _VDelay
-            
-            # 1. Open up the luxury high air and clear out low mid-range phase clashing completely
+            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, Chorus as _PRO_CHO
             plate = Pedalboard([
-                _HPF(cutoff_frequency_hz=1600.0), # High-passed at 1600Hz to keep L, B, and P crisp down center
-                _HSF(cutoff_frequency_hz=11000.0, gain_db=4.5, q=0.7), # Expensive silky high air lift
-                _VDelay(delay_seconds=0.0022, feedback=0.45, mix=1.0) # Glass-like premium resonant ring
+                _HPF(cutoff_frequency_hz=1200.0),
+                _HSF(cutoff_frequency_hz=11500.0, gain_db=3.2, q=0.7),
+                _PRO_CHO(rate_hz=0.32, depth=0.18, centre_delay_ms=7.0, feedback=0.0, mix=0.25)
             ])(plate, sr).astype(np.float32)
-            
-            # 2. Executive Phase Inversion: Forces the metallic texture completely out of the center channel
-            # Vocal stays close-to-ear and dryish down the middle, while the shimmer floats wide on headphone edges
-            if len(plate.shape) > 1 and plate.shape == 2:
+            if len(plate.shape) > 1 and plate.shape[0] == 2:
                 plate[0, :] = -plate[1, :]
         except Exception as e:
-            print("Consonant sheen engine block exception: %s" % e, flush=True)
+            print("Smart vocal gate calculations failure: %s" % e, flush=True)
     
     if plate is not None:
         wet = plate if wet is None else (wet * 0.6 + plate * 1.30).astype(np.float32)
