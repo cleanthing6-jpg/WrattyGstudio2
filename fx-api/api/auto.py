@@ -715,8 +715,8 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     try:
         # TELEPHONE ECHO BANDPASS FILTER: Slices out low throat boom and sharp mouth clicks completely
         slap = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=600.0),   # Radio high-pass floor
-            LowpassFilter(cutoff_frequency_hz=3500.0),   # Telephone low-pass ceiling
+            HighpassFilter(cutoff_frequency_hz=350.0),   # Radio high-pass floor
+            LowpassFilter(cutoff_frequency_hz=6500.0),   # Telephone low-pass ceiling
             Delay(delay_seconds=_bar_note_time, feedback=0.10, mix=0.55) # Clean 2-step throw feedback
         ])(voc, sr).astype(np.float32)
         wet = slap
@@ -730,7 +730,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF
             # Soft velvety spatial atmosphere floats lightly at the top of the mix
             plate = Pedalboard([
-                _HPF(cutoff_frequency_hz=1500.0),
+                _HPF(cutoff_frequency_hz=150Hz),
                 _HSF(cutoff_frequency_hz=12000.0, gain_db=3.0, q=0.7)
             ])(plate, sr).astype(np.float32)
             if len(plate.shape) > 1 and plate.shape[0] == 2:
@@ -740,7 +740,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
     if plate is not None:
         # Softened plate gain multiplier down to 0.22 so it wraps nicely around the edges
-        wet = plate if wet is None else (wet * 0.4 + plate * 0.22).astype(np.float32)
+        wet = plate if wet is None else (wet * 0.4 + plate * 0.38).astype(np.float32)
 
     # ACTIVE SIDE-CHAIN DUCKING ENVELOPE: Ducks effects while active, lets echoes bloom forward in gaps
     try:
