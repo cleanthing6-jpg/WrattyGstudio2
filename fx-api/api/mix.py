@@ -396,6 +396,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 break
             _step = max(-9.0, min(9.0, tgt - f))
             mixed = mixed * (10.0 ** (_step / 20.0))
+        _pk_now = peakdb(mixed)
+        if _pk_now > -0.1:
+            mixed = mixed * (10.0 ** ((-0.1 - _pk_now) / 20.0))
         # Clipper OFF by default: shaving peaks costs kick transients and
         # adds edge. Only presets that explicitly ask for it keep it.
         _clip_on = bool(cfg.get("clip")) and mode not in ("passthrough", "master")
