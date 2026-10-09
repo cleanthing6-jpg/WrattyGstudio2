@@ -68,6 +68,7 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
 )
 @modal.asgi_app()
 def api():
+    print("Forcing clear re-sync validation channel: 1791533703")
     import os
 
     from fastapi import FastAPI, Request
