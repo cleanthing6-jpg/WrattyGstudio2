@@ -723,29 +723,29 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     
     # Feed those tight rhythmic reflections into our wide stereo plate room
     plate = _plate(slap if slap is not None else voc, sr)
-    if plate is not None:
         try:
-            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF
-            # Pure static high-density studio room keeps your printed autotune 100% stable
+            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, LowpassFilter as _LPF, Delay as _Dly
+            # TELEPHONE ECHO BANDPASS FILTER: Slices out low-mid boom and high mouth clicks
             plate = Pedalboard([
-                _HPF(cutoff_frequency_hz=1000.0),
-                _HSF(cutoff_frequency_hz=12000.0, gain_db=2.5, q=0.7)
+                _HPF(cutoff_frequency_hz=800.0),
+                _LPF(cutoff_frequency_hz=4500.0),
+                _HSF(cutoff_frequency_hz=11500.0, gain_db=2.5, q=0.7)
             ])(plate, sr).astype(np.float32)
             if len(plate.shape) > 1 and plate.shape[0] == 2:
                 plate[0, :] = -plate[1, :]
         except Exception as e:
-            print("Reverb room space processing exception: %s" % e, flush=True)
-
-
-
-
-
-    if wet is not None:
+            print("Studio spatial calculations exception: %s" % e, flush=True)
+    if plate is not None:
+        wet = plate if wet is None else (wet * 0.4 + plate * 0.32).astype(np.float32)
         try:
-            _mono_voc = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
-            _win = int(sr * 0.1)
-            _env = np.convolve(_mono_voc, np.ones(_win)/_win, mode='same')
-            _env = _env / max(1e-5, np.max(_env))
+            _m_sig = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
+            _w_len = int(sr * 0.12)
+            _e_trc = np.convolve(_m_sig, np.ones(_w_len)/_w_len, mode="same")
+            _e_trc = _e_trc / max(1e-5, np.max(_e_trc))
+            _d_crv = (1.0 - _e_trc) * 1.35 + 0.25
+            wet[0, :] = (wet[0, :] * _d_crv).astype(np.float32)
+            wet[1, :] = (wet[1, :] * _d_crv).astype(np.float32)
+        except: pass
             _duck_mask = 1.0 - (0.35 * _env)
             wet = (wet * _duck_mask[None, :]).astype(np.float32)
         except: pass
