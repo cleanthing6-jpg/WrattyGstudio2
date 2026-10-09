@@ -66,6 +66,7 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
     scaledown_window=300,
     secrets=[SECRET],
 )
+@modal.asgi_app()
 def api():
     import os
 
