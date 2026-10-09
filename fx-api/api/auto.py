@@ -722,7 +722,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         wet = None
     
     # Feed those tight rhythmic reflections into our wide stereo plate room
-        plate = _plate(slap if slap is not None else voc, sr)
+    plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, Chorus as _PRO_CHO
