@@ -714,9 +714,9 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     try:
         # THE TELEPHONE ECHO FILTER: Cuts out muddy low boom and sharp mouth clicks completely
         slap = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=800.0),
-            LowpassFilter(cutoff_frequency_hz=4500.0),
-            Delay(delay_seconds=_eighth_note_time, feedback=0.22, mix=0.60)
+            HighpassFilter(cutoff_frequency_hz=600.0),
+            LowpassFilter(cutoff_frequency_hz=3500.0),
+            Delay(delay_seconds=_eighth_note_time, feedback=0.38, mix=0.55)
         ])(voc, sr).astype(np.float32)
         wet = slap
     except:
@@ -737,7 +737,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             pass
 
     if plate is not None:
-        wet = plate if wet is None else (wet * 0.4 + plate * 0.40).astype(np.float32)
+        wet = plate if wet is None else (wet * 0.4 + plate * 0.22).astype(np.float32)
 
     # ACTIVE SIDE-CHAIN ENVELOPE DUCKING: Ducks spatial effects inside words, lets them bloom forward in gaps
     try:
