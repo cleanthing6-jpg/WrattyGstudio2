@@ -716,7 +716,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         slap = Pedalboard([
             HighpassFilter(cutoff_frequency_hz=600.0),
             LowpassFilter(cutoff_frequency_hz=3500.0),
-            Delay(delay_seconds=_eighth_note_time, feedback=0.45, mix=0.55)
+            Delay(delay_seconds=_eighth_note_time, feedback=0.10, mix=0.55)
         ])(voc, sr).astype(np.float32)
         wet = slap
     except:
