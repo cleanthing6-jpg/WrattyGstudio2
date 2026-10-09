@@ -697,7 +697,7 @@ SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
 SEND_SLAP  = 10.0 ** (-14.0 / 20.0)   # slap send
 
 
-def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False):
+def _ambience(voc, sr, bpm, scale=1.0,def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False):
     import numpy as np
     from pedalboard import Pedalboard, Delay, HighpassFilter, LowpassFilter, HighShelfFilter
     if delay_scale is None: delay_scale = scale
@@ -706,27 +706,29 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     except: bpm = 100.0
     if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
     
-    _eighth_note_time = (60.0 / bpm) * 0.5
-    d = int(sr * _eighth_note_time)
+    # LONG SENTENCE THROW: Stretches timing out to a massive 1/1 full bar structure
+    _bar_note_time = (60.0 / bpm) * 4.0
+    d = int(sr * _bar_note_time)
     wet = None
     slap = None
     
     try:
-        # THE TELEPHONE ECHO FILTER: Cuts out muddy low boom and sharp mouth clicks completely
+        # TELEPHONE ECHO BANDPASS FILTER: Slices out low throat boom and sharp mouth clicks completely
         slap = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=600.0),
-            LowpassFilter(cutoff_frequency_hz=3500.0),
-            Delay(delay_seconds=_eighth_note_time, feedback=0.10, mix=0.55)
+            HighpassFilter(cutoff_frequency_hz=600.0),   # Radio high-pass floor
+            LowpassFilter(cutoff_frequency_hz=3500.0),   # Telephone low-pass ceiling
+            Delay(delay_seconds=_bar_note_time, feedback=0.10, mix=0.55) # Clean 2-step throw feedback
         ])(voc, sr).astype(np.float32)
         wet = slap
     except:
         wet = None
 
+    # PARALLEL INPUT SEPARATION: Echo bypasses the plate function completely to stay dry, crisp, and clean
     plate = _plate(voc, sr)
     if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF
-            # Pristine space high-passed at 1,500Hz to float softly and lightly at the top of the mix
+            # Soft velvety spatial atmosphere floats lightly at the top of the mix
             plate = Pedalboard([
                 _HPF(cutoff_frequency_hz=1500.0),
                 _HSF(cutoff_frequency_hz=12000.0, gain_db=3.0, q=0.7)
@@ -737,18 +739,17 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             pass
 
     if plate is not None:
+        # Softened plate gain multiplier down to 0.22 so it wraps nicely around the edges
         wet = plate if wet is None else (wet * 0.4 + plate * 0.22).astype(np.float32)
 
-    # ACTIVE SIDE-CHAIN ENVELOPE DUCKING: Ducks spatial effects inside words, lets them bloom forward in gaps
+    # ACTIVE SIDE-CHAIN DUCKING ENVELOPE: Ducks effects while active, lets echoes bloom forward in gaps
     try:
         if wet is not None and len(wet.shape) > 1 and wet.shape[0] == 2:
             _mono_sig = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
             _w_win = int(sr * 0.12)
             _v_env = np.convolve(_mono_sig, np.ones(_w_win)/_w_win, mode='same')
             _v_env = _v_env / max(1e-5, np.max(_v_env))
-            
-            # Curve formulation: quiet (-10dB) while singing, blooms up (+3.5dB) inside audio gaps
-            _duck_curve = (1.0 - _v_env) * 1.45 + 0.30
+            _duck_curve = (1.0 - _v_env) * 1.35 + 0.25
             wet[0, :] = (wet[0, :] * _duck_curve).astype(np.float32)
             wet[1, :] = (wet[1, :] * _duck_curve).astype(np.float32)
     except:
@@ -756,8 +757,10 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
     kind = "plate" if plate is not None else "none"
     if wet is None:
-        return voc, round(d / float(sr) * 1000.0), "none"
-    return (voc + wet * 0.35).astype(np.float32), round(d / float(sr) * 1000.0), kind
+        return voc, round(_bar_note_time * 1000.0), "none"
+    return (voc + wet * 0.35).astype(np.float32), round(_bar_note_time * 1000.0), kind
+
+
 
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.60, "delay": 0.35, "exciter": True, "plate_from_delay": True},
