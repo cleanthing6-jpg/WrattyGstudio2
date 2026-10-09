@@ -725,21 +725,21 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     plate = _plate(slap if slap is not None else voc, sr)
     if plate is not None:
         try:
-            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, Chorus as _PRO_CHO
+            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF
+            # Pure static high-density studio room keeps your printed autotune 100% stable
             plate = Pedalboard([
-                _HPF(cutoff_frequency_hz=1200.0),
-                _HSF(cutoff_frequency_hz=11500.0, gain_db=3.2, q=0.7),
-                _PRO_CHO(rate_hz=0.32, depth=0.18, centre_delay_ms=7.0, feedback=0.0, mix=0.25)
+                _HPF(cutoff_frequency_hz=1000.0),
+                _HSF(cutoff_frequency_hz=12000.0, gain_db=2.5, q=0.7)
             ])(plate, sr).astype(np.float32)
             if len(plate.shape) > 1 and plate.shape[0] == 2:
                 plate[0, :] = -plate[1, :]
         except Exception as e:
-            print("Smart vocal gate calculations failure: %s" % e, flush=True)
-    
-    if plate is not None:
-        wet = plate if wet is None else (wet * 0.6 + plate * 1.30).astype(np.float32)
-        
-    # Smooth envelope ducking to keep lyrics clear while you are actively singing
+            print("Reverb room space processing exception: %s" % e, flush=True)
+
+
+
+
+
     if wet is not None:
         try:
             _mono_voc = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
