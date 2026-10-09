@@ -716,12 +716,14 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             Delay(delay_seconds=_eighth_note_time, feedback=0.16, mix=0.55), # Lifted blend to make it visible
             HighpassFilter(cutoff_frequency_hz=450.0), # Slightly lower cutoff for body
             LowpassFilter(cutoff_frequency_hz=8000.0), # Opened top end for clear crisp texture
-        ])(voc, sr).astype(np.float32)        wet = slap
+        ])(voc, sr).astype(np.float32)
+        wet = slap
     except:
         wet = None
     
     # Feed those tight rhythmic reflections into our wide stereo plate room
     plate = _plate(slap if slap is not None else voc, sr)
+    if plate is not None:
         try:
             from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, LowpassFilter as _LPF, Delay as _Dly
             # TELEPHONE ECHO BANDPASS FILTER: Slices out low-mid boom and high mouth clicks
@@ -744,9 +746,6 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             _d_crv = (1.0 - _e_trc) * 1.35 + 0.25
             wet[0, :] = (wet[0, :] * _d_crv).astype(np.float32)
             wet[1, :] = (wet[1, :] * _d_crv).astype(np.float32)
-        except: pass
-            _duck_mask = 1.0 - (0.35 * _env)
-            wet = (wet * _duck_mask[None, :]).astype(np.float32)
         except: pass
         
     kind = "plate" if plate is not None else "none"
