@@ -365,17 +365,16 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         tgt = TARGET.get(want)
         if tgt is None:
             tgt = float(cfg.get("target_lufs", -14.0))
+        # 250-500 Hz sits forward on every render. Cut it whether
+        # we're in mix mode or master mode.
+        _mc = -2.0 if mode == "master" else -1.5
+        mixed = Pedalboard([
+            PeakFilter(cutoff_frequency_hz=250.0, gain_db=_mc, q=0.9),
+            PeakFilter(cutoff_frequency_hz=420.0, gain_db=-1.0, q=1.0),
+        ])(mixed, sr).astype(np.float32)
+        report["mid_cut_db"] = _mc
+        report["mid_cut_hz"] = 250.0
         if mode == "master":
-            # 250-500 Hz sits ~2.4 dB forward vs BOI/FOLA. The BUS
-            # PeakFilter never runs on this path, so cut it here,
-            # before the limiter sees it.
-            mixed = Pedalboard([
-                PeakFilter(cutoff_frequency_hz=250.0, gain_db=-2.0, q=0.9),
-            ])(mixed, sr).astype(np.float32)
-            report["master_mid_cut_db"] = -2.0
-            report["master_mid_cut_hz"] = 250.0
-            # -9 LUFS: tested. lift 3.9 lands ~-9.0 at the -1.0 dBTP
-            # ceiling. More lift only adds soft-clip engagement, not level.
             tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
