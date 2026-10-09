@@ -391,6 +391,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
         else:
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
+        # Pre-limiter soft clip: rounds the peaks so the limiter sees
+        # a clean signal instead of hard clipped samples.
+        try:
+            mixed = auto.soft_clip(mixed, sr, knee=0.80)
+            report["pre_soft_clip"] = 0.80
+        except Exception:
+            pass
 
         setjob(jid, "clip+limit")
         # ORDER MATTERS FOR DYNAMICS (chasing the FOLA reference):
