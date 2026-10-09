@@ -38,9 +38,9 @@ DUCK_CAP = {BODY: 2.5, PRES: 5.5, HARSH: 3.0}
 DUCK_TARGET = {BODY: 2.0, PRES: 4.8, HARSH: 2.0}
 
 ROLE_TREAT = {
-    "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.5,
-                "harsh": 1.5, "air": 3.5, "ratio": 2.5, "atk": 15.0, "rel": 110.0,
-                "sat": 0.30, "width": 1.0},
+    "lead":    {"gain": 0.0,   "hpf": 145.0, "mud": 1.5, "box": 1.5, "pres": 5.5,
+                "harsh": 1.4, "air": 4.2, "ratio": 2.2, "atk": 25.0, "rel": 130.0,
+                "sat": 0.55, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
                 "sat": 0.6, "width": 1.25},
