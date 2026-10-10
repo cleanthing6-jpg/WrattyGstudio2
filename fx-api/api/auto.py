@@ -1138,6 +1138,110 @@ def _double(voc, sr):
         return None
 
 
+def _noise_gate(x, sr, reduction_db=8.0, hold_ms=30.0):
+    """Gentle gate. Measures the stem's own noise floor, then ducks
+    quiet passages by up to `reduction_db`. Not a hard gate — smooth
+    ramp, hold time keeps it from chattering between syllables."""
+    import numpy as np
+    try:
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[1] < 512:
+            return x
+        mono = a.mean(axis=0) if a.shape[0] > 1 else a[0]
+        win = max(1, int(sr * 0.010))
+        n_frames = len(mono) // win
+        if n_frames < 4:
+            return x
+        frames = mono[: n_frames * win].reshape(n_frames, win)
+        env = 20.0 * np.log10(np.sqrt((frames ** 2).mean(axis=1)) + 1e-12)
+        floor = float(np.percentile(env, 10))
+        thr = floor + 3.0
+        # smooth gate curve in dB -> linear
+        gate_db = np.where(env < thr, -reduction_db, 0.0)
+        # hold: keep gate open briefly after last loud frame
+        hold_n = max(1, int(hold_ms / 10.0))
+        held = np.zeros_like(gate_db)
+        counter = 0
+        for i in range(len(gate_db)):
+            if gate_db[i] >= 0.0:
+                held[i] = 0.0
+                counter = hold_n
+            else:
+                if counter > 0:
+                    held[i] = 0.0
+                    counter -= 1
+                else:
+                    held[i] = gate_db[i]
+        # attack/release smoothing (5 ms / 80 ms)
+        a_c, r_c = 0.40, 0.06
+        sm = np.empty_like(held)
+        p_ = 0.0
+        for i in range(len(held)):
+            c = a_c if held[i] > p_ else r_c
+            p_ = c * p_ + (1.0 - c) * held[i]
+            sm[i] = p_
+        gain = 10.0 ** (sm / 20.0)
+        gain_full = np.repeat(gain, win)
+        if gain_full.size < a.shape[1]:
+            gain_full = np.concatenate([gain_full, np.ones(a.shape[1] - gain_full.size, np.float32)])
+        else:
+            gain_full = gain_full[: a.shape[1]]
+        return (a * gain_full[None, :]).astype(np.float32)
+    except Exception:
+        return x
+
+
+def _align_to_beat(voc, beat, sr, max_shift_ms=400):
+    """Auto-align a vocal to the beat via cross-correlation of energy
+    envelopes. Returns the vocal shifted earlier (or later) so its first
+    energy peak lands on the beat's first energy peak. Only small shifts."""
+    import numpy as np
+    try:
+        if voc is None or beat is None:
+            return voc, 0
+        v = voc.mean(axis=0) if voc.ndim > 1 else voc
+        b = beat.mean(axis=0) if beat.ndim > 1 else beat
+        n = min(len(v), len(b))
+        if n < sr:
+            return voc, 0
+        win = max(1, int(sr * 0.010))
+        nf = n // win
+        ve = np.abs(v[: nf * win].reshape(nf, win)).max(axis=1)
+        be = np.abs(b[: nf * win].reshape(nf, win)).max(axis=1)
+        # keep only first 30 s of envelope (align at start of song)
+        cap = min(nf, int(30.0 / 0.010))
+        ve = ve[:cap]; be = be[:cap]
+        if ve.size < 8 or be.size < 8:
+            return voc, 0
+        ve = ve - ve.mean(); be = be - be.mean()
+        # cross-correlation via FFT
+        nfft = 1 << int(2 * cap - 1).bit_length()
+        F = np.fft.rfft(ve, nfft) * np.conj(np.fft.rfft(be, nfft))
+        cc = np.fft.irfft(F, nfft)[:cap]
+        # search only +/- max_shift frames
+        msh = max(1, int(max_shift_ms / 10.0))
+        lo = cap - msh
+        hi = cap + msh
+        if lo < 0: lo = 0
+        if hi > cap: hi = cap
+        if hi <= lo:
+            return voc, 0
+        # lag = shift of vocal relative to beat
+        seg = cc[lo:hi]
+        lag_idx = int(np.argmax(seg)) + lo - cap   # negative = vocal is late
+        if abs(lag_idx) < 2:
+            return voc, 0
+        shift = -lag_idx * win                       # positive = shift vocal earlier
+        if shift > 0:
+            out = voc[:, shift:].astype(np.float32)
+        else:
+            pad = -shift
+            out = np.concatenate([np.zeros((voc.shape[0], pad), np.float32), voc], axis=1)
+        return out, int(round(lag_idx * win / sr * 1000.0))   # ms the vocal was off
+    except Exception:
+        return voc, 0
+
+
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
@@ -1158,6 +1262,10 @@ def _role_chain(voc, sr, st, role):
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, min(g, 2.0), 1.0)); moves.append(["presence 3k", round(min(g, 2.0), 2)])
+    # Gate BEFORE compression so makeup gain never amplifies the noise floor
+    if role in ("lead", "backing", "adlib"):
+        voc = _noise_gate(voc, sr, reduction_db=8.0)
+        moves.append(["noise_gate", -8.0])
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
@@ -1457,6 +1565,13 @@ def mix(groups, sr, loud="MEDIUM"):
                     rep.setdefault("declip", {})[_r] = _drep
             except Exception as _e:
                 rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
+
+    # Auto-align lead vocal to beat
+    if beat is not None and ro_map.get("lead") is not None:
+        _aligned, _off_ms = _align_to_beat(ro_map["lead"], beat, sr)
+        if _off_ms != 0:
+            ro_map["lead"] = _aligned
+            rep["lead_offset_ms"] = _off_ms
 
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
