@@ -391,7 +391,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             tgt = float(cfg.get("target_lufs", -14.0))
         # 250-500 Hz sits forward on every render. Cut it whether
         # we're in mix mode or master mode.
-        _mcs = 0.0 if mode == "master" else float(cfg.get("mid_cut_scale", 1.0))
+        _mcs = 0.0 if mode == "master" else float(cfg.get("mid_cut_scale", 0.5))
         _mc = -2.5 * _mcs
         mixed = Pedalboard([
             PeakFilter(cutoff_frequency_hz=250.0, gain_db=_mc, q=0.9),
