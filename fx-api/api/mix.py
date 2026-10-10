@@ -408,10 +408,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _side = (mixed[0] - mixed[1]) * 0.5
                 from pedalboard import HighShelfFilter as _HSF
                 _side = Pedalboard([
-                    _HSF(cutoff_frequency_hz=250.0, gain_db=8.0, q=0.7),
+                    _HSF(cutoff_frequency_hz=250.0, gain_db=6.0, q=0.7),
                 ])(_side[None, :], sr)[0].astype(np.float32)
                 mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
-                report["width_side_boost_db"] = 8.0
+                report["width_side_boost_db"] = 6.0
                 report["width_side_boost_hz"] = 250.0
             except Exception as _e:
                 report["width_side_boost_error"] = str(_e)[:160]
