@@ -150,6 +150,9 @@ def _treat_for(role):
             t[_k] = t.get(_k, 0.0) + float(_v)
     return t
 
+# Lead shift earlier in ms. Tune until vocal lands on beat.
+LEAD_SHIFT_MS = 10.0
+
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
@@ -1242,9 +1245,33 @@ def _align_to_beat(voc, beat, sr, max_shift_ms=400):
         return voc, 0
 
 
+def shift_vocal_earlier(vocal, sr, shift_ms=10.0):
+    """Shift vocal earlier relative to a readymade beat.
+    Does not change tempo or pitch. Same number of samples."""
+    if sr <= 0:
+        return vocal
+    if not 0.0 <= shift_ms <= 100.0:
+        return vocal
+    audio = np.asarray(vocal, dtype=np.float32)
+    shift_samples = int(round(sr * shift_ms / 1000.0))
+    if shift_samples == 0:
+        return audio.copy()
+    shifted = np.zeros_like(audio)
+    if audio.ndim == 1:
+        shifted[:-shift_samples] = audio[shift_samples:]
+    elif audio.ndim == 2:
+        shifted[:, :-shift_samples] = audio[:, shift_samples:]
+    else:
+        return vocal
+    return shifted
+
+
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
+    if role == "lead" and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
+        voc = shift_vocal_earlier(voc, sr, LEAD_SHIFT_MS)
+        moves.append(["lead_shift_ms", LEAD_SHIFT_MS])
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     if st["mud"] > 1.0:
         g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
