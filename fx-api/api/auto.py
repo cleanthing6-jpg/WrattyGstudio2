@@ -984,7 +984,9 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             _v_env = _v_env / max(1e-5, np.max(_v_env))
             # Gentle duck: 0.75 during vocals, 1.0 in the gaps. Was 0.25 -> 1.60,
             # which silenced the reverb during every vocal line.
-            _duck_curve = (1.0 - _v_env) * 0.25 + 0.75
+            # Call-and-response: wet ducks under the vocal, blooms in the gap.
+            # Old curve: 0.75-1.00 (barely moved). New: 0.12-1.55 (real answer).
+            _duck_curve = (1.0 - _v_env) * 1.43 + 0.12
             wet[0, :] = (wet[0, :] * _duck_curve).astype(np.float32)
             wet[1, :] = (wet[1, :] * _duck_curve).astype(np.float32)
     except:
