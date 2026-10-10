@@ -435,8 +435,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # Pre-limiter soft clip: rounds the peaks so the limiter sees
         # a clean signal instead of hard clipped samples.
         try:
-            mixed = auto.soft_clip(mixed, sr, knee=0.92)
-            report["pre_soft_clip"] = 0.92
+            mixed = auto.soft_clip(mixed, sr, knee=0.99)
+            report["pre_soft_clip"] = 0.99
         except Exception:
             pass
 
