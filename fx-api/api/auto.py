@@ -660,7 +660,7 @@ def _plate(voc, sr):
     try:
         y = Pedalboard([Reverb(room_size=0.70, damping=0.55,
                                wet_level=1.0, dry_level=0.0, width=1.0)])(voc, sr).astype(np.float32)
-        _pd = int(sr * 0.055)
+        _pd = int(sr * 0.095)
         if _pd > 0 and y.shape[1] > _pd:
             _z = np.zeros_like(y)
             _z[:, _pd:] = y[:, :y.shape[1] - _pd]
@@ -933,7 +933,8 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     # Serial routing fed every echo tap through the reverb, which stacked
     # tails and turned the repeats into cloud/noise.
     hall = _hall(voc, sr)
-    plate = _plate(voc, sr)
+    # Plate runs on the ECHO, not the dry — professional "delay into reverb" chain
+    plate = _plate(ping, sr) if ping is not None else _plate(voc, sr)
     n_out = voc.shape[1]
     wet = np.zeros((2, n_out), dtype=np.float32)
     def _fit(a, n):
@@ -946,13 +947,13 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             a = a[:, :n]
         return a
     if ping is not None:
-        wet += _fit(ping, n_out) * 0.30
+        wet += _fit(ping, n_out) * 0.55
     if hall is not None:
-        wet += _fit(hall, n_out) * 0.25
+        wet += _fit(hall, n_out) * 0.12
     if plate is not None:
-        wet += _fit(plate, n_out) * 0.22
+        wet += _fit(plate, n_out) * 0.30
     if slap is not None:
-        wet += _fit(slap, n_out) * 0.12
+        wet += _fit(slap, n_out) * 0.10
     # H3000-style stereo spread on the entire wet return
     # Tilt the wet bus to air: cut below 600 Hz, shelf up above 8 kHz.
     # This is what makes the wet read as transparent "smoke" instead of cloud.
@@ -1010,7 +1011,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         wet = wet * _auto[None, :].astype(np.float32)
     except Exception:
         pass
-    return (voc + wet * 0.42).astype(np.float32), round(_bar_note_time * 1000.0), kind
+    return (voc + wet * 0.38).astype(np.float32), round(_bar_note_time * 1000.0), kind
 
 
 
