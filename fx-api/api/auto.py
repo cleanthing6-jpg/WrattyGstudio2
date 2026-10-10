@@ -1007,7 +1007,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         wet = wet * _auto[None, :].astype(np.float32)
     except Exception:
         pass
-    return (voc + wet * 0.60).astype(np.float32), round(_bar_note_time * 1000.0), kind
+    return (voc + wet * 0.42).astype(np.float32), round(_bar_note_time * 1000.0), kind
 
 
 
