@@ -1279,9 +1279,7 @@ def shift_vocal_earlier(vocal, sr, shift_ms=10.0):
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
-    if role == "lead" and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
-        voc = shift_vocal_earlier(voc, sr, LEAD_SHIFT_MS)
-        moves.append(["lead_shift_ms", LEAD_SHIFT_MS])
+    # (vocal chop disabled — was cutting the start of the first word)
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     if st["mud"] > 1.0:
         g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
@@ -1520,6 +1518,12 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["arrived"] = {"error": str(_e)[:120]}
 
     beat = _sum(beats) if beats else None
+    # Shift BEAT later (pad with silence) so vocal lands on the beat.
+    # No word is cut — the beat just starts a hair later.
+    if beat is not None and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
+        _pad = int(sr * LEAD_SHIFT_MS / 1000.0)
+        beat = np.concatenate([np.zeros((beat.shape[0], _pad), np.float32), beat], axis=1)
+        rep["beat_shift_later_ms"] = LEAD_SHIFT_MS
     ro_map = {}
     for r in ROLE_VOCALS:
         arrs = groups.get(r) or []
