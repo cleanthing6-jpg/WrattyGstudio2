@@ -435,7 +435,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # Pre-limiter soft clip: rounds the peaks so the limiter sees
         # a clean signal instead of hard clipped samples.
         try:
-            mixed = auto.soft_clip(mixed, sr, knee=0.99)
+            mixed = auto.soft_clip(mixed, sr, knee=0.80)
             report["pre_soft_clip"] = 0.99
         except Exception:
             pass
@@ -463,7 +463,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         elif cfg.get("soft_clip") or mode == "master":
             # Master clips a touch harder so loudness comes from peak
             # rounding, not from the limiter - that is what keeps LRA up.
-            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.80)) if mode == "master" else 0.95)
+            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.55)) if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
