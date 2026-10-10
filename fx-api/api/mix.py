@@ -436,7 +436,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # a clean signal instead of hard clipped samples.
         try:
             mixed = auto.soft_clip(mixed, sr, knee=0.80)
-            report["pre_soft_clip"] = 0.99
+            report["pre_soft_clip"] = 0.80
         except Exception:
             pass
 
