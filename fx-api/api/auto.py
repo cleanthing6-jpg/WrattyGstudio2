@@ -5,6 +5,13 @@ mix cannot come out harsh, phasing or clipping.
 
 import os
 import numpy as np
+try:
+    import declip as _declip
+except ImportError:
+    try:
+        from . import declip as _declip
+    except Exception:
+        _declip = None
 
 try:
     import polish
@@ -1155,7 +1162,19 @@ def _role_chain(voc, sr, st, role):
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
     moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
-    drive = min(1.2, t["sat"]) * (0.5 if int(np.count_nonzero(np.abs(voc) >= 0.999)) >= 100 else 1.0)
+    drive = min(1.2, t["sat"])
+    try:
+        _ah = (np.abs(voc) >= 0.999).any(axis=0) if getattr(voc, "ndim", 1) == 2 else (np.abs(voc) >= 0.999)
+        _ad = np.diff(np.concatenate([[0], _ah.astype(np.int8), [0]]))
+        _as = np.where(_ad == 1)[0]
+        _ae = np.where(_ad == -1)[0]
+        _aruns = (_ae - _as) if _as.size else np.array([], dtype=int)
+        _along = int((_aruns >= 3).sum()) if _aruns.size else 0
+        _amax = int(_aruns.max()) if _aruns.size else 0
+        if _along >= 200 and _amax >= 15:
+            drive = drive * 0.5
+    except Exception:
+        pass
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
     _pre = _rms_db(voc)
     _post = _rms_db(out)
@@ -1415,6 +1434,29 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["plate"] = pk
         rep["plate_error"] = plate_error()
         return _headroom(core), rep
+
+    # ---- optional declip: only fires on genuinely damaged stems ----
+    if _declip is not None:
+        for _r in list(ro_map.keys()):
+            try:
+                _v = ro_map[_r]
+                _h = (np.abs(_v) >= 0.999).any(axis=0) if _v.ndim == 2 else (np.abs(_v) >= 0.999)
+                if int(_h.sum()) < 200:
+                    continue
+                _dd = np.diff(np.concatenate([[0], _h.astype(np.int8), [0]]))
+                _ds = np.where(_dd == 1)[0]
+                _de = np.where(_dd == -1)[0]
+                _dr = (_de - _ds) if _ds.size else np.array([], dtype=int)
+                _dlong = int((_dr >= 3).sum()) if _dr.size else 0
+                _dmax = int(_dr.max()) if _dr.size else 0
+                if _dlong < 200 or _dmax < 15:
+                    continue
+                _fixed, _drep = _declip.declip(_v, sr)
+                if _drep.get("repaired", 0) > 0:
+                    ro_map[_r] = _fixed
+                    rep.setdefault("declip", {})[_r] = _drep
+            except Exception as _e:
+                rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
 
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
