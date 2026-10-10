@@ -1566,13 +1566,6 @@ def mix(groups, sr, loud="MEDIUM"):
             except Exception as _e:
                 rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
 
-    # Auto-align lead vocal to beat
-    if beat is not None and ro_map.get("lead") is not None:
-        _aligned, _off_ms = _align_to_beat(ro_map["lead"], beat, sr)
-        if _off_ms != 0:
-            ro_map["lead"] = _aligned
-            rep["lead_offset_ms"] = _off_ms
-
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
     rep["roles"] = {r: len(groups.get(r) or []) for r in ROLE_VOCALS if groups.get(r)}
