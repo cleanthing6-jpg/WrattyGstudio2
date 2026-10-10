@@ -158,8 +158,8 @@ SEND_WET = 0.11
 DOUBLE_DB = -30.0
 WIDEN = 1.0
 LOW_MONO_HZ = 70.0
-CEILING_DB = -1.0   # canonical true-peak ceiling; TARGETS['tp'] must match
-TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -1.0}
+CEILING_DB = -0.5   # canonical true-peak ceiling; TARGETS['tp'] must match
+TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -0.5}
 
 BEAT_ROLES = ("beat", "instrumental", "inst", "instrument", "music",
               "2track", "two track", "backing track")
@@ -1216,7 +1216,7 @@ def _role_chain(voc, sr, st, role):
     except Exception:
         pass
     try:
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=0.5, q=0.7)])(out, sr).astype(np.float32)
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=-1.0, q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
     moves.append(["air 11k", 2.0])
