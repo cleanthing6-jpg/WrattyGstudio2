@@ -871,8 +871,8 @@ def _pingpong(voc, sr, bpm, note=0.75):
         out[side, off:] += src[:n + pad - off] * gain
         side = 1 - side
         gain *= fb
-    out = Pedalboard([HighpassFilter(cutoff_frequency_hz=380.0),
-                      LowpassFilter(cutoff_frequency_hz=6000.0)])(out, sr).astype(np.float32)
+    out = Pedalboard([HighpassFilter(cutoff_frequency_hz=500.0),
+                      LowpassFilter(cutoff_frequency_hz=4500.0)])(out, sr).astype(np.float32)
     return out[:, :voc.shape[1]]
 
 
@@ -945,11 +945,11 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             a = a[:, :n]
         return a
     if ping is not None:
-        wet += _fit(ping, n_out) * 0.55
+        wet += _fit(ping, n_out) * 0.32
     if hall is not None:
-        wet += _fit(hall, n_out) * 0.12
+        wet += _fit(hall, n_out) * 0.22
     if plate is not None:
-        wet += _fit(plate, n_out) * 0.30
+        wet += _fit(plate, n_out) * 0.22
     if slap is not None:
         wet += _fit(slap, n_out) * 0.10
     # H3000-style stereo spread on the entire wet return
@@ -1011,7 +1011,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         wet = wet * _auto[None, :].astype(np.float32)
     except Exception:
         pass
-    return (voc + wet * 0.38).astype(np.float32), round(_bar_note_time * 1000.0), kind
+    return (voc + wet * 0.45).astype(np.float32), round(_bar_note_time * 1000.0), kind
 
 
 
