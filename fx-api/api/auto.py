@@ -151,7 +151,7 @@ def _treat_for(role):
     return t
 
 # Lead shift earlier in ms. Tune until vocal lands on beat.
-LEAD_SHIFT_MS = 25.0
+LEAD_SHIFT_MS = 45.0
 
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
