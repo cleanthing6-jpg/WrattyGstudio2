@@ -984,14 +984,16 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             # which silenced the reverb during every vocal line.
             # Call-and-response: wet ducks under the vocal, blooms in the gap.
             # Old curve: 0.75-1.00 (barely moved). New: 0.12-1.55 (real answer).
-            # Only bloom the echo after a REAL gap (>=400ms of silence).
-            # Continuous singing -> echo stays ducked. Phrase end -> echo answers.
+            # Echo must be SILENT during vocals. Only opens in real gaps.
+            # 1. Detect true silence (400ms+ of low energy)
             _gap = max(1, int(sr * 0.40))
-            _sil = (_v_env < 0.08).astype(np.float32)
+            _sil = (_v_env < 0.05).astype(np.float32)
             _run = np.convolve(_sil, np.ones(_gap) / _gap, mode="same")
-            _real_gap = np.clip((_run - 0.85) * 6.0, 0.0, 1.0)
-            _duck_curve = (1.0 - _v_env) * 0.30 + 0.10
-            _duck_curve = _duck_curve + _real_gap * 1.60
+            _real_gap = np.clip((_run - 0.90) * 10.0, 0.0, 1.0)
+            # 2. Base curve = near silent while singing (0.02 floor, 0.08 ceiling)
+            _duck_curve = (1.0 - _v_env) * 0.06 + 0.02
+            # 3. Only bloom (1.8x) in real gaps
+            _duck_curve = _duck_curve + _real_gap * 1.80
             wet[0, :] = (wet[0, :] * _duck_curve).astype(np.float32)
             wet[1, :] = (wet[1, :] * _duck_curve).astype(np.float32)
     except:
