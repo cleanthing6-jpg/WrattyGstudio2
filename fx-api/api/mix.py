@@ -400,6 +400,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         ])(mixed, sr).astype(np.float32)
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
+        # Width: +3 dB side above 250 Hz to match commercial Afrobeats width.
+        # Below 250 Hz the side stays untouched so bass and kick stay mono.
+        if mode != "passthrough" and mixed.shape[0] >= 2:
+            try:
+                _mid = (mixed[0] + mixed[1]) * 0.5
+                _side = (mixed[0] - mixed[1]) * 0.5
+                _side = Pedalboard([
+                    HighShelfFilter(cutoff_frequency_hz=250.0, gain_db=3.0, q=0.7),
+                ])(_side[None, :], sr)[0].astype(np.float32)
+                mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
+                report["width_side_boost_db"] = 3.0
+                report["width_side_boost_hz"] = 250.0
+            except Exception as _e:
+                report["width_side_boost_error"] = str(_e)[:160]
         if mode == "master":
             tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
