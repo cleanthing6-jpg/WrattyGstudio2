@@ -247,8 +247,16 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
     tmp = tempfile.mkdtemp()
     try:
         cfg = auto.apply_preset(preset)
+        try:
+            try:
+                import qc as _qc
+            except ImportError:
+                from . import qc as _qc
+        except Exception:
+            _qc = None
         sr = None
         groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "other": []}
+        _qc_in = {}
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
             p = os.path.join(tmp, "%d.wav" % i)
@@ -267,13 +275,21 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 a = np.repeat(a, 2, axis=0)
             a = np.ascontiguousarray(a[:2].astype(np.float32))
             role = s.get("role") or s.get("name") or "stem"
+            if _qc is not None:
+                try:
+                    _qc_in[str(i)] = _qc.stem_qc(a, sr, role)
+                except Exception:
+                    pass
             if i == 0:
                 _PAN_N.update({"backing": 0, "adlib": 0})
                 _PAN_REPORT.update({"backing": [], "adlib": []})
+                _PAN_NB = sum(1 for _s in stems if auto.bucket(_s.get("role") or _s.get("name") or "stem") == "backing")
             bucket = auto.bucket(role)
             if PAN_ENABLED and bucket in PAN_VALUES:
                 k = _PAN_N[bucket]
                 pan = PAN_VALUES[bucket][k % len(PAN_VALUES[bucket])]
+                if bucket == "backing" and _PAN_NB % 2 == 1 and k == _PAN_NB - 1:
+                    pan = 0.0
                 _PAN_N[bucket] += 1
                 _hi = Pedalboard([HighpassFilter(
                     cutoff_frequency_hz=PAN_HZ)])(a, sr).astype(np.float32)
@@ -293,6 +309,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
 
         setjob(jid, "analysing")
         mixed, report = auto.mix(groups, sr)
+        report["input_qc"] = _qc_in
 
         report["role_pan"] = {"on": PAN_ENABLED, "hz": PAN_HZ,
                              "backing": _PAN_REPORT["backing"],
@@ -313,11 +330,11 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _side[None, :], sr)[0]
             try:
                 from pedalboard import LowShelfFilter as _LSF
-                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=7.0),
-                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=3.0, q=0.9)])(
+                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=float(cfg.get("low_mid_shelf_db", 7.0))),
+                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=float(cfg.get("body_125_db", 3.0)), q=0.9)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
-                report["low_mid_shelf_db"] = 7.0
-                report["body_125_db"] = 3.0
+                report["low_mid_shelf_db"] = float(cfg.get("low_mid_shelf_db", 7.0))
+                report["body_125_db"] = float(cfg.get("body_125_db", 3.0))
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.63 * (_side - _hi)).astype(np.float32)
@@ -374,11 +391,12 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             tgt = float(cfg.get("target_lufs", -14.0))
         # 250-500 Hz sits forward on every render. Cut it whether
         # we're in mix mode or master mode.
-        _mc = -3.0 if mode == "master" else -2.5
+        _mcs = 0.0 if mode == "master" else float(cfg.get("mid_cut_scale", 1.0))
+        _mc = -2.5 * _mcs
         mixed = Pedalboard([
             PeakFilter(cutoff_frequency_hz=250.0, gain_db=_mc, q=0.9),
-            PeakFilter(cutoff_frequency_hz=420.0, gain_db=-2.0, q=1.0),
-            PeakFilter(cutoff_frequency_hz=550.0, gain_db=-1.0, q=1.0),
+            PeakFilter(cutoff_frequency_hz=420.0, gain_db=-2.0 * _mcs, q=1.0),
+            PeakFilter(cutoff_frequency_hz=550.0, gain_db=-1.0 * _mcs, q=1.0),
         ])(mixed, sr).astype(np.float32)
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
@@ -422,7 +440,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         elif cfg.get("soft_clip") or mode == "master":
             # Master clips a touch harder so loudness comes from peak
             # rounding, not from the limiter - that is what keeps LRA up.
-            mixed = auto.soft_clip(mixed, sr, knee=0.55 if mode == "master" else 0.70)
+            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.55)) if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
@@ -452,6 +470,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _p, "fx/%s-mix-%s%s" % (_stem, want.lower(), _ex), _ct)
         url = urls.get("flac") or urls.get("mp3") or ""
         got = lufs(rel, rel_sr)
+        try:
+            report["final_lufs"] = None if got is None else round(got, 2)
+            report["final_true_peak_dbfs"] = round(auto._true_peak_db(rel), 2)
+            if _qc is not None:
+                report["final_qc"] = _qc.output_qc(rel, rel_sr, got, report["final_true_peak_dbfs"], auto.CEILING_DB)
+        except Exception:
+            pass
         report["loudness"] = want
         report["format"] = ",".join(sorted(urls.keys()))
         if enc_err:
@@ -516,13 +541,13 @@ class Handler(BaseHTTPRequestHandler):
         for s in stems:
             if not str(s.get("url") or "").startswith("https://"):
                 return self.json_out(400, {"error": "each stem needs an https url"})
-        with LK:
-            busy = any(v.get("status") in ("queued", "running") for v in JOBS.values())
-        if busy:
-            return self.json_out(429, {"error": "engine busy - try again in a minute"})
         jid = uuid.uuid4().hex
         with LK:
-            JOBS[jid] = {"status": "queued"}
+            busy = any(v.get("status") in ("queued", "running") for v in JOBS.values())
+            if not busy:
+                JOBS[jid] = {"status": "queued"}
+        if busy:
+            return self.json_out(429, {"error": "engine busy - try again in a minute"})
         t = threading.Thread(target=worker, args=(jid, stems, str(data.get("loudness") or "MEDIUM"), str(data.get("preset") or "neutral"), float(data.get("maxSeconds") or 0)))
         t.daemon = True
         t.start()
