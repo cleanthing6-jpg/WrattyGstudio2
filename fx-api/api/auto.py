@@ -1171,7 +1171,7 @@ def _adaptive_hpf(voc, sr, fallback_hz):
         f0 = _qc.f0_percentiles(x, sr)
         if not f0:
             return fallback_hz
-        return float(int(min(110, max(70, 0.8 * float(f0["f0_p2"])))))
+        return float(int(min(110, max(70, 0.7 * float(f0["f0_p2"])))))
     except Exception:
         return fallback_hz
 
@@ -1188,10 +1188,10 @@ def _role_chain(voc, sr, st, role):
     # Chest/body shelf — restores 250-600 Hz weight the mud+box cuts remove.
     # Only on the vocal path, so the ready-made beat is untouched.
     try:
-        from pedalboard import LowshelfFilter as _LSF
+        from pedalboard import LowShelfFilter as _LSF
         _body_db = float(t.get("body_db", 1.5))
         if _body_db > 0.1:
-            ch.append(_LSF(cutoff_frequency_hz=300.0, gain_db=_body_db, q=0.7))
+            ch.append(_LSF(cutoff_frequency_hz=300.0, gain_db=_body_db))
             moves.append(["body 300", round(_body_db, 2)])
     except Exception:
         pass
