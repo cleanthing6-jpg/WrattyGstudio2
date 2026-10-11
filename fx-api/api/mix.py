@@ -461,6 +461,19 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         except Exception:
             pass
 
+        # Pre-crest guard: if input is already dense (low crest), back
+        # off the loudness target so the limiter doesn't crush dynamics.
+        if mode == "master":
+            try:
+                _crest_in = peakdb(mixed) - rmsdb(mixed)
+                if _crest_in < 11.0:
+                    tgt = tgt - 1.5
+                    report["crest_pre_check"] = {"input_crest_db": round(_crest_in, 2), "target_reduced_db": -1.5}
+                elif _crest_in < 13.0:
+                    tgt = tgt - 0.5
+                    report["crest_pre_check"] = {"input_crest_db": round(_crest_in, 2), "target_reduced_db": -0.5}
+            except Exception as _cpe:
+                report["crest_pre_check_error"] = str(_cpe)[:120]
         setjob(jid, "clip+limit")
         # ORDER MATTERS FOR DYNAMICS (chasing the FOLA reference):
         # set the gain FIRST, then clip, then limit ONCE. The old order
@@ -519,6 +532,17 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         gc.collect()
         rel, rel_sr = load(out)
         secs = rel.shape[1] / float(rel_sr)
+        # True-peak recheck on decoded 16-bit output; if post-quantization
+        # TP exceeds ceiling, attenuate and re-save before encoding.
+        try:
+            _tp_now = auto._true_peak_db(rel)
+            if _tp_now > auto.CEILING_DB + 0.05:
+                _delta = auto.CEILING_DB - _tp_now - 0.1
+                rel = (rel * (10.0 ** (_delta / 20.0))).astype(np.float32)
+                save16(out, rel, rel_sr)
+                report["tp_recheck"] = {"measured_db": round(_tp_now, 2), "adjusted_db": round(_delta, 2)}
+        except Exception as _tpe:
+            report["tp_recheck_error"] = str(_tpe)[:120]
         files, enc_err = encode_all(out, tmp, secs <= 65.0)
         _stem = uuid.uuid4().hex
         urls = {}

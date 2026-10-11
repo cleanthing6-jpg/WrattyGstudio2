@@ -573,7 +573,9 @@ def analyze(beat_mono, voc_mono, sr):
     }, freq
 
 
-def detect_tempo(beat_mono, sr):
+def detect_tempo(beat_mono, sr, with_conf=False):
+    def _ret(bpm, conf):
+        return (float(bpm), float(conf)) if with_conf else float(bpm)
     try:
         S = _stft(beat_mono)
         flux = np.maximum(0.0, np.diff(np.abs(S), axis=0)).mean(axis=1)
@@ -581,25 +583,26 @@ def detect_tempo(beat_mono, sr):
         flux = flux - flux.mean()
         n = len(flux)
         if n < 128:
-            return 100.0
+            return _ret(100.0, 0.0)
         F = np.fft.rfft(flux, 2 * n)
         ac = np.fft.irfft(F * np.conj(F))[:n]
         fps = sr / float(HOP)
         lo = int(round(fps * 60.0 / 190.0))
         hi = min(n - 1, int(round(fps * 60.0 / 60.0)))
         if hi <= lo:
-            return 100.0
+            return _ret(100.0, 0.0)
         lag = lo + int(np.argmax(ac[lo:hi]))
         if lag <= 0:
-            return 100.0
+            return _ret(100.0, 0.0)
         bpm = 60.0 * fps / lag
         while bpm < 80.0:
             bpm *= 2.0
         while bpm > 180.0:
             bpm /= 2.0
-        return float(bpm)
+        conf = float(ac[lag] / (ac[0] + 1e-12))
+        return _ret(bpm, conf)
     except Exception:
-        return 100.0
+        return _ret(100.0, 0.0)
 
 
 # ---------- impulse response ----------
@@ -1524,7 +1527,9 @@ def mix(groups, sr, loud="MEDIUM"):
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
     rep["roles"] = {r: len(groups.get(r) or []) for r in ROLE_VOCALS if groups.get(r)}
-    bpm = detect_tempo(_mono(beat), sr)
+    bpm, _bpm_conf = detect_tempo(_mono(beat), sr, with_conf=True)
+    if _bpm_conf < 0.15:
+        bpm = 100.0
     rep["bpm"] = round(bpm, 1)
 
     freq = np.fft.rfftfreq(N, 1.0 / sr)
