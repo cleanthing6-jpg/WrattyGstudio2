@@ -1248,7 +1248,7 @@ def _role_chain(voc, sr, st, role):
     try:
         out = Pedalboard([
             PeakFilter(cutoff_frequency_hz=320.0, gain_db=-2.5, q=1.1),
-            LowshelfFilter(cutoff_frequency_hz=150.0, gain_db=-3.0, q=0.7),
+            LowShelfFilter(cutoff_frequency_hz=150.0, gain_db=-1.5),
             HighpassFilter(cutoff_frequency_hz=95.0),
         ])(out, sr).astype(np.float32)
     except Exception:
@@ -1261,7 +1261,7 @@ def _role_chain(voc, sr, st, role):
     try:
         from pedalboard import HighShelfFilter as _HSF
         out = Pedalboard([
-            _HSF(cutoff_frequency_hz=12500.0, gain_db=2.5, q=0.7) # Extra expensive sonic sheen layer
+            _HSF(cutoff_frequency_hz=12500.0, gain_db=0.0, q=0.7) # Extra expensive sonic sheen layer
         ])(out, sr).astype(np.float32)
     except Exception:
         pass
@@ -1269,14 +1269,14 @@ def _role_chain(voc, sr, st, role):
     try:
         # Boost clean high fidelity air gracefully at the top of the chain
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0,
-                                          gain_db=min(MAX_AIR + 1.0, t["air"] + 0.8), q=0.7)])(out, sr).astype(np.float32)
+                                          gain_db=min(1.5, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
     try:
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=-1.0, q=0.7)])(out, sr).astype(np.float32)
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=0.0, q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
-    moves.append(["air 11k", round(float(t["air"]), 2)])
+    moves.append(["air 11k", round(min(1.5, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
     return out, moves
