@@ -63,12 +63,12 @@ ROLE_TREAT = {
 PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
-        "target_lufs": -9.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.08, "plate_db": -16.5, "slap_db": -15.0,
+        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
+        "width": 1.20, "plate_db": -16.5, "slap_db": -8.0,
     },
     "amapiano": {
-        "target_lufs": -10.0, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.10, "plate_db": -16.0, "slap_db": -20.0,
+        "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
+        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
     },
     "pop": {
         "target_lufs": -11.5, "glue_ratio": 1.6, "glue_gr_db": 1.0,
