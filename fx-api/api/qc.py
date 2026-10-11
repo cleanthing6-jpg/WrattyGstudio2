@@ -174,7 +174,7 @@ def stem_qc(a, sr, role="stem"):
         f0 = f0_percentiles(x, sr)
         if f0:
             out.update(f0)
-            out["suggested_hpf_hz"] = int(min(110, max(70, 0.8 * f0["f0_p2"])))
+            out["suggested_hpf_hz"] = int(min(110, max(70, 0.7 * f0["f0_p2"])))
     out["flags"] = flags
     return out
 

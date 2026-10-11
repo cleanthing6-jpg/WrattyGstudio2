@@ -1156,8 +1156,32 @@ def _noise_gate(x, sr, reduction_db=8.0, hold_ms=30.0):
 
 
 
+def _adaptive_hpf(voc, sr, fallback_hz):
+    """Pick HPF from measured vocal pitch. Clamped 70-110 Hz (same range as qc.py).
+    Falls back to preset value on any failure. Only for lead."""
+    try:
+        import qc as _qc
+    except Exception:
+        try:
+            from . import qc as _qc
+        except Exception:
+            return fallback_hz
+    try:
+        x = voc.mean(0) if getattr(voc, "ndim", 1) > 1 else voc
+        f0 = _qc.f0_percentiles(x, sr)
+        if not f0:
+            return fallback_hz
+        return float(int(min(110, max(70, 0.8 * float(f0["f0_p2"])))))
+    except Exception:
+        return fallback_hz
+
+
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
+    if role == "lead":
+        _h = _adaptive_hpf(voc, sr, float(t["hpf"]))
+        if _h > 0:
+            t["hpf"] = _h
     moves = [["role", role], ["highpass", t["hpf"]]]
     # (vocal chop disabled — was cutting the start of the first word)
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
