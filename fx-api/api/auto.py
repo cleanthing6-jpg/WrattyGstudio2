@@ -70,7 +70,6 @@ PRESETS = {
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 70.0,
-        "lead_shift_ms": 45.0,
         "role_treat_lead": {
             "gain": 0.0, "hpf": 110.0, "mud": 2.5, "box": 1.5, "pres": 2.0,
             "harsh": 1.4, "air": 2.0, "ratio": 2.2, "atk": 25.0, "rel": 130.0,
