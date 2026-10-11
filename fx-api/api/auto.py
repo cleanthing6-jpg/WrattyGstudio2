@@ -1486,6 +1486,11 @@ def mix(groups, sr, loud="MEDIUM"):
             rep["delay_last"] = dict(_DELAY_LAST)
         except Exception:
             rep["delay_last"] = {}
+        try:
+            rep["parallel_last"] = dict(_PAR_LAST)
+            rep["exciter_last"] = dict(_EXC_LAST)
+        except Exception:
+            pass
         return _headroom(core), rep
 
     # ---- optional declip: only fires on genuinely damaged stems ----
@@ -1583,6 +1588,11 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["delay_last"] = dict(_DELAY_LAST)
     except Exception:
         rep["delay_last"] = {}
+    try:
+        rep["parallel_last"] = dict(_PAR_LAST)
+        rep["exciter_last"] = dict(_EXC_LAST)
+    except Exception:
+        pass
 
     _DOUBLE_ON = False   # ADT detune copy welds lead+adlib - off
     side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
@@ -1692,8 +1702,16 @@ def _parallel(x, sr):
             Gain(gain_db=3.0),
         ])(a, int(sr)).astype(np.float32)
         y = (a * 0.70 + crushed * 0.30).astype(np.float32)
+        try:
+            _PAR_LAST["ran"] = True
+        except Exception:
+            pass
         return _headroom(y, -1.0).astype(np.float32)
-    except Exception:
+    except Exception as _e:
+        try:
+            _PAR_LAST["error"] = str(_e)[:200]
+        except Exception:
+            pass
         return x
 
 
@@ -1710,8 +1728,16 @@ def _exciter(x, sr):
             Gain(gain_db=-9.0),
         ])(a, int(sr)).astype(np.float32)
         y = (a + air * 0.18).astype(np.float32)
+        try:
+            _EXC_LAST["ran"] = True
+        except Exception:
+            pass
         return _headroom(y, -1.0).astype(np.float32)
-    except Exception:
+    except Exception as _e:
+        try:
+            _EXC_LAST["error"] = str(_e)[:200]
+        except Exception:
+            pass
         return x
 
 
@@ -1823,6 +1849,8 @@ except Exception as _e:
 
 _REVERB_LAST = {}
 _DELAY_LAST = {}
+_PAR_LAST = {}
+_EXC_LAST = {}
 # --- WRATTY REVERB HOOK v1 BEGIN (python3 install_reverb.py --remove restores the original) ---
 try:
     try:

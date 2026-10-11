@@ -252,6 +252,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         auto._DBL.clear(); auto._DBL.update({"kind": ""})
         auto._REVERB_LAST.clear()
         auto._DELAY_LAST.clear()
+        auto._PAR_LAST.clear()
+        auto._EXC_LAST.clear()
         auto._FAST_LOUDNESS_CACHE.clear()
     except Exception:
         pass
