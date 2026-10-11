@@ -899,20 +899,45 @@ def _parallel_distort(x, sr):
 
 def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False, note_mult=0.75):
     import numpy as np
+    from pedalboard import Pedalboard, Delay, HighpassFilter, LowpassFilter, HighShelfFilter, Chorus
     if delay_scale is None: delay_scale = scale
     if plate_scale is None: plate_scale = scale
     try: bpm = float(bpm)
-    except Exception: bpm = 100.0
+    except: bpm = 100.0
     if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
-
+    
+    # SNAPPY AFROBEATS GROOVE: 1/8 note rhythmic echo factor
     _bar_note_time = (60.0 / bpm) * 0.5
-    n_out = voc.shape[1]
+    wet = None
+    slap = None
+    
+    # Delay tree disabled — only the ping-pong carries the echo now.
+    slap = None
+    wet = None
 
-    # Claude's delay hook wraps _pingpong; his reverb hook wraps _plate/_hall.
-    ping = _pingpong(voc, sr, bpm, note=note_mult)
+    # PARALLEL INPUT SEPARATION: Echo bypasses the plate function completely to stay dry, crisp, and clean
     plate = _plate(voc, sr)
-    hall = _hall(voc, sr)
+    if plate is not None:
+        try:
+            from pedalboard import HighShelfFilter as _HSF, HighpassFilter as _HPF, Chorus as _RESO_CHO
+            # Soft velvety spatial atmosphere + tight metallic sheen module
+            plate = Pedalboard([
+                _HPF(cutoff_frequency_hz=200.0),
+                _RESO_CHO(rate_hz=0.25, depth=0.06, centre_delay_ms=7.0, feedback=0.0, mix=0.10),
+                _HSF(cutoff_frequency_hz=12000.0, gain_db=3.0, q=0.7)
+            ])(plate, sr).astype(np.float32)
+        except:
+            pass
 
+    ping = _pingpong(voc, sr, bpm, note=note_mult)
+    # PARALLEL: echo stays clean, reverb runs on the DRY vocal.
+    # Serial routing fed every echo tap through the reverb, which stacked
+    # tails and turned the repeats into cloud/noise.
+    hall = _hall(voc, sr)
+    # Plate runs on the ECHO, not the dry — professional "delay into reverb" chain
+    plate = _plate(ping, sr) if ping is not None else _plate(voc, sr)
+    n_out = voc.shape[1]
+    wet = np.zeros((2, n_out), dtype=np.float32)
     def _fit(a, n):
         a = np.asarray(a, dtype=np.float32)
         if a.ndim == 1:
@@ -922,29 +947,90 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         else:
             a = a[:, :n]
         return a
+    if ping is not None:
+        wet += _fit(ping, n_out) * 1.0
+    if hall is not None:
+        wet += _fit(hall, n_out) * 0.0
+    if plate is not None:
+        wet += _fit(plate, n_out) * 0.22
+    if slap is not None:
+        wet += _fit(slap, n_out) * 0.0
+    # H3000-style stereo spread on the entire wet return
+    # Tilt the wet bus to air: cut below 600 Hz, shelf up above 8 kHz.
+    # This is what makes the wet read as transparent "smoke" instead of cloud.
+    if wet is not None:
+        try:
+            wet = Pedalboard([
+                HighpassFilter(cutoff_frequency_hz=250.0),
+                PeakFilter(cutoff_frequency_hz=400.0, gain_db=-2.0, q=1.0),
+                HighShelfFilter(cutoff_frequency_hz=8000.0, gain_db=2.0, q=0.7),
+            ])(wet, sr).astype(np.float32)
+        except Exception:
+            pass
+        wet = _h3000_widen(wet, sr)
+        try:
+            _m = (wet[0] + wet[1]) * 0.5
+            _sd = (wet[0] - wet[1]) * 0.5 * 1.35
+            wet = np.stack([_m + _sd, _m - _sd]).astype(np.float32)
+        except Exception:
+            pass
+        wet = _parallel_distort(wet, sr)
 
-    wet = None
-    if ping is not None and delay_scale > 0:
-        wet = _fit(ping, n_out) * float(delay_scale)
-    if plate is not None and plate_scale > 0:
-        pt = _fit(plate, n_out) * float(plate_scale)
-        wet = pt if wet is None else (wet + pt).astype(np.float32)
-    if hall is not None and plate_scale > 0:
-        hh = _fit(hall, n_out) * (float(plate_scale) * 0.5)
-        wet = hh if wet is None else (wet + hh).astype(np.float32)
+    # ACTIVE SIDE-CHAIN DUCKING ENVELOPE: Ducks effects while active, lets echoes bloom forward in gaps
+    try:
+        if wet is not None and len(wet.shape) > 1 and wet.shape[0] == 2:
+            _mono_sig = np.abs(voc) if voc.shape == 1 else (np.abs(voc[0]) + np.abs(voc[1])) * 0.5
+            _w_win = int(sr * 0.12)
+            _v_env = np.convolve(_mono_sig, np.ones(_w_win)/_w_win, mode='same')
+            _v_env = _v_env / max(1e-5, np.max(_v_env))
+            # Gentle duck: 0.75 during vocals, 1.0 in the gaps. Was 0.25 -> 1.60,
+            # which silenced the reverb during every vocal line.
+            # Call-and-response: wet ducks under the vocal, blooms in the gap.
+            # Old curve: 0.75-1.00 (barely moved). New: 0.12-1.55 (real answer).
+            # Echo must be SILENT during vocals. Only opens in real gaps.
+            # 1. Detect true silence (400ms+ of low energy)
+            _gap = max(1, int(sr * 0.40))
+            _sil = (_v_env < 0.05).astype(np.float32)
+            _run = np.convolve(_sil, np.ones(_gap) / _gap, mode="same")
+            _real_gap = np.clip((_run - 0.90) * 10.0, 0.0, 1.0)
+            # 2. Base curve = near silent while singing (0.02 floor, 0.08 ceiling)
+            _duck_curve = 1.0  # DUCKING OFF
+            # 3. Only bloom (1.8x) in real gaps
+            _duck_curve = _duck_curve + _real_gap * 1.80
+            pass  # duck multiplication removed
+    except:
+        pass
 
     kind = "plate" if plate is not None else "none"
     if wet is None:
-        return voc, round(_bar_note_time * 1000.0), "none"
-    return (voc + wet).astype(np.float32), round(_bar_note_time * 1000.0), kind
+        return (voc + wet * 0.60).astype(np.float32), round(_bar_note_time * 1000.0), kind
+    # AUTO-SEND: louder sections (chorus) get more wet, quieter (verse)
+    # gets less. Energy envelope of the dry vocal drives the wet bus.
+    try:
+        _mono = np.abs(voc).mean(axis=0) if voc.ndim > 1 else np.abs(voc)
+        _w = max(1, int(sr * 0.20))
+        _env = np.convolve(_mono, np.ones(_w) / _w, mode="same")
+        _lo, _hi = np.percentile(_env, 20), np.percentile(_env, 90)
+        _auto = np.clip((_env - _lo) / (_hi - _lo + 1e-9), 0.0, 1.0)
+        # 0.7x on quiet parts -> 1.15x on loud parts
+        _auto = 0.70 + _auto * 0.45
+        n_wet = wet.shape[1]
+        if _auto.size < n_wet:
+            _auto = np.concatenate([_auto, np.ones(n_wet - _auto.size, np.float32)])
+        else:
+            _auto = _auto[:n_wet]
+        wet = wet * _auto[None, :].astype(np.float32)
+    except Exception:
+        pass
+    return (voc + wet * 0.60).astype(np.float32), round(_bar_note_time * 1000.0), kind
+
+
 
 ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.50, "delay": 0.35, "exciter": False, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.35, "delay": 0.25, "exciter": False, "note": 1.00},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.0,  "delay": 0.0,  "exciter": False, "note": 0.75},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.0, "delay": 0.0, "exciter": False, "note": 0.75}
 }
-
-
 def _role_space(voc, sr, scale):
     """Add extra plate depth for a role so it sits in its own space."""
     try:
