@@ -1859,9 +1859,6 @@ try:
 
     def _pingpong(voc, sr, bpm, note=0.75):
         old = _pingpong_legacy(voc, sr, bpm, note=note)
-        print("[delay_fx] BYPASS-TEST returning legacy pingpong, rms=%.6f" % float(np.sqrt(np.mean(np.square(np.asarray(old, dtype=np.float64))))), flush=True)
-        return old
-        # ---- unreachable below — Claude's delay bypassed for test ----
         if _os_dfx.environ.get("WRATTY_DELAY", "1") == "0":
             return old
         try:
@@ -1873,12 +1870,11 @@ try:
             else:
                 lay, n_ref = "m", ref.shape[0]
             r_old = float(np.sqrt(np.mean(np.square(ref, dtype=np.float64))))
-            print("[delay_fx] old_rms=%.6f" % r_old, flush=True)
             if r_old <= 0.0:
                 return old
             # level-match DISABLED — play at preset level, not old-delay level
             wet, _info = _dfx.render(voc, sr, bpm, _PRESET.get("_name", "neutral"),
-                                     note=note, target_rms=None)
+                                     note=note, target_rms=r_old)
             n = wet.shape[1]
             if n < n_ref:
                 wet = np.pad(wet, ((0, 0), (0, n_ref - n)))
@@ -1895,3 +1891,48 @@ try:
 except Exception as _e:
     print("[delay_fx] not installed, using legacy delay:", _e)
 # --- WRATTY DELAY HOOK v1 END ---
+
+# --- WRATTY REVERB HOOK v1 BEGIN (python3 install_reverb.py --remove restores the original) ---
+try:
+    try:
+        import reverb_fx as _rvx
+    except ImportError:
+        from . import reverb_fx as _rvx
+    import os as _os_rvx
+    _plate_legacy = _plate
+    _hall_legacy = _hall
+    _REV_NOTE_CACHE = {"bpm": None}
+
+    def _reverb_swap(voc, sr, kind, legacy_fn):
+        old = legacy_fn(voc, sr)
+        if old is None:
+            return None
+        if _os_rvx.environ.get("WRATTY_REVERB", "1") == "0":
+            return old
+        try:
+            ref = np.asarray(old)
+            n_ref = ref.shape[-1] if ref.ndim >= 2 else ref.shape[0]
+            r_old = float(np.sqrt(np.mean(np.square(ref, dtype=np.float64))))
+            if r_old <= 0.0:
+                return old
+            # song bpm is stored by the delay hook; fall back to 100
+            bpm = _PRESET.get("_bpm", 100.0)
+            wet, _info = _rvx.render(voc, sr, bpm, _PRESET.get("_name", "neutral"),
+                                     target_rms=r_old, out_len=n_ref)
+            if wet.shape[-1] < n_ref:
+                wet = np.pad(wet, ((0, 0), (0, n_ref - wet.shape[-1])))
+            elif wet.shape[-1] > n_ref:
+                wet = wet[:, :n_ref]
+            return np.ascontiguousarray(wet, dtype=np.float32)
+        except Exception as _e:
+            print("[reverb_fx] fallback to legacy %s: %s" % (kind, _e))
+            return old
+
+    def _plate(voc, sr):
+        return _reverb_swap(voc, sr, "plate", _plate_legacy)
+
+    def _hall(voc, sr):
+        return _reverb_swap(voc, sr, "hall", _hall_legacy)
+except Exception as _e:
+    print("[reverb_fx] not installed, using legacy reverb:", _e)
+# --- WRATTY REVERB HOOK v1 END ---
