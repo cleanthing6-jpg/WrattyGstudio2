@@ -1298,10 +1298,7 @@ def _role_chain(voc, sr, st, role):
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
             ch.append(PeakFilter(3000.0, min(g, 2.0), 1.0)); moves.append(["presence 3k", round(min(g, 2.0), 2)])
-    # Gate BEFORE compression so makeup gain never amplifies the noise floor
-    if role in ("lead", "backing", "adlib"):
-        voc = _noise_gate(voc, sr, reduction_db=8.0)
-        moves.append(["noise_gate", -8.0])
+    # (noise gate disabled — was chopping word tails that feed the delay)
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
