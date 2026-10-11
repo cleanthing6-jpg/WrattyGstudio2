@@ -1161,6 +1161,16 @@ def _role_chain(voc, sr, st, role):
     moves = [["role", role], ["highpass", t["hpf"]]]
     # (vocal chop disabled — was cutting the start of the first word)
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
+    # Chest/body shelf — restores 250-600 Hz weight the mud+box cuts remove.
+    # Only on the vocal path, so the ready-made beat is untouched.
+    try:
+        from pedalboard import LowshelfFilter as _LSF
+        _body_db = float(t.get("body_db", 1.5))
+        if _body_db > 0.1:
+            ch.append(_LSF(cutoff_frequency_hz=300.0, gain_db=_body_db, q=0.7))
+            moves.append(["body 300", round(_body_db, 2)])
+    except Exception:
+        pass
     if st["mud"] > 1.0:
         g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
         if g < -0.2:
