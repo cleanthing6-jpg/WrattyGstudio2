@@ -4,7 +4,7 @@ delay_fx.py - professional vocal delay for WrattyGstudio.  numpy only.
 import numpy as np
 
 DELAY_PRESETS = {
-    "afrobeats": dict(fb=0.30, taps=5, hp=280.0, lp_bright=5000.0, lp_dark=2500.0, duck_db=10.0, width=0.70, level_db=-16.0),
+    "afrobeats": dict(fb=0.30, taps=2, hp=280.0, lp_bright=5000.0, lp_dark=2500.0, duck_db=10.0, width=0.70, level_db=-16.0),
     "amapiano":  dict(fb=0.24, taps=4, hp=320.0, lp_bright=4500.0, lp_dark=2200.0, duck_db=10.0, width=0.60, level_db=-19.0),
     "highlife":  dict(fb=0.20, taps=4, hp=250.0, lp_bright=5500.0, lp_dark=3000.0, duck_db=8.0,  width=0.50, level_db=-18.0),
     "pop":       dict(fb=0.22, taps=4, hp=250.0, lp_bright=6000.0, lp_dark=3000.0, duck_db=8.0,  width=0.70, level_db=-18.0),
