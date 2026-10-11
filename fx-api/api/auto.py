@@ -994,7 +994,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             _run = np.convolve(_sil, np.ones(_gap) / _gap, mode="same")
             _real_gap = np.clip((_run - 0.90) * 10.0, 0.0, 1.0)
             # 2. Base curve = near silent while singing (0.02 floor, 0.08 ceiling)
-            _duck_curve = (1.0 - _v_env) * 0.30 + 0.70
+            _duck_curve = (1.0 - _v_env) * 0.15 + 0.85
             # 3. Only bloom (1.8x) in real gaps
             _duck_curve = _duck_curve + _real_gap * 1.80
             wet[0, :] = (wet[0, :] * _duck_curve).astype(np.float32)
@@ -1004,7 +1004,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
     kind = "plate" if plate is not None else "none"
     if wet is None:
-        return (voc + wet * 0.42).astype(np.float32), round(_bar_note_time * 1000.0), kind
+        return (voc + wet * 0.75).astype(np.float32), round(_bar_note_time * 1000.0), kind
     # AUTO-SEND: louder sections (chorus) get more wet, quieter (verse)
     # gets less. Energy envelope of the dry vocal drives the wet bus.
     try:
@@ -1028,7 +1028,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.0, "delay": 0.40, "exciter": False, "plate_from_delay": False, "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.0, "delay": 0.60, "exciter": False, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.0, "delay": 0.0, "exciter": False, "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 0.0, "delay": 0.0, "exciter": False, "note": 0.75}
 }
@@ -1873,8 +1873,9 @@ try:
             r_old = float(np.sqrt(np.mean(np.square(ref, dtype=np.float64))))
             if r_old <= 0.0:
                 return old
+            # level-match DISABLED — play at preset level, not old-delay level
             wet, _info = _dfx.render(voc, sr, bpm, _PRESET.get("_name", "neutral"),
-                                     note=note, target_rms=r_old)
+                                     note=note, target_rms=None)
             n = wet.shape[1]
             if n < n_ref:
                 wet = np.pad(wet, ((0, 0), (0, n_ref - n)))
