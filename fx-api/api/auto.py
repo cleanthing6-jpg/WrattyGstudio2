@@ -69,7 +69,7 @@ PRESETS = {
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
-        "low_mono_hz": 70.0,
+        "low_mono_hz": 80.0,
         "role_treat_lead": {
             "gain": 0.0, "hpf": 95.0, "mud": 2.5, "box": 1.5, "pres": 2.5,
             "harsh": 1.4, "air": 0.8, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
