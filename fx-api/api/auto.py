@@ -1138,6 +1138,42 @@ def _noise_gate(x, sr, reduction_db=8.0, hold_ms=30.0):
 
 
 
+def _auto_align(voc, beat, sr, max_shift_ms=2000.0):
+    """Align vocal to beat. Detects the time offset by cross-correlating
+    their energy envelopes, then pads whichever arrives FIRST with silence
+    so both start at the same moment. Neither signal is cut or stretched.
+    Returns (aligned_vocal, aligned_beat, offset_ms)."""
+    import numpy as np
+    try:
+        v = voc.mean(axis=0) if voc.ndim > 1 else voc
+        b = beat.mean(axis=0) if beat.ndim > 1 else beat
+        win = max(1, int(sr * 0.010))
+        n = min(len(v) // win, len(b) // win, int(sr * 60.0 / win))
+        if n < 20:
+            return voc, beat, 0
+        ve = np.sqrt((v[:n*win].reshape(n, win) ** 2).mean(axis=1) + 1e-12)
+        be = np.sqrt((b[:n*win].reshape(n, win) ** 2).mean(axis=1) + 1e-12)
+        ve = (ve - ve.mean()) / (ve.std() + 1e-9)
+        be = (be - be.mean()) / (be.std() + 1e-9)
+        max_lag = max(1, int(max_shift_ms / 10.0))
+        cc = np.correlate(ve, be, mode="full")
+        center = n - 1
+        lo = max(0, center - max_lag)
+        hi = min(len(cc), center + max_lag + 1)
+        seg = cc[lo:hi]
+        lag = int(np.argmax(seg)) + lo - center
+        if abs(lag) < 3:
+            return voc, beat, 0
+        pad = abs(lag) * win
+        if lag > 0:
+            beat = np.concatenate([np.zeros((beat.shape[0], pad), np.float32), beat], axis=1)
+        else:
+            voc = np.concatenate([np.zeros((voc.shape[0], pad), np.float32), voc], axis=1)
+        return voc, beat, int(lag * 10)
+    except Exception:
+        return voc, beat, 0
+
+
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     moves = [["role", role], ["highpass", t["hpf"]]]
@@ -1460,6 +1496,12 @@ def mix(groups, sr, loud="MEDIUM"):
                     rep.setdefault("declip", {})[_r] = _drep
             except Exception as _e:
                 rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
+
+    # Auto-align vocal to beat before level match
+    if beat is not None and ro_map.get("lead") is not None:
+        ro_map["lead"], beat, _off = _auto_align(ro_map["lead"], beat, sr)
+        if _off:
+            rep["auto_align_ms"] = _off
 
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
