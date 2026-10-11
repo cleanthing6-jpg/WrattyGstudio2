@@ -64,7 +64,7 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
+        "width": 1.40, "plate_db": -21.0, "slap_db": -8.0,
         "max_air": 2.0, "max_deess": 3.5,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
@@ -910,7 +910,7 @@ def _parallel_distort(x, sr):
             return x
         crushed = Pedalboard([
             HighpassFilter(cutoff_frequency_hz=200.0),
-            Distortion(drive_db=6.0),
+            Distortion(drive_db=3.0),
             Gain(gain_db=-6.0),
         ])(a, sr).astype(np.float32)
         return (a * 0.85 + crushed * 0.15).astype(np.float32)
@@ -1679,7 +1679,7 @@ def _exciter(x, sr):
             return x
         air = Pedalboard([
             HighpassFilter(cutoff_frequency_hz=9000.0),
-            Distortion(drive_db=1.5),
+            Distortion(drive_db=0.8),
             LowpassFilter(cutoff_frequency_hz=14000.0),
             Gain(gain_db=-9.0),
         ])(a, int(sr)).astype(np.float32)
