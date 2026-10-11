@@ -349,10 +349,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _side[None, :], sr)[0]
             try:
                 from pedalboard import LowShelfFilter as _LSF
-                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=float(cfg.get("low_mid_shelf_db", 7.0))),
+                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=float(cfg.get("low_mid_shelf_db", 4.0))),
                                               PeakFilter(cutoff_frequency_hz=125.0, gain_db=float(cfg.get("body_125_db", 3.0)), q=0.9)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
-                report["low_mid_shelf_db"] = float(cfg.get("low_mid_shelf_db", 7.0))
+                report["low_mid_shelf_db"] = float(cfg.get("low_mid_shelf_db", 4.0))
                 report["body_125_db"] = float(cfg.get("body_125_db", 3.0))
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
@@ -427,21 +427,6 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             report["low_mid_boost_hz"] = 180.0
         except Exception as _e:
             report["low_mid_boost_error"] = str(_e)[:120]
-        # Width: +3 dB side above 250 Hz to match commercial Afrobeats width.
-        # Below 250 Hz the side stays untouched so bass and kick stay mono.
-        if mode != "passthrough" and mixed.shape[0] >= 2:
-            try:
-                _mid = (mixed[0] + mixed[1]) * 0.5
-                _side = (mixed[0] - mixed[1]) * 0.5
-                from pedalboard import HighShelfFilter as _HSF
-                _side = Pedalboard([
-                    _HSF(cutoff_frequency_hz=250.0, gain_db=2.5, q=0.7),
-                ])(_side[None, :], sr)[0].astype(np.float32)
-                mixed = np.stack([_mid + _side, _mid - _side]).astype(np.float32)
-                report["width_side_boost_db"] = 2.5
-                report["width_side_boost_hz"] = 250.0
-            except Exception as _e:
-                report["width_side_boost_error"] = str(_e)[:160]
         if mode == "master":
             tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
