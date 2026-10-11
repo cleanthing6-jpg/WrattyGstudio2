@@ -937,6 +937,13 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     return (voc + wet).astype(np.float32), round(_bar_note_time * 1000.0), kind
 
 
+ROLE_BUS = {
+    "lead":    {"glue": None,          "plate": 0.50, "delay": 0.35, "exciter": False, "plate_from_delay": False, "note": 0.75},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.35, "delay": 0.25, "exciter": False, "note": 1.00},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.0,  "delay": 0.0,  "exciter": False, "note": 0.75},
+}
+
+
 def _role_space(voc, sr, scale):
     """Add extra plate depth for a role so it sits in its own space."""
     try:
