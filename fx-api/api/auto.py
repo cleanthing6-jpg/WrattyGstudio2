@@ -919,40 +919,28 @@ def _parallel_distort(x, sr):
 
 
 def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False, note_mult=0.75):
+    """Reverb only. _plate is wrapped by reverb_fx hook = Claude's module.
+    No delay, no hall, no widening, no ducking, no auto-send."""
     import numpy as np
-    if delay_scale is None: delay_scale = scale
     if plate_scale is None: plate_scale = scale
-    try: bpm = float(bpm)
-    except Exception: bpm = 100.0
-    if not np.isfinite(bpm) or bpm <= 0: bpm = 100.0
-
-    _bar_note_time = (60.0 / bpm) * 0.5
     n_out = voc.shape[1]
 
-    ping = _pingpong(voc, sr, bpm, note=note_mult)
     plate = _plate(voc, sr)
 
-    def _fit(a, n):
-        a = np.asarray(a, dtype=np.float32)
-        if a.ndim == 1:
-            a = np.stack([a, a])
-        if a.shape[1] < n:
-            a = np.concatenate([a, np.zeros((a.shape[0], n - a.shape[1]), np.float32)], axis=1)
-        else:
-            a = a[:, :n]
-        return a
+    if plate is None or plate_scale <= 0:
+        return voc, 0, "none"
 
-    wet = None
-    if ping is not None and delay_scale > 0:
-        wet = _fit(ping, n_out) * float(delay_scale)
-    if plate is not None and plate_scale > 0:
-        pt = _fit(plate, n_out) * float(plate_scale)
-        wet = pt if wet is None else (wet + pt).astype(np.float32)
+    a = np.asarray(plate, dtype=np.float32)
+    if a.ndim == 1:
+        a = np.stack([a, a])
+    if a.shape[1] < n_out:
+        a = np.concatenate([a, np.zeros((a.shape[0], n_out - a.shape[1]), np.float32)], axis=1)
+    else:
+        a = a[:, :n_out]
 
-    kind = "plate" if plate is not None else "none"
-    if wet is None:
-        return voc, round(_bar_note_time * 1000.0), "none"
-    return (voc + wet).astype(np.float32), round(_bar_note_time * 1000.0), kind
+    wet = a * float(plate_scale)
+    return (voc + wet).astype(np.float32), 0, "plate"
+
 
 
 ROLE_BUS = {
