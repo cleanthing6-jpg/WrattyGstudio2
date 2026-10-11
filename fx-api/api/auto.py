@@ -1257,23 +1257,10 @@ def _role_chain(voc, sr, st, role):
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
 
-    # 3D Headphone Wrap Exciter: Pulls the crystal clear air right up to the ear pads without clipping
-    try:
-        from pedalboard import HighShelfFilter as _HSF
-        out = Pedalboard([
-            _HSF(cutoff_frequency_hz=12500.0, gain_db=0.0, q=0.7) # Extra expensive sonic sheen layer
-        ])(out, sr).astype(np.float32)
-    except Exception:
-        pass
-    
     try:
         # Boost clean high fidelity air gracefully at the top of the chain
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0,
                                           gain_db=min(1.5, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
-    except Exception:
-        pass
-    try:
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=0.0, q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
     moves.append(["air 11k", round(min(1.5, float(t["air"])), 2)])
