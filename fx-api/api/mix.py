@@ -419,6 +419,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         ])(mixed, sr).astype(np.float32)
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
+        try:
+            _in_peak = peakdb(mixed)
+            _in_clip = int(np.count_nonzero(np.abs(mixed) >= 0.999))
+            _would_reduce = 0.0
+            if _in_peak > -1.0:
+                _would_reduce = -1.0 - _in_peak
+            if _in_clip > 0 and _would_reduce > -0.5:
+                _would_reduce = -0.5
+            report["precheck_probe"] = {"peak_db_in": round(_in_peak, 2),
+                                        "clipped_in": _in_clip,
+                                        "would_reduce_db": round(_would_reduce, 2),
+                                        "would_fire": bool(_would_reduce < -0.05)}
+        except Exception as _pce:
+            report["precheck_probe_error"] = str(_pce)[:120]
         if mode == "master":
             tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
@@ -466,9 +480,22 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                                "post_peak_dbfs": round(peakdb(mixed), 2),
                                "samples_over_threshold": _hits}
         _dyn_pre = _dyn9010(mixed, sr)
+        _lufs_before_limit = lufs(mixed, sr)
+        _peak_before_limit = peakdb(mixed)
         mixed, tp, brick = auto.limit(mixed, sr, auto.CEILING_DB)
         _fin = lufs(mixed, sr)
         _dyn_post = _dyn9010(mixed, sr)
+        try:
+            _gr_lufs = None if (_lufs_before_limit is None or _fin is None) else round(_lufs_before_limit - _fin, 2)
+            _gr_peak = round(_peak_before_limit - peakdb(mixed), 2)
+            report["limiter_probe"] = {"lufs_before": _lufs_before_limit,
+                                       "lufs_after": _fin,
+                                       "peak_before": round(_peak_before_limit, 2),
+                                       "peak_after": round(peakdb(mixed), 2),
+                                       "gr_lufs": _gr_lufs,
+                                       "gr_peak": _gr_peak}
+        except Exception as _le:
+            report["limiter_probe_error"] = str(_le)[:120]
         report["dyn_pre_limit"] = None if _dyn_pre is None else round(_dyn_pre, 2)
         report["dyn_post_limit"] = None if _dyn_post is None else round(_dyn_post, 2)
         report["loudness_error_db"] = None if _fin is None else round(tgt - _fin, 2)

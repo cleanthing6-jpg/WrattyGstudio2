@@ -43,7 +43,20 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
                     _j.dumps(_v); _safe[_k] = _v
                 except Exception:
                     _safe[_k] = str(_v)[:200]
-            print("MIXREPORT " + _j.dumps(_safe, default=str)[:6000], flush=True)
+            _rpt = _j.dumps(_safe, default=str)
+            print("MIXREPORT " + _rpt[:6000], flush=True)
+            try:
+                _rp = os.path.join("/mixes", "reports", "%s.json" % job_id)
+                os.makedirs(os.path.dirname(_rp), exist_ok=True)
+                with open(_rp, "w") as _f:
+                    _f.write(_rpt)
+                print("REPORT_SAVED " + _rp, flush=True)
+                try:
+                    mixvol.commit()
+                except Exception as _ce:
+                    print("report commit failed: %s" % _ce, flush=True)
+            except Exception as _re:
+                print("REPORT_SAVE_ERR " + str(_re)[:200], flush=True)
         except Exception:
             pass
         jobs[job_id] = {

@@ -4,7 +4,7 @@ reverb_fx.py - professional vocal reverb for WrattyGstudio.  numpy only (no scip
 import numpy as np
 
 REVERB_PRESETS = {
-    "afrobeats": dict(rt60=1.30, hp=450.0, lp=9000.0,  duck_db=4.0, width=0.90, level_db=-20.0, er_db=-9.0,  hf_damp=0.55, lf_mult=0.90, pd_scale=1.0),
+    "afrobeats": dict(rt60=1.30, hp=550.0, lp=9000.0,  duck_db=4.0, width=0.90, level_db=-20.0, er_db=-9.0,  hf_damp=0.55, lf_mult=0.90, pd_scale=1.0),
     "amapiano":  dict(rt60=1.80, hp=500.0, lp=10000.0, duck_db=5.0, width=1.00, level_db=-21.0, er_db=-11.0, hf_damp=0.60, lf_mult=0.85, pd_scale=1.1),
     "highlife":  dict(rt60=1.10, hp=400.0, lp=6500.0,  duck_db=3.0, width=0.80, level_db=-19.0, er_db=-7.0,  hf_damp=0.50, lf_mult=0.95, pd_scale=0.8),
     "pop":       dict(rt60=1.50, hp=450.0, lp=9500.0,  duck_db=4.0, width=0.90, level_db=-20.0, er_db=-9.0,  hf_damp=0.58, lf_mult=0.90, pd_scale=1.0),

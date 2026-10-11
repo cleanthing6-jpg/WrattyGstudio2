@@ -64,15 +64,15 @@ PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.20, "plate_db": -16.5, "slap_db": -8.0,
+        "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
         "max_air": 2.0, "max_deess": 3.5,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 70.0,
         "role_treat_lead": {
-            "gain": 0.0, "hpf": 110.0, "mud": 2.5, "box": 1.5, "pres": 2.0,
-            "harsh": 1.4, "air": 2.0, "ratio": 2.2, "atk": 25.0, "rel": 130.0,
+            "gain": 0.0, "hpf": 95.0, "mud": 2.5, "box": 1.5, "pres": 2.5,
+            "harsh": 1.4, "air": 1.5, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.55, "width": 1.0,
         },
     },
@@ -918,7 +918,7 @@ def _parallel_distort(x, sr):
         return x
 
 
-def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False, note_mult=0.75):
+def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False, note_mult=0.75, role=None):
     """Reverb only. _plate is wrapped by reverb_fx hook = Claude's module.
     No delay, no hall, no widening, no ducking, no auto-send."""
     import numpy as np
@@ -939,14 +939,42 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         a = a[:, :n_out]
 
     wet = a * float(plate_scale)
-    return (voc + wet).astype(np.float32), 0, "plate"
+
+    # --- SPEC DELAY (afrobeats_default_preset_v1.json) ---
+    dly_wet = None
+    dly_info = {}
+    if role in ("lead", "adlib") or role is None:
+        _dspec = None
+        try:
+            import delay_spec as _dspec
+        except Exception:
+            try:
+                from . import delay_spec as _dspec
+            except Exception:
+                _dspec = None
+        if _dspec is not None:
+            try:
+                _dy, _dinfo = _dspec.render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
+                if _dy is not None:
+                    if _dy.shape[1] < n_out:
+                        _dy = np.concatenate([_dy, np.zeros((_dy.shape[0], n_out - _dy.shape[1]), np.float32)], axis=1)
+                    elif _dy.shape[1] > n_out:
+                        _dy = _dy[:, :n_out]
+                    dly_wet = _dy
+                    dly_info = _dinfo or {}
+            except Exception as _de:
+                dly_info = {"error": str(_de)[:200]}
+    if role is not None:
+        _DELAY_LAST[role] = dly_info
+    base = (voc + wet) if dly_wet is None else (voc + wet + dly_wet)
+    return base.astype(np.float32), 0, "plate"
 
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.60, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 0.75},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.50, "delay": 0.50, "exciter": True,  "note": 1.00},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True,  "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.40, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 0.75},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.10, "delay": 0.40, "exciter": True,  "note": 1.00},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.55, "delay": 0.90, "exciter": True,  "note": 0.75},
 }
 
 
@@ -1000,7 +1028,7 @@ def _role_buses(pre, sr, bpm, raised):
             y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
                                       plate_scale=_pl, delay_scale=_dl,
                                       plate_from_delay=_pfd, headroom=False,
-                                      note_mult=_nt)
+                                      note_mult=_nt, role=r)
             if first is None:
                 first = (_ms, _kind)
         out.append(y)
@@ -1148,7 +1176,7 @@ def _role_chain(voc, sr, st, role):
     if st["presence"] < -2.5 and t["pres"] > 0:
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
-            ch.append(PeakFilter(3000.0, min(g, 2.0), 1.0)); moves.append(["presence 3k", round(min(g, 2.0), 2)])
+            ch.append(PeakFilter(3000.0, g, 1.0)); moves.append(["presence 3k", round(g, 2)])
     # (noise gate disabled — was chopping word tails that feed the delay)
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
@@ -1426,6 +1454,14 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["slap_ms"] = ms
         rep["plate"] = pk
         rep["plate_error"] = plate_error()
+        try:
+            rep["reverb_last"] = dict(_REVERB_LAST)
+        except Exception:
+            rep["reverb_last"] = {}
+        try:
+            rep["delay_last"] = dict(_DELAY_LAST)
+        except Exception:
+            rep["delay_last"] = {}
         return _headroom(core), rep
 
     # ---- optional declip: only fires on genuinely damaged stems ----
@@ -1513,6 +1549,14 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["slap_ms"] = ms
     rep["plate"] = pk
     rep["plate_error"] = plate_error()
+    try:
+        rep["reverb_last"] = dict(_REVERB_LAST)
+    except Exception:
+        rep["reverb_last"] = {}
+    try:
+        rep["delay_last"] = dict(_DELAY_LAST)
+    except Exception:
+        rep["delay_last"] = {}
 
     _DOUBLE_ON = False   # ADT detune copy welds lead+adlib - off
     side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
@@ -1546,7 +1590,19 @@ def mix(groups, sr, loud="MEDIUM"):
         n2 = max(mixed.shape[1], ex.shape[1])
         mixed = (_pad(mixed, n2) + _pad(ex, n2) * (10.0 ** (-4.0 / 20.0))).astype(np.float32)
 
-    mixed = _widen(mixed, sr, float(_PRESET.get("width") or 1.0))
+    _w = float(_PRESET.get("width") or 1.0)
+    try:
+        if mixed.shape[0] >= 2:
+            _m = (mixed[0] + mixed[1]) * 0.5
+            _s = (mixed[0] - mixed[1]) * 0.5
+            _rm = float(np.sqrt(np.mean(_m**2)))
+            _rs = float(np.sqrt(np.mean(_s**2)))
+            _sm = 20.0 * np.log10(max(1e-9, _rs) / max(1e-9, _rm))
+            rep["widen_probe"] = {"width_wanted": _w, "sm_db": round(_sm, 2),
+                                  "gate_would_fire": bool(_sm < -14.0)}
+    except Exception as _we:
+        rep["widen_probe_error"] = str(_we)[:120]
+    mixed = _widen(mixed, sr, _w)   # AUDIO PATH UNCHANGED
     mixed = _headroom(mixed)
     rep["check"] = verify(mixed, sr, core, ducked)
     return mixed, rep
@@ -1582,13 +1638,11 @@ def _master(x, sr, rep, loud="MEDIUM"):
         moves.append(["hpf", 20.0])
     except Exception:
         pass
-    try:
-        a2, pst = polish.dynamic_eq(a, sr, get_stats=True)
-        a = np.asarray(a2, dtype=np.float32)
-        rep["polish"] = pst
-        moves.append(["polish_eq", "on"])
-    except Exception as e:
-        rep["polish_error"] = str(e)[:160]
+    # polish removed from master mode: a finished mix was already EQ'd
+    # by its producer/mastering engineer. Re-applying polish cut -2.97 dB
+    # at 2.5-4.5 kHz and -2.5 dB at 5.5-9 kHz on every upload, which made
+    # finished beats sound lean and light. Master mode is now transparent:
+    # HPF -> width -> loudness -> true-peak limiter.
     try:
         a = _widen(a, sr, WIDEN_MASTER)
         moves.append(["width", WIDEN_MASTER])
@@ -1741,6 +1795,8 @@ except Exception as _e:
     print("[delay_fx] not installed, using legacy delay:", _e)
 # --- WRATTY DELAY HOOK v1 END ---
 
+_REVERB_LAST = {}
+_DELAY_LAST = {}
 # --- WRATTY REVERB HOOK v1 BEGIN (python3 install_reverb.py --remove restores the original) ---
 try:
     try:
@@ -1771,6 +1827,10 @@ try:
             bpm = _PRESET.get("_bpm", 100.0)
             wet, _info = _rvx.render(voc, sr, bpm, _PRESET.get("_name", "neutral"),
                                      target_rms=r_old, out_len=n_ref)
+            try:
+                _REVERB_LAST[kind] = dict(_info) if _info else {}
+            except Exception:
+                pass
             if wet.shape[-1] < n_ref:
                 wet = np.pad(wet, ((0, 0), (0, n_ref - wet.shape[-1])))
             elif wet.shape[-1] > n_ref:
