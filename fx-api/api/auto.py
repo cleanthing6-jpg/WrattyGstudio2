@@ -38,16 +38,16 @@ BODY, PRES, HARSH = (800, 2000), (2000, 3500), (3500, 5500)
 SIB, AIR, MUD, BOX = (5500, 9000), (9000, 14000), (150, 300), (300, 800)
 
 MAX_MUD_CUT, MAX_BOX_CUT = 3.0, 3.0
-MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 2.0, 3.5
-DEESS_OFFSET_DB = 2.5   # trigger this far above the band's own median
-DEESS_ATK, DEESS_REL = 0.5, 2.0
-DUCK_CAP = {BODY: 2.5, PRES: 5.5, HARSH: 3.0}
-DUCK_TARGET = {BODY: 2.0, PRES: 4.8, HARSH: 2.0}
+MAX_PRESENCE, MAX_HARSH_CUT, MAX_AIR, MAX_DEESS = 1.5, 3.0, 1.5, 2.5
+DEESS_OFFSET_DB = 8.0   # trigger this far above the band's own median
+DEESS_ATK, DEESS_REL = 1.0, 4.0
+DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
+DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
-    "lead":    {"gain": 0.0,   "hpf": 110.0, "mud": 2.5, "box": 1.5, "pres": 2.0,
-                "harsh": 1.4, "air": 2.0, "ratio": 2.2, "atk": 25.0, "rel": 130.0,
-                "sat": 0.55, "width": 1.0},
+    "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
+                "harsh": 1.5, "air": 2.8, "ratio": 2.0, "atk": 20.0, "rel": 100.0,
+                "sat": 0.35, "width": 1.0},
     "adlib":   {"gain": -8.0, "hpf": 135.0, "mud": 2.0, "box": 1.5, "pres": 0.6,
                 "harsh": 2.5, "air": 2.0, "ratio": 3.0, "atk": 15.0, "rel": 90.0,
                 "sat": 0.6, "width": 1.25},
@@ -65,6 +65,17 @@ PRESETS = {
     "afrobeats": {
         "target_lufs": -9.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.08, "plate_db": -16.5, "slap_db": -15.0,
+        "max_air": 2.0, "max_deess": 3.5,
+        "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
+        "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
+        "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
+        "low_mono_hz": 70.0,
+        "lead_shift_ms": 45.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 110.0, "mud": 2.5, "box": 1.5, "pres": 2.0,
+            "harsh": 1.4, "air": 2.0, "ratio": 2.2, "atk": 25.0, "rel": 130.0,
+            "sat": 0.55, "width": 1.0,
+        },
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
@@ -138,6 +149,16 @@ def apply_preset(name):
     _PRESET = dict(cfg)
     _PRESET["_deltas"] = ROLE_DELTAS.get(p, {})
     _PRESET["_name"] = p
+    # per-preset overrides (afrobeats only — other presets fall back to defaults)
+    globals()["MAX_AIR"] = float(cfg.get("max_air", 1.5))
+    globals()["MAX_DEESS"] = float(cfg.get("max_deess", 2.5))
+    globals()["DEESS_OFFSET_DB"] = float(cfg.get("deess_offset_db", 8.0))
+    globals()["DEESS_ATK"] = float(cfg.get("deess_atk", 1.0))
+    globals()["DEESS_REL"] = float(cfg.get("deess_rel", 4.0))
+    globals()["DUCK_CAP"] = cfg.get("duck_cap") or {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
+    globals()["DUCK_TARGET"] = cfg.get("duck_target") or {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
+    globals()["LOW_MONO_HZ"] = float(cfg.get("low_mono_hz", 120.0))
+    globals()["LEAD_SHIFT_MS"] = float(cfg.get("lead_shift_ms", 0.0))
     SEND_PLATE = 10.0 ** (float(cfg.get("plate_db", -14.0)) / 20.0)
     SEND_SLAP = 10.0 ** (float(cfg.get("slap_db", -14.0)) / 20.0)
     return _PRESET
@@ -154,7 +175,7 @@ def _treat_for(role):
 # Lead shift earlier in ms. Tune until vocal lands on beat.
 
 # Lead vocal shift earlier in ms (aligns vocal to beat).
-LEAD_SHIFT_MS = 45.0
+LEAD_SHIFT_MS = 0.0
 
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
@@ -163,7 +184,7 @@ RAISE_CAP = 2.5
 SEND_WET = 0.11
 DOUBLE_DB = -30.0
 WIDEN = 1.0
-LOW_MONO_HZ = 70.0
+LOW_MONO_HZ = 120.0
 CEILING_DB = -1.0   # canonical true-peak ceiling; TARGETS['tp'] must match
 TARGETS = {"clarity": 2.0, "harsh": 2.0, "sib": 3.0, "corr": 0.20, "tp": -1.0}
 
