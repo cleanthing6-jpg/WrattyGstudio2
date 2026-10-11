@@ -157,7 +157,6 @@ def apply_preset(name):
     globals()["DUCK_CAP"] = cfg.get("duck_cap") or {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
     globals()["DUCK_TARGET"] = cfg.get("duck_target") or {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
     globals()["LOW_MONO_HZ"] = float(cfg.get("low_mono_hz", 120.0))
-    globals()["LEAD_SHIFT_MS"] = float(cfg.get("lead_shift_ms", 0.0))
     SEND_PLATE = 10.0 ** (float(cfg.get("plate_db", -14.0)) / 20.0)
     SEND_SLAP = 10.0 ** (float(cfg.get("slap_db", -14.0)) / 20.0)
     return _PRESET
@@ -177,7 +176,6 @@ def _treat_for(role):
 # Lead shift earlier in ms. Tune until vocal lands on beat.
 
 # Lead vocal shift earlier in ms (aligns vocal to beat).
-LEAD_SHIFT_MS = 0.0
 
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
@@ -1450,10 +1448,6 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["arrived"] = {"error": str(_e)[:120]}
 
     beat = _sum(beats) if beats else None
-    if beat is not None and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
-        _padn = int(sr * LEAD_SHIFT_MS / 1000.0)
-        beat = np.concatenate([np.zeros((beat.shape[0], _padn), np.float32), beat], axis=1)
-        rep["beat_shift_later_ms"] = LEAD_SHIFT_MS
     # Shift BEAT later (pad with silence) so vocal lands on the beat.
     ro_map = {}
     for r in ROLE_VOCALS:
