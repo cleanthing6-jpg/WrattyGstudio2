@@ -95,7 +95,7 @@ PRESETS = {
 }
 ROLE_DELTAS = {
     "afrobeats": {
-        "lead": {"air": 0.0, "sat": 0.15},
+        "lead": {"air": 0.5, "sat": 0.15},
         "adlib": {"air": 1.2, "sat": 0.2, "pres": -0.5},
         "backing": {"pres": -0.4, "width": 0.15},
     },
@@ -1239,7 +1239,7 @@ def _role_chain(voc, sr, st, role):
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=-1.0, q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
-    moves.append(["air 11k", round(float(t["air"]), 2)])
+    moves.append(["air 11k", 2.0])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
     return out, moves
