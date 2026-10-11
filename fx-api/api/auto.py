@@ -1870,6 +1870,7 @@ try:
             else:
                 lay, n_ref = "m", ref.shape[0]
             r_old = float(np.sqrt(np.mean(np.square(ref, dtype=np.float64))))
+            print("[delay_fx] old_rms=%.6f" % r_old, flush=True)
             if r_old <= 0.0:
                 return old
             # level-match DISABLED — play at preset level, not old-delay level
