@@ -1521,8 +1521,8 @@ def mix(groups, sr, loud="MEDIUM"):
     # Shift BEAT later (pad with silence) so vocal lands on the beat.
     # No word is cut — the beat just starts a hair later.
     if beat is not None and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
-        _pad = int(sr * LEAD_SHIFT_MS / 1000.0)
-        beat = np.concatenate([np.zeros((beat.shape[0], _pad), np.float32), beat], axis=1)
+        _padn = int(sr * LEAD_SHIFT_MS / 1000.0)
+        beat = np.concatenate([np.zeros((beat.shape[0], _padn), np.float32), beat], axis=1)
         rep["beat_shift_later_ms"] = LEAD_SHIFT_MS
     ro_map = {}
     for r in ROLE_VOCALS:
