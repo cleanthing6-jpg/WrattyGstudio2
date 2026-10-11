@@ -138,7 +138,7 @@ def render(voc, sr, bpm, preset="neutral", note=0.75, overrides=None, target_rms
         wet[0, off:] += seg * gl
         wet[1, off:] += seg * gr
         last = i
-    release = float(np.clip(0.45 * T, 250.0, 350.0))
+    release = float(np.clip(0.50 * T, 150.0, 400.0))
     gain = _duck_gain(x, sr, duck, release)
     wet *= gain[None, :]
     if target_rms is not None and target_rms > 0:
