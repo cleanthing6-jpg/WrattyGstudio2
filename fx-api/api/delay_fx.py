@@ -4,7 +4,7 @@ delay_fx.py - professional vocal delay for WrattyGstudio.  numpy only.
 import numpy as np
 
 DELAY_PRESETS = {
-    "afrobeats": dict(fb=0.30, taps=2, hp=280.0, lp_bright=5000.0, lp_dark=2500.0, duck_db=10.0, width=0.70, level_db=-16.0),
+    "afrobeats": dict(fb=0.20, taps=3, hp=380.0, lp_bright=4000.0, lp_dark=3000.0, duck_db=15.0, width=0.70, level_db=-16.0),
     "amapiano":  dict(fb=0.24, taps=4, hp=320.0, lp_bright=4500.0, lp_dark=2200.0, duck_db=10.0, width=0.60, level_db=-19.0),
     "highlife":  dict(fb=0.20, taps=4, hp=250.0, lp_bright=5500.0, lp_dark=3000.0, duck_db=8.0,  width=0.50, level_db=-18.0),
     "pop":       dict(fb=0.22, taps=4, hp=250.0, lp_bright=6000.0, lp_dark=3000.0, duck_db=8.0,  width=0.70, level_db=-18.0),
@@ -138,7 +138,7 @@ def render(voc, sr, bpm, preset="neutral", note=0.75, overrides=None, target_rms
         wet[0, off:] += seg * gl
         wet[1, off:] += seg * gr
         last = i
-    release = float(np.clip(0.45 * T, 110.0, 260.0))
+    release = float(np.clip(0.45 * T, 250.0, 350.0))
     gain = _duck_gain(x, sr, duck, release)
     wet *= gain[None, :]
     if target_rms is not None and target_rms > 0:
