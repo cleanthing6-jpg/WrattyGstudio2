@@ -166,6 +166,9 @@ def apply_preset(name):
 
 def _treat_for(role):
     t = dict(ROLE_TREAT.get(role, ROLE_TREAT["other"]))
+    if role == "lead":
+        for _k, _v in (_PRESET.get("role_treat_lead") or {}).items():
+            t[_k] = _v
     d = _PRESET.get("_deltas", {}).get(role)
     if d:
         for _k, _v in d.items():
