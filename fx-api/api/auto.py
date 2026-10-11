@@ -153,6 +153,9 @@ def _treat_for(role):
 
 # Lead shift earlier in ms. Tune until vocal lands on beat.
 
+# Lead vocal shift earlier in ms (aligns vocal to beat).
+LEAD_SHIFT_MS = 45.0
+
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
@@ -1025,7 +1028,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.60, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 1.00},
+    "lead":    {"glue": None,          "plate": 0.60, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 0.25},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.50, "delay": 0.50, "exciter": True, "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True, "note": 0.75}
 }
@@ -1515,6 +1518,10 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["arrived"] = {"error": str(_e)[:120]}
 
     beat = _sum(beats) if beats else None
+    if beat is not None and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
+        _padn = int(sr * LEAD_SHIFT_MS / 1000.0)
+        beat = np.concatenate([np.zeros((beat.shape[0], _padn), np.float32), beat], axis=1)
+        rep["beat_shift_later_ms"] = LEAD_SHIFT_MS
     # Shift BEAT later (pad with silence) so vocal lands on the beat.
     ro_map = {}
     for r in ROLE_VOCALS:
