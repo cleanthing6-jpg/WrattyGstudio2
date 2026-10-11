@@ -420,7 +420,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
         if mode == "master":
-            tgt = tgt + float(cfg.get("master_lift_db", 1.0))
+            tgt = tgt + float(cfg.get("master_lift_db", 2.5))
         else:
             tgt = tgt - float(cfg.get("mix_headroom_db", 2.5))
         cur = lufs(mixed, sr)

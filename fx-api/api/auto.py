@@ -65,6 +65,7 @@ PRESETS = {
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -16.5, "slap_db": -8.0,
+        "master_lift_db": 0.5,
         "max_air": 2.0, "max_deess": 3.5,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
