@@ -898,9 +898,6 @@ def _parallel_distort(x, sr):
 
 
 def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_scale=None, plate_from_delay=False, note_mult=0.75):
-    """Delay + reverb on the vocal. The _pingpong and _plate calls are
-    wrapped by Claude's delay_fx / reverb_fx hooks, which handle character,
-    tempo-sync, filtering, ducking and level-matching."""
     import numpy as np
     if delay_scale is None: delay_scale = scale
     if plate_scale is None: plate_scale = scale
@@ -912,7 +909,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     n_out = voc.shape[1]
 
     ping = _pingpong(voc, sr, bpm, note=note_mult)
-    plate = _plate(voc, sr)   # Claude's reverb hook handles this
+    plate = _plate(voc, sr)
 
     def _fit(a, n):
         a = np.asarray(a, dtype=np.float32)
@@ -935,13 +932,6 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if wet is None:
         return voc, round(_bar_note_time * 1000.0), "none"
     return (voc + wet).astype(np.float32), round(_bar_note_time * 1000.0), kind
-
-
-ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.60, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 0.75},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.50, "delay": 0.50, "exciter": True,  "note": 1.00},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 1.10, "delay": 0.90, "exciter": True,  "note": 0.75},
-}
 
 
 def _role_space(voc, sr, scale):
