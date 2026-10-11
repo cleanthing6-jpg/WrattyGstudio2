@@ -309,6 +309,25 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
 
         setjob(jid, "analysing")
         mixed, report = auto.mix(groups, sr)
+
+        # Trim trailing silence — end the render where the audio actually ends
+        try:
+            _orig_len = mixed.shape[1]
+            _m = mixed.mean(axis=0) if mixed.ndim > 1 else mixed
+            _win = max(1, int(sr * 0.05))
+            _nf = len(_m) // _win
+            if _nf > 4:
+                _env = _m[:_nf * _win].reshape(_nf, _win).max(axis=1)
+                _thr = float(_env.max()) * 0.005
+                _above = np.where(_env > _thr)[0]
+                if _above.size > 0:
+                    _last = int((_above[-1] + 1) * _win) + int(sr * 0.5)
+                    _last = min(_last, _orig_len)
+                    if _last < _orig_len - sr:
+                        mixed = mixed[:, :_last]
+                        report["trimmed_tail_s"] = round((_orig_len - _last) / float(sr), 2)
+        except Exception as _e:
+            report["trim_error"] = str(_e)[:120]
         report["input_qc"] = _qc_in
 
         report["role_pan"] = {"on": PAN_ENABLED, "hz": PAN_HZ,
