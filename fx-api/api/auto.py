@@ -1859,6 +1859,9 @@ try:
 
     def _pingpong(voc, sr, bpm, note=0.75):
         old = _pingpong_legacy(voc, sr, bpm, note=note)
+        print("[delay_fx] BYPASS-TEST returning legacy pingpong, rms=%.6f" % float(np.sqrt(np.mean(np.square(np.asarray(old, dtype=np.float64))))), flush=True)
+        return old
+        # ---- unreachable below — Claude's delay bypassed for test ----
         if _os_dfx.environ.get("WRATTY_DELAY", "1") == "0":
             return old
         try:
