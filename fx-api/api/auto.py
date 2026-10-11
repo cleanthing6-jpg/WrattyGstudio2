@@ -152,7 +152,6 @@ def _treat_for(role):
     return t
 
 # Lead shift earlier in ms. Tune until vocal lands on beat.
-LEAD_SHIFT_MS = 45.0
 
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
@@ -1517,11 +1516,6 @@ def mix(groups, sr, loud="MEDIUM"):
 
     beat = _sum(beats) if beats else None
     # Shift BEAT later (pad with silence) so vocal lands on the beat.
-    # No word is cut — the beat just starts a hair later.
-    if beat is not None and "LEAD_SHIFT_MS" in globals() and LEAD_SHIFT_MS > 0:
-        _padn = int(sr * LEAD_SHIFT_MS / 1000.0)
-        beat = np.concatenate([np.zeros((beat.shape[0], _padn), np.float32), beat], axis=1)
-        rep["beat_shift_later_ms"] = LEAD_SHIFT_MS
     ro_map = {}
     for r in ROLE_VOCALS:
         arrs = groups.get(r) or []
