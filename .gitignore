@@ -16,3 +16,14 @@ bench/
 refs/
 __pycache__/
 *.pyc
+*.bak-*
+node_modules/
+.vercel/
+.env.local
+.env.local.*
+.env.production.local
+*.tsbuildinfo
+*.wav
+*.flac
+out.mp3
+src/**/*.bak-*
