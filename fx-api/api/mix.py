@@ -244,6 +244,17 @@ _PAN_N = {"backing": 0, "adlib": 0}
 _PAN_REPORT = {"backing": [], "adlib": []}
 
 def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
+    # Reset per-render state so a previous job in this warm container
+    # cannot leak plate/delay/reverb data into this render's report or audio.
+    try:
+        auto._PLATE.clear(); auto._PLATE.update({"ir": {}, "err": "", "kind": ""})
+        auto._HALL.clear(); auto._HALL.update({"ir": {}})
+        auto._DBL.clear(); auto._DBL.update({"kind": ""})
+        auto._REVERB_LAST.clear()
+        auto._DELAY_LAST.clear()
+        auto._FAST_LOUDNESS_CACHE.clear()
+    except Exception:
+        pass
     tmp = tempfile.mkdtemp()
     try:
         cfg = auto.apply_preset(preset)
