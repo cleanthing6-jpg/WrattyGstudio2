@@ -72,7 +72,7 @@ PRESETS = {
         "low_mono_hz": 70.0,
         "role_treat_lead": {
             "gain": 0.0, "hpf": 95.0, "mud": 2.5, "box": 1.5, "pres": 2.5,
-            "harsh": 1.4, "air": 1.5, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
+            "harsh": 1.4, "air": 0.8, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.55, "width": 1.0,
         },
     },
@@ -95,7 +95,7 @@ PRESETS = {
 }
 ROLE_DELTAS = {
     "afrobeats": {
-        "lead": {"air": 0.5, "sat": 0.15},
+        "lead": {"air": 0.0, "sat": 0.15},
         "adlib": {"air": 1.2, "sat": 0.2, "pres": -0.5},
         "backing": {"pres": -0.4, "width": 0.15},
     },
