@@ -1793,6 +1793,9 @@ try:
 
     def _pingpong(voc, sr, bpm, note=0.75):
         old = _pingpong_legacy(voc, sr, bpm, note=note)
+        # Claude's delay only for afrobeats — every other genre uses the original engine delay
+        if _PRESET.get("_name", "neutral") != "afrobeats":
+            return old
         if _os_dfx.environ.get("WRATTY_DELAY", "1") == "0":
             return old
         try:
@@ -1841,6 +1844,9 @@ try:
         old = legacy_fn(voc, sr)
         if old is None:
             return None
+        # Claude's reverb only for afrobeats — other genres use the original engine reverb
+        if _PRESET.get("_name", "neutral") != "afrobeats":
+            return old
         if _os_rvx.environ.get("WRATTY_REVERB", "1") == "0":
             return old
         try:
