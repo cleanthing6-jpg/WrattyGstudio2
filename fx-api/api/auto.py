@@ -948,7 +948,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
             a = a[:, :n]
         return a
     if ping is not None:
-        wet += _fit(ping, n_out) * 0.32
+        wet += _fit(ping, n_out) * 1.0
     if hall is not None:
         wet += _fit(hall, n_out) * 0.0
     if plate is not None:
@@ -1003,7 +1003,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
     kind = "plate" if plate is not None else "none"
     if wet is None:
-        return (voc + wet * 0.75).astype(np.float32), round(_bar_note_time * 1000.0), kind
+        return (voc + wet * 1.0).astype(np.float32), round(_bar_note_time * 1000.0), kind
     # AUTO-SEND: louder sections (chorus) get more wet, quieter (verse)
     # gets less. Energy envelope of the dry vocal drives the wet bus.
     try:
