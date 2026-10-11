@@ -62,9 +62,9 @@ ROLE_TREAT = {
 # ---------- genre presets (Deploy 1: neutral + afrobeats) ----------
 PRESETS = {
     "neutral": {"width": 1.0},
-    "afrobeats": {
-        "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
-        "width": 1.20, "plate_db": -16.5, "slap_db": -8.0,
+        "afrobeats": {
+        "target_lufs": -9.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
+        "width": 1.08, "plate_db": -16.5, "slap_db": -15.0,
     },
     "amapiano": {
         "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
