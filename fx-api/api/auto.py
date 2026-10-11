@@ -1239,7 +1239,7 @@ def _role_chain(voc, sr, st, role):
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0, gain_db=-1.0, q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
-    moves.append(["air 11k", 2.0])
+    moves.append(["air 11k", round(float(t["air"]), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
     return out, moves
