@@ -1693,25 +1693,27 @@ def _master(x, sr, rep, loud="MEDIUM"):
 def _parallel(x, sr):
     """Gentle parallel vocal density; keeps the dry vocal intact."""
     try:
+        _PAR_LAST["step1_enter"] = True
         a = np.asarray(x, dtype=np.float32)
+        _PAR_LAST["step2_shape"] = str(a.shape)
+        _PAR_LAST["step2_ndim"] = int(a.ndim)
         if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
+            _PAR_LAST["step3_guard_fired"] = True
             return x
+        _PAR_LAST["step3_guard_passed"] = True
         crushed = Pedalboard([
             Compressor(threshold_db=-24.0, ratio=6.0,
                        attack_ms=8.0, release_ms=90.0),
             Gain(gain_db=3.0),
         ])(a, int(sr)).astype(np.float32)
+        _PAR_LAST["step4_pedalboard_ok"] = True
         y = (a * 0.70 + crushed * 0.30).astype(np.float32)
-        try:
-            _PAR_LAST["ran"] = True
-        except Exception:
-            pass
-        return _headroom(y, -1.0).astype(np.float32)
+        _PAR_LAST["step5_mix_ok"] = True
+        out = _headroom(y, -1.0).astype(np.float32)
+        _PAR_LAST["ran"] = True
+        return out
     except Exception as _e:
-        try:
-            _PAR_LAST["error"] = str(_e)[:200]
-        except Exception:
-            pass
+        _PAR_LAST["error"] = str(_e)[:200]
         return x
 
 
