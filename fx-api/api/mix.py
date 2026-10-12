@@ -254,6 +254,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         auto._DELAY_LAST.clear()
         auto._PAR_LAST.clear()
         auto._EXC_LAST.clear()
+        auto._AIR_LAST.clear()
         auto._FAST_LOUDNESS_CACHE.clear()
     except Exception:
         pass

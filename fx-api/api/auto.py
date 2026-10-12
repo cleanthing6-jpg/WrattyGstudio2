@@ -1026,6 +1026,7 @@ def _role_buses(pre, sr, bpm, raised):
         # lead, not multiplied across roles.
         if r == "lead":
             y = _parallel(y, sr)
+            y = _air_chain(y, sr)
         if cfg.get("exciter"):
             y = _exciter(y, sr)
         _pl = float(cfg.get("plate", cfg.get("space", 1.0)))
@@ -1495,6 +1496,7 @@ def mix(groups, sr, loud="MEDIUM"):
         try:
             rep["parallel_last"] = dict(_PAR_LAST)
             rep["exciter_last"] = dict(_EXC_LAST)
+            rep["air_last"] = dict(_AIR_LAST)
         except Exception:
             pass
         return _headroom(core), rep
@@ -1597,6 +1599,7 @@ def mix(groups, sr, loud="MEDIUM"):
     try:
         rep["parallel_last"] = dict(_PAR_LAST)
         rep["exciter_last"] = dict(_EXC_LAST)
+        rep["air_last"] = dict(_AIR_LAST)
     except Exception:
         pass
 
@@ -1713,6 +1716,51 @@ def _parallel(x, sr):
         return out
     except Exception as _e:
         _PAR_LAST["error"] = str(_e)[:200]
+        return x
+
+
+def _air_chain(x, sr, blend=0.15):
+    """Andrew Scheps 'vocal air' parallel chain. Generates air on a
+    separate path, compresses only the highs (HF emphasis), restores
+    lows, blends at low level under the dry vocal. Never touches the
+    dry signal. Only fires on the lead role."""
+    try:
+        from pedalboard import (Pedalboard, HighpassFilter, HighShelfFilter,
+                                LowShelfFilter, Compressor)
+        dry = np.asarray(x, dtype=np.float32)
+        if dry.ndim != 2 or dry.shape[1] == 0:
+            return dry
+
+        # Stage 1 — Pultec-style: cut lows hard, boost highs hard
+        y = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=500.0),
+            HighShelfFilter(cutoff_frequency_hz=8000.0, gain_db=6.0, q=0.7),
+        ])(dry, int(sr)).astype(np.float32)
+
+        # Stage 2 — HF-emphasis compression: HPF before the compressor
+        # so it only reacts to the bright content we just added
+        y = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=3000.0),
+            Compressor(threshold_db=-18.0, ratio=3.0,
+                       attack_ms=3.0, release_ms=80.0),
+        ])(y, int(sr)).astype(np.float32)
+
+        # Stage 3 — restore lows (Pultec #2 approximation)
+        air = Pedalboard([
+            LowShelfFilter(cutoff_frequency_hz=200.0, gain_db=4.0),
+        ])(y, int(sr)).astype(np.float32)
+
+        # level-match air to dry so the blend ratio is input-independent
+        a = float(np.sqrt(np.mean(dry.astype(np.float64) ** 2))) + 1e-9
+        b = float(np.sqrt(np.mean(air.astype(np.float64) ** 2))) + 1e-9
+        air = (air * (a / b)).astype(np.float32)
+
+        out = (dry * (1.0 - float(blend)) + air * float(blend)).astype(np.float32)
+        _AIR_LAST["ran"] = True
+        _AIR_LAST["blend"] = float(blend)
+        return _headroom(out, -1.0).astype(np.float32)
+    except Exception as _e:
+        _AIR_LAST["error"] = str(_e)[:200]
         return x
 
 
@@ -1852,6 +1900,7 @@ _REVERB_LAST = {}
 _DELAY_LAST = {}
 _PAR_LAST = {}
 _EXC_LAST = {}
+_AIR_LAST = {}
 # --- WRATTY REVERB HOOK v1 BEGIN (python3 install_reverb.py --remove restores the original) ---
 try:
     try:
