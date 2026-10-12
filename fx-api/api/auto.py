@@ -1249,15 +1249,16 @@ def _role_chain(voc, sr, st, role):
     out, dd = _deess(out, sr, st)
     moves.append(["de-ess", dd])
     
-    # Apply a tight notch to decouple vocal weight completely from the instruments
-    try:
-        out = Pedalboard([
-            PeakFilter(cutoff_frequency_hz=320.0, gain_db=-2.5, q=1.1),
-            LowShelfFilter(cutoff_frequency_hz=150.0, gain_db=-1.5),
-            HighpassFilter(cutoff_frequency_hz=95.0),
-        ])(out, sr).astype(np.float32)
-    except Exception:
-        pass
+    # Conditional low-mid shaping — only fires when the source is genuinely
+    # muddy. Voices that aren't muddy keep their body.
+    if st.get("mud", 0) > 1.0:
+        try:
+            out = Pedalboard([
+                PeakFilter(cutoff_frequency_hz=320.0, gain_db=-2.5, q=1.1),
+                LowShelfFilter(cutoff_frequency_hz=150.0, gain_db=-1.5),
+            ])(out, sr).astype(np.float32)
+        except Exception:
+            pass
         
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
