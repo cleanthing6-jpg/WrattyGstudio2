@@ -1021,6 +1021,11 @@ def _role_buses(pre, sr, bpm, raised):
         if cfg.get("glue"):
             _thr, _rat = cfg["glue"]
             y = _glue(y, sr, thr=_thr, ratio=_rat)
+        # Parallel compression on the lead only. Matches the vocal_only
+        # chain (glue -> parallel -> exciter). Fires once per render on
+        # lead, not multiplied across roles.
+        if r == "lead":
+            y = _parallel(y, sr)
         if cfg.get("exciter"):
             y = _exciter(y, sr)
         _pl = float(cfg.get("plate", cfg.get("space", 1.0)))
