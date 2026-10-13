@@ -418,9 +418,31 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                                                attack_ms=50.0, release_ms=130.0)])(mixed, sr).astype(np.float32)
                 report["glue_thr_db"] = round(_thr, 2)
 
-        tgt = TARGET.get(want)
-        if tgt is None:
-            tgt = float(cfg.get("target_lufs", -14.0))
+        # Master target follows the beat's own loudness (audit #14):
+        # forcing a finished -8.5 LUFS beat down to a fixed -14 makes the
+        # mix quieter than the beat the user bought. Target = clip(beat, -11.5, -8.5)
+        try:
+            _beat_lufs = None
+            if mode == "two_track":
+                # find beat part in the arrived stems via the report keys
+                _arr = report.get("arrived", {})
+                _b = _arr.get("beat") or {}
+                _brms = _b.get("rms_db")
+                if _brms is not None:
+                    # rough LUFS estimate from RMS (beat is premastered, ~3 dB RMS->LUFS offset)
+                    _beat_lufs = float(_brms) - 3.0
+            if _beat_lufs is not None and -16.0 < _beat_lufs < -4.0:
+                tgt = float(np.clip(_beat_lufs, -11.5, -8.5))
+                report["master_target_from_beat_lufs"] = round(tgt, 2)
+            else:
+                tgt = TARGET.get(want)
+                if tgt is None:
+                    tgt = float(cfg.get("target_lufs", -14.0))
+        except Exception as _te:
+            report["master_target_error"] = str(_te)[:120]
+            tgt = TARGET.get(want)
+            if tgt is None:
+                tgt = float(cfg.get("target_lufs", -14.0))
         # 250-500 Hz sits forward on every render. Cut it whether
         # we're in mix mode or master mode.
         _mcs = 0.0 if mode == "master" else float(cfg.get("mid_cut_scale", 1.0))

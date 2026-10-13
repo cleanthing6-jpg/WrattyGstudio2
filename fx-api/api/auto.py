@@ -1467,6 +1467,39 @@ def limit(x, sr, ceiling_db=CEILING_DB):
 
 # ---------- main ----------
 
+def _band_carve(beat, lead, sr):
+    """Band-limited sidechain carve: duck only the bands where the vocal
+    lives, only while the vocal is active. Flat when the vocal is silent.
+    Cheaper and more transparent than full-band STFT ducking."""
+    try:
+        import numpy as _np
+        from pedalboard import Pedalboard as _PB, HighpassFilter as _HPF, LowpassFilter as _LPF
+        n = min(beat.shape[1], lead.shape[1])
+        if n < 64:
+            return beat
+        # Vocal activity envelope (15 ms attack, 120 ms release)
+        mono = _np.mean(lead[:, :n], axis=0)
+        env = _np.abs(mono)
+        a = float(_np.exp(-1.0 / max(1.0, sr * 0.015)))
+        r = float(_np.exp(-1.0 / max(1.0, sr * 0.120)))
+        e = _np.empty_like(env)
+        cur = 0.0
+        for i in range(env.shape[0]):
+            x = env[i]
+            cur = x + (a if x > cur else r) * (cur - x)
+            e[i] = cur
+        ref = float(_np.percentile(e, 90)) + 1e-9
+        d = _np.clip(e / ref, 0.0, 1.0).astype(_np.float32)
+        out = beat.copy()
+        for lo, hi, db in ((250.0, 500.0, 1.0), (1500.0, 4500.0, 2.5), (4500.0, 8000.0, 1.2)):
+            band = _PB([_HPF(cutoff_frequency_hz=lo), _LPF(cutoff_frequency_hz=hi)])(beat, sr)
+            gain = (10.0 ** (-db * d / 20.0) - 1.0).astype(_np.float32)
+            out[:, :n] = out[:, :n] + gain[None, :] * band[:, :n]
+        return out.astype(_np.float32)
+    except Exception:
+        return beat
+
+
 def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
@@ -1673,7 +1706,8 @@ def mix(groups, sr, loud="MEDIUM"):
     else:
         rep["double"] = False
 
-    ducked, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
+    ducked_stft, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
+    ducked = _band_carve(ducked_stft, _dry_voc, sr)
     tries = 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
