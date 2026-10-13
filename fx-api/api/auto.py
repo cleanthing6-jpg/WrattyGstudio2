@@ -73,6 +73,16 @@ PRESETS = {
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 80.0,
+        "role_treat_adlib": {
+            "gain": -5.0, "hpf": 150.0,
+            "mud": 2.0, "mud_hz": 330.0, "mud_q": 2.5,
+            "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 0.5, "pres_hz": 3000.0, "pres_q": 1.0,
+            "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
+            "air": 0.4, "ratio": 2.5, "atk": 15.0, "rel": 120.0,
+            "sat": 0.2, "width": 1.3,
+            "body_db": 0.0,
+        },
         "role_treat_backing": {
             "gain": -3.0, "hpf": 140.0,
             "mud": 3.0, "mud_hz": 330.0, "mud_q": 2.5,
@@ -191,6 +201,9 @@ def _treat_for(role):
             t[_k] = _v
     elif role == "backing":
         for _k, _v in (_PRESET.get("role_treat_backing") or {}).items():
+            t[_k] = _v
+    elif role == "adlib":
+        for _k, _v in (_PRESET.get("role_treat_adlib") or {}).items():
             t[_k] = _v
     d = _PRESET.get("_deltas", {}).get(role)
     if d:
