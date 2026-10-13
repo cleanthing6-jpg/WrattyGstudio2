@@ -1,0 +1,43 @@
+{
+  "inpaint_params": null,
+  "extend_params": null,
+  "reference_params": {
+    "crop_start": 0.0,
+    "crop_end": 19.969999313354492,
+    "reference_scale": 2.5,
+    "audio_url": "upload"
+  },
+  "v2_params": null,
+  "v3_params": {
+    "negative_tags": [],
+    "length_range": [
+      60.0,
+      90.0
+    ]
+  },
+  "id": "63c388e6-1ed2-4eed-89bd-5985b47453fe",
+  "created_at": "2026-09-28T21:35:42.023499+00:00",
+  "status": "SUCCESS",
+  "alignment_status": null,
+  "model_version": "v3-preview",
+  "song_paths": [
+    "https://cdn.treblo.com/pubapi/generations3/audio_63c388e6-1ed2-4eed-89bd-5985b47453fe_0.wav"
+  ],
+  "error_message": null,
+  "lyrics": null,
+  "word_aligned_lyrics": null,
+  "prompt": "Club-ready South African amapiano instrumental. Log-drum bounce, rolling bass, syncopated shakers, airy pads, spacious reverb, hypnotic dancefloor groove.",
+  "prompt_strength": 1.0,
+  "tags": [
+    "amapiano",
+    "afrobeats",
+    "afro house",
+    "dance",
+    "club",
+    "percussion",
+    "drums",
+    "shakers",
+    "energetic"
+  ],
+  "style_scale": 4.5
+}

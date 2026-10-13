@@ -10,7 +10,6 @@ image = (
     .apt_install("libsndfile1")
     .pip_install("numpy", "pedalboard>=0.9.25", "requests", "fastapi", "soundfile", "boto3")
     .add_local_dir("fx-api/api", remote_path="/root/api")
-    .add_local_dir("vst_plugins", remote_path="/root/vst_plugins")
 )
 
 SECRET = modal.Secret.from_name("wratty-mix")
