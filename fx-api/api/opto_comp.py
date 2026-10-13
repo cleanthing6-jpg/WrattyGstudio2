@@ -19,7 +19,17 @@ def opto_compress(x, sr,
         a = a[None, :]
     if a.shape[1] < 64:
         return x, {"note": "too short"}
-    peak = np.max(np.abs(a), axis=0)
+    # Sidechain high-pass filter on the DETECTOR only (not the audio).
+    # Plosive pops below 300 Hz no longer trigger compression, so consonants
+    # keep their definition while the vowel body stays controlled. This is
+    # the standard pro tool for consonant smear in heavy compression.
+    try:
+        from scipy.signal import butter, sosfilt
+        _sc_sos = butter(2, 300.0 / (sr * 0.5), btype="high", output="sos")
+        a_det = sosfilt(_sc_sos, a, axis=1)
+    except Exception:
+        a_det = a
+    peak = np.max(np.abs(a_det), axis=0)
     atk_coef = float(np.exp(-1.0 / max(1.0, sr * attack_ms / 1000.0)))
     rel_fast = float(np.exp(-1.0 / max(1.0, sr * release_fast_ms / 1000.0)))
     rel_slow = float(np.exp(-1.0 / max(1.0, sr * release_slow_ms / 1000.0)))
