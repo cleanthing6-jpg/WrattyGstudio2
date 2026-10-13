@@ -56,7 +56,7 @@ def _pick_note_factor(bpm, pref):
     beat_ms = 60000.0 / bpm
     for f in pref:
         d_ms = beat_ms * f
-        if 100.0 <= d_ms <= 600.0:
+        if 100.0 <= d_ms <= 300.0:
             return float(f), float(d_ms)
     best = min(pref, key=lambda f: abs(beat_ms * f - 350.0))
     return float(best), float(beat_ms * best)
