@@ -73,6 +73,16 @@ PRESETS = {
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 80.0,
+        "role_treat_backing": {
+            "gain": -3.0, "hpf": 140.0,
+            "mud": 3.0, "mud_hz": 330.0, "mud_q": 2.5,
+            "box": 2.0, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 0.0, "pres_hz": 3000.0, "pres_q": 1.0,
+            "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
+            "air": 0.4, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
+            "sat": 0.2, "width": 1.2,
+            "body_db": 0.0,
+        },
         "role_treat_lead": {
             "gain": 0.0, "hpf": 95.0,
             "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
@@ -178,6 +188,9 @@ def _treat_for(role):
     t = dict(ROLE_TREAT.get(role, ROLE_TREAT["other"]))
     if role == "lead":
         for _k, _v in (_PRESET.get("role_treat_lead") or {}).items():
+            t[_k] = _v
+    elif role == "backing":
+        for _k, _v in (_PRESET.get("role_treat_backing") or {}).items():
             t[_k] = _v
     d = _PRESET.get("_deltas", {}).get(role)
     if d:
@@ -1229,7 +1242,10 @@ def _role_chain(voc, sr, st, role):
             _f = float(t.get("harsh_hz", 4400.0)); _q = float(t.get("harsh_q", 1.2))
             ch.append(PeakFilter(_f, g, _q)); moves.append(["harsh %g" % _f, round(g, 2)])
     if st["presence"] < -2.5 and t["pres"] > 0:
-        g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
+        # Preset value is the HARD CAP on the boost. Previously the formula
+        # could exceed it, which made tuning the preset useless.
+        _pres_cap = float(t["pres"])
+        g = min(_pres_cap, (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
             _f = float(t.get("pres_hz", 3000.0)); _q = float(t.get("pres_q", 1.0))
             ch.append(PeakFilter(_f, g, _q)); moves.append(["presence %g" % _f, round(g, 2)])
