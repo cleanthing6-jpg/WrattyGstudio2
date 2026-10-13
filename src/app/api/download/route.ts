@@ -7,11 +7,10 @@ import { getMongoClient } from "@/lib/mongodb";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The file host (Modal "wratty-files") gates GET /f/ behind a short-lived
-// signed ticket, so the browser cannot fetch renders directly - it can't send
-// the header, and a plain <audio src> gets 401. Everything therefore goes
-// through this route, which mints the ticket server-side. The shared secret
-// never reaches the client.
+// The Modal files app gates GET /f/ behind a short-lived HMAC ticket. It now
+// accepts that ticket in the URL as ?t= as well as the x-fx-ticket header,
+// so we can 302 the browser straight at Modal instead of streaming the file
+// through this route. Render sees only the auth check, not the bytes.
 const BASE = (process.env.FILES_BASE_URL || "https://wrattyg--wratty-files-web.modal.run")
   .replace(/\/+$/, "");
 
@@ -19,11 +18,7 @@ const FILES_HOSTS = (() => {
   try { return new Set([new URL(BASE).host]); } catch { return new Set<string>(); }
 })();
 
-// ticket_ok() on the Modal side signs "<scope>|<exp>". The scope depends on
-// which revision of modal_files.py is deployed, so we try "read" and fall
-// back to the original "stem-upload". Signing is cheap; a wrong guess only
-// costs one 401.
-function ticket(scope: string, ttlSec = 600): string {
+function ticket(scope: string, ttlSec = 900): string {
   const key = process.env.FX_INTERNAL_SECRET || "";
   if (!key) return "";
   const exp = Math.floor(Date.now() / 1000) + ttlSec;
@@ -36,33 +31,6 @@ const safeName = (s: string) =>
     .replace(/[/\\:*?"<>|\x00-\x1f]/g, "-")
     .replace(/\s+/g, " ").trim()
     .replace(/^\.+|\.+$/g, "").slice(0, 80);
-
-const rfc5987 = (s: string) =>
-  encodeURIComponent(s).replace(/['()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
-
-function disposition(name: string, dl: boolean) {
-  const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'");
-  return (dl ? "attachment" : "inline") +
-    '; filename="' + ascii + '"' +
-    "; filename*=UTF-8''" + rfc5987(name);
-}
-
-async function upstream(target: string, range: string | null): Promise<Response | null> {
-  for (const scope of ["read", "stem-upload"]) {
-    const tk = ticket(scope);
-    const headers: Record<string, string> = {};
-    if (range) headers["range"] = range;
-    if (tk) headers["x-fx-ticket"] = tk;
-    try {
-      const up = await fetch(target, { cache: "no-store", redirect: "manual", headers });
-      if (up.status !== 401) return up;   // only a ticket rejection is worth retrying
-      console.warn("[download] 401 with scope", scope, target);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
 
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
@@ -87,8 +55,9 @@ export async function GET(req: NextRequest) {
     if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
     const files = (res && res.files) || {};
 
-    // EXACT format only - an "MP3" request must never hand back a FLAC.
-    target = String(fmt === "flac" ? (row.flac_key || files.flac || "") : (row.mp3_key || files.mp3 || ""));
+    target = String(fmt === "flac"
+      ? (row.flac_key || files.flac || "")
+      : (row.mp3_key || files.mp3 || ""));
     if (!/^https:\/\//.test(target)) {
       return NextResponse.json({ error: "No " + fmt.toUpperCase() + " stored for this render" }, { status: 404 });
     }
@@ -114,31 +83,13 @@ export async function GET(req: NextRequest) {
   try { u = new URL(target); } catch { return NextResponse.json({ error: "bad url" }, { status: 400 }); }
   if (!FILES_HOSTS.has(u.host)) return NextResponse.json({ error: "host not allowed" }, { status: 400 });
 
+  const tk = ticket("read", 900);
+  if (tk) u.searchParams.set("t", tk);
+
   const ext = /\.flac$/i.test(u.pathname) ? "flac" : /\.mp3$/i.test(u.pathname) ? "mp3" : fmt;
-  const up = await upstream(target, req.headers.get("range"));
-  if (!up) return NextResponse.json({ error: "Upstream unreachable or ticket rejected" }, { status: 502 });
-
-  if (up.status === 416) {
-    const h = new Headers();
-    const cr = up.headers.get("content-range");
-    if (cr) h.set("content-range", cr);
-    return new Response(up.body, { status: 416, headers: h });
-  }
-  if (up.status !== 200 && up.status !== 206) {
-    console.error("[download] upstream", up.status, target);
-    return NextResponse.json({ error: "Upstream " + up.status }, { status: 502 });
-  }
-
   const name = (safeName(label) || "mix") + "." + ext;
-  const headers = new Headers();
-  headers.set("content-type", ext === "flac" ? "audio/flac" : "audio/mpeg");
-  for (const h of ["content-length", "content-range", "accept-ranges"]) {
-    const v = up.headers.get(h);
-    if (v) headers.set(h, v);
-  }
-  headers.set("cache-control", "private, no-store");
-  headers.set("content-disposition", disposition(name, dl));
-  console.log("[download]", id, fmt, up.status, name);
+  if (dl) u.searchParams.set("name", name);
 
-  return new Response(up.body, { status: up.status, headers });
+  console.log("[download] redirect", id, fmt, name);
+  return NextResponse.redirect(u.toString(), 302);
 }
