@@ -52,10 +52,13 @@ def web():
 
     def ticket_ok(req, scope="stem-upload"):
         """Verifies the short-lived ticket minted by the Next.js app.
-        The signing secret itself never leaves the two servers."""
+        The signing secret itself never leaves the two servers.
+
+        Reads from the x-fx-ticket header (server-to-server) OR the ?t=
+        query param (browser downloads, which cannot add custom headers)."""
         if not KEY:
             return False
-        tok = req.headers.get("x-fx-ticket", "")
+        tok = req.headers.get("x-fx-ticket", "") or req.query_params.get("t", "")
         try:
             exp_s, sig = tok.split(".", 1)
             exp = int(exp_s)
@@ -151,10 +154,16 @@ def web():
         if p is None or not p.is_file():
             raise HTTPException(status_code=404, detail="not found: " + key,
                                 headers={"cache-control": "no-store"})
+        hdr = dict(HDRS)
+        dl_name = request.query_params.get("name")
+        if dl_name:
+            safe = "".join(ch for ch in dl_name if 32 <= ord(ch) < 127) or "download"
+            hdr["content-disposition"] = 'attachment; filename="%s"' % safe.replace('"', "")
+            hdr["cache-control"] = "private, no-store"
         return FileResponse(
             p,
             media_type=MEDIA.get(p.suffix.lower(), "application/octet-stream"),
-            headers=HDRS,
+            headers=hdr,
         )
 
     return api
