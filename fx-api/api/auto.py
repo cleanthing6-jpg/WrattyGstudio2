@@ -66,14 +66,22 @@ PRESETS = {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
         "max_air": 2.0, "max_deess": 3.5,
+        "max_mud_cut": 6.0, "max_box_cut": 4.0,
+        "max_presence": 3.0, "max_harsh_cut": 5.0,
+        "hpf_min": 95.0, "hpf_max": 130.0,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
         "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
         "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 80.0,
         "role_treat_lead": {
-            "gain": 0.0, "hpf": 95.0, "mud": 2.5, "box": 1.5, "pres": 2.5,
-            "harsh": 1.4, "air": 0.8, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
+            "gain": 0.0, "hpf": 95.0,
+            "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
+            "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 2.5, "pres_hz": 3000.0, "pres_q": 1.0,
+            "harsh": 1.4, "harsh_hz": 2800.0, "harsh_q": 3.5,
+            "air": 1.5, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.35, "width": 1.0,
+            "body_db": 0.0,
         },
     },
     "amapiano": {
@@ -157,6 +165,10 @@ def apply_preset(name):
     globals()["DUCK_CAP"] = cfg.get("duck_cap") or {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
     globals()["DUCK_TARGET"] = cfg.get("duck_target") or {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
     globals()["LOW_MONO_HZ"] = float(cfg.get("low_mono_hz", 120.0))
+    globals()["MAX_MUD_CUT"] = float(cfg.get("max_mud_cut", 3.0))
+    globals()["MAX_BOX_CUT"] = float(cfg.get("max_box_cut", 3.0))
+    globals()["MAX_PRESENCE"] = float(cfg.get("max_presence", 1.5))
+    globals()["MAX_HARSH_CUT"] = float(cfg.get("max_harsh_cut", 3.0))
     SEND_PLATE = 10.0 ** (float(cfg.get("plate_db", -14.0)) / 20.0)
     SEND_SLAP = 10.0 ** (float(cfg.get("slap_db", -14.0)) / 20.0)
     return _PRESET
@@ -1174,7 +1186,9 @@ def _adaptive_hpf(voc, sr, fallback_hz):
         f0 = _qc.f0_percentiles(x, sr)
         if not f0:
             return fallback_hz
-        return float(int(min(110, max(70, 0.7 * float(f0["f0_p2"])))))
+        _lo = float(_PRESET.get("hpf_min", 70.0))
+        _hi = float(_PRESET.get("hpf_max", 110.0))
+        return float(int(min(_hi, max(_lo, 0.7 * float(f0["f0_p2"])))))
     except Exception:
         return fallback_hz
 
@@ -1194,26 +1208,31 @@ def _role_chain(voc, sr, st, role):
         from pedalboard import LowShelfFilter as _LSF
         _body_db = float(t.get("body_db", 1.5))
         if _body_db > 0.1:
-            ch.append(_LSF(cutoff_frequency_hz=300.0, gain_db=_body_db))
-            moves.append(["body 300", round(_body_db, 2)])
+            _bf = float(t.get("body_hz", 300.0))
+            ch.append(_LSF(cutoff_frequency_hz=_bf, gain_db=_body_db))
+            moves.append(["body %g" % _bf, round(_body_db, 2)])
     except Exception:
         pass
     if st["mud"] > 1.0:
         g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
         if g < -0.2:
-            ch.append(PeakFilter(380.0, g, 1.5)); moves.append(["mud 380", round(g, 2)])
+            _f = float(t.get("mud_hz", 380.0)); _q = float(t.get("mud_q", 1.5))
+            ch.append(PeakFilter(_f, g, _q)); moves.append(["mud %g" % _f, round(g, 2)])
     if st["box"] > 1.0:
         g = -min(MAX_BOX_CUT, t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
         if g < -0.2:
-            ch.append(PeakFilter(600.0, g, 1.0)); moves.append(["box 600", round(g, 2)])
+            _f = float(t.get("box_hz", 600.0)); _q = float(t.get("box_q", 1.0))
+            ch.append(PeakFilter(_f, g, _q)); moves.append(["box %g" % _f, round(g, 2)])
     if st["harsh"] > 1.5:
         g = -min(MAX_HARSH_CUT, t["harsh"], (st["harsh"] - 1.5) * 2.0)
         if g < -0.2:
-            ch.append(PeakFilter(4400.0, g, 1.2)); moves.append(["harsh 4.4k", round(g, 2)])
+            _f = float(t.get("harsh_hz", 4400.0)); _q = float(t.get("harsh_q", 1.2))
+            ch.append(PeakFilter(_f, g, _q)); moves.append(["harsh %g" % _f, round(g, 2)])
     if st["presence"] < -2.5 and t["pres"] > 0:
         g = min(MAX_PRESENCE * t["pres"], (-st["presence"] - 2.5) * 1.8 + 0.4)
         if g > 0.2:
-            ch.append(PeakFilter(3000.0, g, 1.0)); moves.append(["presence 3k", round(g, 2)])
+            _f = float(t.get("pres_hz", 3000.0)); _q = float(t.get("pres_q", 1.0))
+            ch.append(PeakFilter(_f, g, _q)); moves.append(["presence %g" % _f, round(g, 2)])
     # (noise gate disabled — was chopping word tails that feed the delay)
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
     # Compressor moved post-chain (opto LA-2A, opto_comp.py). Record the
