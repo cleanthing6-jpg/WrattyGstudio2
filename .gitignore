@@ -27,3 +27,11 @@ node_modules/
 *.flac
 out.mp3
 src/**/*.bak-*
+*.bak[0-9]*
+*.bak
+test_bigmax.py
+test_lsp.py
+test_minihost.py
+test_tdr.py
+test_ubuntu24.py
+beats/
