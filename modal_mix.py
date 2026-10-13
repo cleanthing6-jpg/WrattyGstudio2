@@ -8,18 +8,23 @@ app = modal.App("wratty-mix")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("libsndfile1")
-    .pip_install("numpy", "pedalboard>=0.9.25", "requests", "fastapi", "soundfile")
+    .pip_install("numpy", "pedalboard>=0.9.25", "requests", "fastapi", "soundfile", "boto3")
     .add_local_dir("fx-api/api", remote_path="/root/api")
+    .add_local_dir("vst_plugins", remote_path="/root/vst_plugins")
 )
 
 SECRET = modal.Secret.from_name("wratty-mix")
+try:
+    R2_SECRET = modal.Secret.from_name("wratty-r2")
+except Exception:
+    R2_SECRET = None
 jobs = modal.Dict.from_name("wratty-mix-jobs", create_if_missing=True)
 
 # Mix renders are written here and served by the separate wratty-files app.
 mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 
 
-@app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET],
+@app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET] + ([R2_SECRET] if R2_SECRET else []),
               volumes={"/mixes": mixvol})
 def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0):
     import sys

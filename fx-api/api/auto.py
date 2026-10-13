@@ -1380,25 +1380,86 @@ def _brick(ceiling_db):
     return None
 
 
+_BIGMAX = {"plugin": None, "err": "", "loaded": False}
+
+
+def _bigmax_load():
+    """Lazy-load Big Max Zero VST3 from the Modal image. Returns the plugin
+    object or None if unavailable."""
+    if _BIGMAX["loaded"]:
+        return _BIGMAX["plugin"]
+    _BIGMAX["loaded"] = True
+    try:
+        from pedalboard import load_plugin
+        import os
+        path = "/root/vst_plugins/bigmaxzero/Big Max Zero.vst3"
+        if not os.path.exists(path):
+            _BIGMAX["err"] = "not found: " + path
+            return None
+        plugin = load_plugin(path)
+        _BIGMAX["plugin"] = plugin
+        return plugin
+    except Exception as e:
+        _BIGMAX["err"] = str(e)[:200]
+        return None
+
+
 def limit(x, sr, ceiling_db=CEILING_DB):
+    """Master limiter. Priority order:
+       1. Big Max Zero VST3 (transparent lookahead, preserves crest)
+       2. numpy lookahead limiter (fallback, also preserves crest)
+       3. pedalboard BrickwallLimiter (last resort, clips flat)
+    """
     y = None
-    b = _brick(ceiling_db)
-    if b is not None:
+
+    # Try Big Max Zero VST3 first
+    plugin = _bigmax_load()
+    if plugin is not None:
         try:
-            y = Pedalboard([b])(x, sr).astype(np.float32)
-        except Exception:
+            # Set ceiling if the plugin exposes a common param name
+            for _p in ("ceiling", "ceiling_db", "output", "output_gain",
+                       "threshold", "threshold_db"):
+                if hasattr(plugin, _p):
+                    try:
+                        setattr(plugin, _p, float(ceiling_db))
+                        break
+                    except Exception:
+                        continue
+            from pedalboard import Pedalboard
+            y = Pedalboard([plugin])(x, sr).astype(np.float32)
+        except Exception as e:
+            _BIGMAX["err"] = "apply: " + str(e)[:150]
             y = None
+
+    # Fallback 1: numpy lookahead limiter
     if y is None:
         try:
-            y = Pedalboard([Limiter(threshold_db=ceiling_db, release_ms=100.0)])(x, sr).astype(np.float32)
+            y, _ = _lookahead_limiter(x, sr, ceiling_db,
+                                      lookahead_ms=5.0, release_ms=80.0)
         except Exception:
-            y = x.copy()
+            y = None
+
+    # Fallback 2: pedalboard brickwall
+    if y is None:
+        b = _brick(ceiling_db)
+        if b is not None:
+            try:
+                y = Pedalboard([b])(x, sr).astype(np.float32)
+            except Exception:
+                y = None
+        if y is None:
+            try:
+                y = Pedalboard([Limiter(threshold_db=ceiling_db, release_ms=100.0)])(x, sr).astype(np.float32)
+            except Exception:
+                y = x.copy()
+
+    # Safety trim: true peak enforcement
     tp = _true_peak_db(y)
     lim = 10.0 ** (ceiling_db / 20.0)
     if tp > ceiling_db:
-        y = y * (lim / (10.0 ** (tp / 20.0)))
+        y = (y * (lim / (10.0 ** (tp / 20.0)))).astype(np.float32)
         tp = float(ceiling_db)
-    return y, float(tp), (b is not None)
+    return y, float(tp), True
 
 
 # ---------- main ----------
