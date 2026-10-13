@@ -73,7 +73,7 @@ PRESETS = {
         "role_treat_lead": {
             "gain": 0.0, "hpf": 95.0, "mud": 2.5, "box": 1.5, "pres": 2.5,
             "harsh": 1.4, "air": 0.8, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
-            "sat": 0.55, "width": 1.0,
+            "sat": 0.35, "width": 1.0,
         },
     },
     "amapiano": {
