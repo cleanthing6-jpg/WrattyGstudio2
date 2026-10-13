@@ -1148,7 +1148,8 @@ def _double(voc, sr):
         out *= 10.0 ** (DOUBLE_DB / 20.0)
         _DBL["kind"] = "adt (detune+delay+pan)" if PitchShift is not None else "delays+pan only (no PitchShift)"
         return out
-    except Exception:
+    except Exception as _e:
+        _DBL["error"] = repr(_e)
         return None
 
 
@@ -1743,8 +1744,10 @@ def mix(groups, sr, loud="MEDIUM"):
             rep["double_kind"] = _DBL.get("kind", "")
         else:
             rep["double"] = False
+            rep["double_error"] = _DBL.get("error", "")
     else:
         rep["double"] = False
+        rep["double_error"] = "side_ids empty"
 
     ducked_stft, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
     ducked = _band_carve(ducked_stft, _dry_voc, sr)
@@ -1851,6 +1854,7 @@ def _parallel(x, sr):
 
 def _exciter(x, sr):
     """Low-level high-frequency harmonic air without distorting the body."""
+    from pedalboard import Pedalboard, HighpassFilter, LowpassFilter, Distortion, Gain
     try:
         a = np.asarray(x, dtype=np.float32)
         if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
