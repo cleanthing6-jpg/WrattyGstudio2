@@ -508,24 +508,35 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _dyn_pre = _dyn9010(mixed, sr)
         _lufs_before_limit = lufs(mixed, sr)
         _peak_before_limit = peakdb(mixed)
-        # Save pre-limit reference so we can re-gain it without stacking limiters
+        # ---- Limiter-aware loudness targeting ----
+        # The limiter's gain reduction always pulls output below target.
+        # Re-limiting after gain-up just re-applies the same reduction,
+        # so we do NOT iterate with the limiter in the loop. Instead:
+        #   1. Dry-run the limiter to predict how much it will pull
+        #   2. Raise the loudness target by that predicted cost
+        #   3. Loop the pre-limiter signal to that higher target
+        #   4. Apply the limiter exactly once
         _pre_limit_mix = mixed.copy()
+        _test_limited, _, _ = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
+        _lufs_pre = lufs(_pre_limit_mix, sr)
+        _lufs_post = lufs(_test_limited, sr)
+        if _lufs_pre is not None and _lufs_post is not None:
+            _gr_pred = max(0.0, _lufs_pre - _lufs_post)
+        else:
+            _gr_pred = 0.0
+        _tgt_loop = tgt + _gr_pred
+        report["limiter_predicted_gr_db"] = round(_gr_pred, 2)
+        report["loudness_target_adjusted_db"] = round(_tgt_loop, 2)
+        # Loop the pre-limiter signal to the raised target
+        for _ in range(4):
+            f = lufs(mixed, sr)
+            if f is None or abs(_tgt_loop - f) < 0.15:
+                break
+            _step = max(-9.0, min(9.0, _tgt_loop - f))
+            mixed = mixed * (10.0 ** (_step / 20.0))
+        # Apply limiter exactly once
         mixed, tp, brick = auto.limit(mixed, sr, auto.CEILING_DB)
         _fin = lufs(mixed, sr)
-        # Convergence loop: the limiter's gain reduction always pulls
-        # loudness below target. Raise the pre-limiter level by the
-        # shortfall and re-limit until post-limiter loudness matches
-        # target. Two passes converge on real audio.
-        _conv_passes = 0
-        for _ in range(3):
-            if _fin is None or abs(tgt - _fin) < 0.15:
-                break
-            _step = max(-9.0, min(9.0, tgt - _fin))
-            _pre_limit_mix = (_pre_limit_mix * (10.0 ** (_step / 20.0))).astype(np.float32)
-            mixed, tp, brick = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
-            _fin = lufs(mixed, sr)
-            _conv_passes += 1
-        report["limiter_convergence_passes"] = _conv_passes
         _dyn_post = _dyn9010(mixed, sr)
         try:
             _gr_lufs = None if (_lufs_before_limit is None or _fin is None) else round(_lufs_before_limit - _fin, 2)
