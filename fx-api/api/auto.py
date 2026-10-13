@@ -1222,19 +1222,9 @@ def _role_chain(voc, sr, st, role):
             ch.append(PeakFilter(3000.0, g, 1.0)); moves.append(["presence 3k", round(g, 2)])
     # (noise gate disabled — was chopping word tails that feed the delay)
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
-    # Serial two-stage compression.
-    #   Stage 1 — fast peak catcher. Only grabs the loudest transients so
-    #   stage 2 doesn't have to work as hard on them.
-    #   Stage 2 — slow level smoother. Uses preset values, does the level
-    #   work without pumping.
-    # Together: same total GR, half the work each, less audible.
-    _thr1 = min(-6.0, _thr + 8.0)
-    ch.append(Compressor(threshold_db=_thr1, ratio=4.0,
-                         attack_ms=2.0, release_ms=40.0))
     ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
                          attack_ms=t["atk"], release_ms=t["rel"]))
-    moves.append(["compress",
-                  "2-stage: 4:1@%.1f / %s:1 @ %.1f" % (_thr1, t["ratio"], _thr)])
+    moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
     drive = min(1.2, t["sat"])
     try:
         _ah = (np.abs(voc) >= 0.999).any(axis=0) if getattr(voc, "ndim", 1) == 2 else (np.abs(voc) >= 0.999)
