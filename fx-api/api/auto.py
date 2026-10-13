@@ -1241,13 +1241,20 @@ def _role_chain(voc, sr, st, role):
     # compression sees it, matching real vocal-chain signal flow.
     try:
         import opto_comp
+        # Adaptive threshold: measure THIS vocal's RMS, set threshold
+        # 8 dB above it. Works for every user regardless of recording
+        # level — quiet bedroom mic, hot studio take, whatever.
+        # 8 dB headroom means compression only hits peaks, not every sample.
+        _vocal_rms = _rms_db(out)
+        _opto_thr_cal = float(max(-14.0, _vocal_rms + 8.0))
+        moves.append(["opto-thr", round(_opto_thr_cal, 1)])
         out, _opto_info = opto_comp.opto_compress(
             out, sr,
-            threshold_db=_opto_thr,
-            ratio=_opto_ratio,
-            attack_ms=10.0,
-            release_fast_ms=100.0,
-            release_slow_ms=600.0,
+            threshold_db=_opto_thr_cal,
+            ratio=2.0,
+            attack_ms=25.0,
+            release_fast_ms=150.0,
+            release_slow_ms=900.0,
             makeup_db=0.0,
         )
         moves.append(["opto-gr", _opto_info.get("max_gr_db", 0.0)])
