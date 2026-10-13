@@ -220,7 +220,7 @@ CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
 RAISE_CAP = 2.5
 SEND_WET = 0.11
-DOUBLE_DB = -30.0
+DOUBLE_DB = -13.0
 WIDEN = 1.0
 LOW_MONO_HZ = 120.0
 CEILING_DB = -1.0   # canonical true-peak ceiling; TARGETS['tp'] must match
@@ -758,12 +758,23 @@ def _send_sum(voc, sr, plugins):
 # ---------- vocal processing ----------
 
 def _saturate(x, sr, drive_db):
+    """Tube-style saturation. Asymmetric bias generates even harmonics
+    (2nd, 4th) — warm, musical character, not the odd-harmonic grit of a
+    generic distortion. Level-matched so mix balance stays the same."""
+    if drive_db is None or drive_db <= 0.001:
+        return x
     try:
-        y = Pedalboard([Distortion(drive_db=float(drive_db))])(x, sr).astype(np.float32)
+        import numpy as _np
+        a = _np.asarray(x, dtype=_np.float32)
+        d = 1.0 + float(drive_db) * 2.0
+        b = 0.15 * float(drive_db)
+        y = _np.tanh(a * d + b) - _np.tanh(b)
+        y = y + 0.15 * float(drive_db) * (y ** 2) * _np.sign(y)
+        ri = _np.sqrt(_np.mean(a ** 2)) + 1e-9
+        ro = _np.sqrt(_np.mean(y ** 2)) + 1e-9
+        return (y * (ri / ro)).astype(_np.float32)
     except Exception:
         return x
-    return (y * (10.0 ** ((_rms_db(x) - _rms_db(y)) / 20.0))).astype(np.float32)
-
 
 def _headphone_wrap(x, sr):
     """Bauer-style crossfeed + M/S widen for headphone playback.
@@ -1721,7 +1732,7 @@ def mix(groups, sr, loud="MEDIUM"):
     except Exception:
         pass
 
-    _DOUBLE_ON = False   # ADT detune copy welds lead+adlib - off
+    _DOUBLE_ON = True    # ADT detune copy — widens the vocal (refs sit corr 0.85-0.92)
     side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
