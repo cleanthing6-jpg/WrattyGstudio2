@@ -1216,9 +1216,11 @@ def _role_chain(voc, sr, st, role):
             ch.append(PeakFilter(3000.0, g, 1.0)); moves.append(["presence 3k", round(g, 2)])
     # (noise gate disabled — was chopping word tails that feed the delay)
     _thr = float(np.clip(_rms_db(voc) - 1.5, -32.0, -12.0))
-    ch.append(Compressor(threshold_db=_thr, ratio=t["ratio"],
-                         attack_ms=t["atk"], release_ms=t["rel"]))
-    moves.append(["compress", "%s:1 @ %.1f" % (t["ratio"], _thr)])
+    # Compressor moved post-chain (opto LA-2A, opto_comp.py). Record the
+    # settings now; actual compression runs after Pedalboard(ch) below.
+    _opto_thr = _thr
+    _opto_ratio = t["ratio"]
+    moves.append(["compress", "opto %s:1 @ %.1f" % (t["ratio"], _thr)])
     drive = min(1.2, t["sat"])
     try:
         _ah = (np.abs(voc) >= 0.999).any(axis=0) if getattr(voc, "ndim", 1) == 2 else (np.abs(voc) >= 0.999)
@@ -1233,6 +1235,24 @@ def _role_chain(voc, sr, st, role):
     except Exception:
         pass
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
+
+    # LA-2A style opto compression — program-dependent, two-stage release.
+    # Runs on the chain output so EQ/de-ess shape the signal before
+    # compression sees it, matching real vocal-chain signal flow.
+    try:
+        import opto_comp
+        out, _opto_info = opto_comp.opto_compress(
+            out, sr,
+            threshold_db=_opto_thr,
+            ratio=_opto_ratio,
+            attack_ms=10.0,
+            release_fast_ms=100.0,
+            release_slow_ms=600.0,
+            makeup_db=0.0,
+        )
+        moves.append(["opto-gr", _opto_info.get("max_gr_db", 0.0)])
+    except Exception as _oe:
+        moves.append(["opto-error", str(_oe)[:80]])
     _pre = _rms_db(voc)
     _post = _rms_db(out)
     _makeup_cap = 2.0 if role == "backing" else 4.0
