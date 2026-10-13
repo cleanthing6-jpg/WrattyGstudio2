@@ -25,22 +25,22 @@ except Exception:
 PRESETS = {
     "afrobeats": dict(
         feedback=0.25, feedback_max=0.35,
-        send_db=-14.0,
+        send_db=-8.0,
         hpf_hz=400.0, lpf_hz=5000.0,
         saturation_drive_db=3.0,
         width=0.80,
         modulation_rate_hz=0.40, modulation_depth_ms=2.0,
-        duck_db=6.0, duck_atk_ms=5.0, duck_rel_ms=150.0,
+        duck_db=3.0, duck_atk_ms=5.0, duck_rel_ms=150.0,
         note_factor_pref=(0.75, 0.5, 0.25, 1.0),
     ),
     "neutral": dict(
         feedback=0.25, feedback_max=0.35,
-        send_db=-20.0,
+        send_db=-14.0,
         hpf_hz=400.0, lpf_hz=5000.0,
         saturation_drive_db=0.0,
         width=0.80,
         modulation_rate_hz=0.40, modulation_depth_ms=2.0,
-        duck_db=6.0, duck_atk_ms=5.0, duck_rel_ms=150.0,
+        duck_db=3.0, duck_atk_ms=5.0, duck_rel_ms=150.0,
         note_factor_pref=(0.75, 0.5, 0.25, 1.0),
     ),
 }
