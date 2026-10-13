@@ -508,8 +508,24 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _dyn_pre = _dyn9010(mixed, sr)
         _lufs_before_limit = lufs(mixed, sr)
         _peak_before_limit = peakdb(mixed)
+        # Save pre-limit reference so we can re-gain it without stacking limiters
+        _pre_limit_mix = mixed.copy()
         mixed, tp, brick = auto.limit(mixed, sr, auto.CEILING_DB)
         _fin = lufs(mixed, sr)
+        # Convergence loop: the limiter's gain reduction always pulls
+        # loudness below target. Raise the pre-limiter level by the
+        # shortfall and re-limit until post-limiter loudness matches
+        # target. Two passes converge on real audio.
+        _conv_passes = 0
+        for _ in range(3):
+            if _fin is None or abs(tgt - _fin) < 0.15:
+                break
+            _step = max(-9.0, min(9.0, tgt - _fin))
+            _pre_limit_mix = (_pre_limit_mix * (10.0 ** (_step / 20.0))).astype(np.float32)
+            mixed, tp, brick = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
+            _fin = lufs(mixed, sr)
+            _conv_passes += 1
+        report["limiter_convergence_passes"] = _conv_passes
         _dyn_post = _dyn9010(mixed, sr)
         try:
             _gr_lufs = None if (_lufs_before_limit is None or _fin is None) else round(_lufs_before_limit - _fin, 2)
