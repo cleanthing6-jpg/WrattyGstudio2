@@ -50,10 +50,23 @@ def opto_compress(x, sr,
     gr_db[high] = -(over[high] * (1.0 - 1.0 / ratio))
     gain = _db_to_lin(gr_db + makeup_db)
     y = (a * gain[None, :]).astype(np.float32)
+
+    # Auto-makeup: restore output RMS to input RMS so the compressor is
+    # level-neutral regardless of how hard it compresses. Without this,
+    # heavy GR makes the whole downstream chain lose level.
+    if makeup_db == 0.0:
+        rms_in = float(np.sqrt(np.mean(a ** 2))) + 1e-12
+        rms_out = float(np.sqrt(np.mean(y ** 2))) + 1e-12
+        auto_makeup_db = float(np.clip(20.0 * np.log10(rms_in / rms_out), -6.0, 12.0))
+        y = (y * (10.0 ** (auto_makeup_db / 20.0))).astype(np.float32)
+    else:
+        auto_makeup_db = 0.0
+
     info = {
         "ratio": ratio,
         "threshold_db": threshold_db,
         "max_gr_db": round(float(np.min(gr_db)), 2),
         "avg_gr_db": round(float(np.mean(gr_db)), 2),
+        "auto_makeup_db": round(auto_makeup_db, 2),
     }
     return y, info
