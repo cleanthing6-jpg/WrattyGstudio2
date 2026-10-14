@@ -22,7 +22,7 @@ import pedalboard
 # ── Feature gates for engines added 2026-10-14. Flip one at a time to
 #    isolate regressions. All False = chain runs pre-upgrade code.
 _NEW = {
-    "clip_gain":     True,
+    "clip_gain":     False,
     "fet":           True,
     "la2a_pro":      False,
     "saturator_pro": True,
@@ -31,7 +31,7 @@ _NEW = {
     "adt_t1":        True,
     "delay_t1":      True,
     "plate_t1":      True,
-    "parallel_ny":   True,
+    "parallel_ny":   False,
     "wrap3d":        False,
 }
 from pedalboard import (
