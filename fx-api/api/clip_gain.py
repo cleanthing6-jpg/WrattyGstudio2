@@ -42,7 +42,7 @@ def _asym_solver(src, sr, active_mask, local_rms_db, avg_rms_db,
 
 
 def clip_gain_ride(x, sr, window_ms=100.0, max_gain_db=3.0,
-                   silence_threshold_db=-42.0):
+                   silence_threshold_db=-32.0):
     a = np.asarray(x, dtype=np.float32)
     if a.ndim == 1:
         a = a[None, :]
