@@ -1057,13 +1057,31 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
                 dly_info = {"error": str(_de)[:200]}
     if role is not None:
         _DELAY_LAST[role] = dly_info
+    if dly_wet is not None:
+        _dsc = float(delay_scale) if delay_scale is not None else 1.0
+        dly_wet = (dly_wet * _dsc).astype(np.float32)
+        try:
+            import numpy as _np
+            _dry_rms = float(_np.sqrt(_np.mean(np.asarray(voc, np.float32)**2)) + 1e-12)
+            _wet_rms = float(_np.sqrt(_np.mean(np.asarray(dly_wet, np.float32)**2)) + 1e-12)
+            dly_info["wet_db_rel_dry"] = round(20.0*_np.log10(_wet_rms/_dry_rms + 1e-12), 2)
+        except Exception:
+            pass
+        _DELAY_LAST[role] = dly_info
+    try:
+        import numpy as _np
+        _dry_rms_p = float(_np.sqrt(_np.mean(np.asarray(voc, np.float32)**2)) + 1e-12)
+        _wet_rms_p = float(_np.sqrt(_np.mean(np.asarray(wet, np.float32)**2)) + 1e-12)
+        _REVERB_LAST["plate_db_rel_dry"] = round(20.0*_np.log10(_wet_rms_p/_dry_rms_p + 1e-12), 2)
+    except Exception:
+        pass
     base = (voc + wet) if dly_wet is None else (voc + wet + dly_wet)
     return base.astype(np.float32), 0, "plate"
 
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.22, "delay": 0.40, "exciter": True, "plate_from_delay": False, "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.50, "delay": 0.60, "exciter": True, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.06, "delay": 0.40, "exciter": True,  "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 0.32, "delay": 0.90, "exciter": True,  "note": 0.75},
 }
