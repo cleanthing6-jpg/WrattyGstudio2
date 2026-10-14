@@ -247,7 +247,7 @@ from numpy.fft import rfft as _rfft, irfft as _irfft
 _IR_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "irs")
 _IR_CACHE = {}
 
-def _load_ir(path, sr_target=44100, max_len=int(1.67*48000)):
+def _load_ir(path, sr_target=44100, max_len=int(1.4*48000)):
     """Load + resample IR to engine sr + fade tail. Cached."""
     key = (path, sr_target)
     if key in _IR_CACHE:
@@ -360,7 +360,7 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
     a_hp       = np.float32(coeff_hpf(150.0, sr))
-    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*9000.0), sr))
+    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*12000.0), sr))
     a_atk      = np.float32(_coeff_tau(0.005, sr))
     a_rel_fast = np.float32(_coeff_tau(0.080, sr))
     a_rel_slow = np.float32(_coeff_tau(0.400, sr))
@@ -370,5 +370,11 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
                                  a_hp, a_lp, a_atk,
                                  a_rel_fast, a_rel_slow,
                                  np.float32(duck_depth), prog_mix)
-    wet = np.stack([wl, wr]).astype(np.float32) * np.float32(mix)
+    wet = np.stack([wl, wr]).astype(np.float32)
+    try:
+        from pedalboard import Pedalboard as _PB, PeakFilter as _PF
+        wet = _PB([_PF(cutoff_frequency_hz=5000.0, gain_db=2.5, q=1.0)])(wet, sr).astype(np.float32)
+    except Exception:
+        pass
+    wet = wet * np.float32(mix)
     return wet
