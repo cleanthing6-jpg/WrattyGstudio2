@@ -70,6 +70,13 @@ def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
     return outL, outR
 
 
+def coeff_hpf(fc_hz, sr):
+    """Correct 1st-order RC highpass coefficient."""
+    rc = 1.0 / (2.0 * np.pi * fc_hz)
+    dt = 1.0 / sr
+    return rc / (rc + dt)
+
+
 def coeff_tau(tau, sr):
     return 1.0 - np.exp(-1.0 / (tau * sr))
 
@@ -94,7 +101,7 @@ def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
     delay_samples = int(delay_sec * sr)
     mod_depth_samps = (mod_depth_ms / 1000.0) * sr
 
-    ahp = np.float32(coeff_tau(1.0 / (2.0 * np.pi * hp_cut), sr))
+    ahp = np.float32(coeff_hpf(hp_cut, sr))
     alp = np.float32(coeff_tau(1.0 / (2.0 * np.pi * lp_cut), sr))
     atk = np.float32(coeff_tau(0.005, sr))
     rel = np.float32(coeff_tau(0.150, sr))
