@@ -237,8 +237,8 @@ def setjob(jid, status, url=""):
 PAN_ENABLED = True
 PAN_HZ = 200.0
 PAN_VALUES = {
-    "backing": (-0.85, 0.85, -0.45, 0.45),
-    "adlib":   (-0.45, 0.45, 0.30, -0.30),
+    "backing": (-0.75, 0.75, -0.55, 0.55),
+    "adlib":   (-0.85, 0.85, -0.60, 0.60),
 }
 _PAN_N = {"backing": 0, "adlib": 0}
 _PAN_REPORT = {"backing": [], "adlib": []}
@@ -301,8 +301,6 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             if PAN_ENABLED and bucket in PAN_VALUES:
                 k = _PAN_N[bucket]
                 pan = PAN_VALUES[bucket][k % len(PAN_VALUES[bucket])]
-                if bucket == "backing" and _PAN_NB % 2 == 1 and k == _PAN_NB - 1:
-                    pan = 0.0
                 _PAN_N[bucket] += 1
                 _hi = Pedalboard([HighpassFilter(
                     cutoff_frequency_hz=PAN_HZ)])(a, sr).astype(np.float32)
