@@ -26,7 +26,7 @@ _NEW = {
     "fet":           False,
     "la2a_pro":      True,
     "saturator_pro": True,
-    "deess_pro":     True,
+    "deess_pro":     False,
     "exciter_t1":    False,
     "adt_t1":        False,
     "delay_t1":      True,
