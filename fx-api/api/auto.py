@@ -23,7 +23,7 @@ import pedalboard
 #    isolate regressions. All False = chain runs pre-upgrade code.
 _NEW = {
     "clip_gain":     False,
-    "fet":           True,
+    "fet":           False,
     "la2a_pro":      False,
     "saturator_pro": True,
     "deess_pro":     True,
