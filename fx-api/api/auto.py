@@ -29,7 +29,7 @@ _NEW = {
     "deess_pro":     True,
     "exciter_t1":    True,
     "adt_t1":        True,
-    "delay_t1":      False,
+    "delay_t1":      True,
     "plate_t1":      True,
     "parallel_ny":   True,
     "wrap3d":        False,
