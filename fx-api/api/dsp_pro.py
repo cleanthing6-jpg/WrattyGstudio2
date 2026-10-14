@@ -313,7 +313,8 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
         else:         env_s += a_rel_slow * (r - env_s)
         # Blend — more slow under sustained, more fast on transients
         env = env_f * (1.0 - prog_mix) + env_s * prog_mix
-        att = 1.0 / (1.0 + env * duck)
+        # FOLA-style: fixed dB duck scaled by vocal activity, not level-dependent
+        att = 1.0 - (1.0 - 10.0 ** (-13.0 / 20.0)) * min(1.0, env * 20.0)
         wl = wet_l[s] * att
         wr = wet_r[s] * att
         chl = a_hp * (h_out_l + wl - h_in_l); h_in_l = wl; h_out_l = chl
