@@ -24,7 +24,7 @@ import pedalboard
 _NEW = {
     "clip_gain":     False,
     "fet":           False,
-    "la2a_pro":      False,
+    "la2a_pro":      True,
     "saturator_pro": False,
     "deess_pro":     False,
     "exciter_t1":    False,
