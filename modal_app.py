@@ -6,7 +6,7 @@ app = modal.App("wratty-mixer-mem")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("libsndfile1")
-    .pip_install("numpy", "pedalboard", "requests")
+    .pip_install("numpy", "scipy", "numba", "pedalboard", "requests", "soundfile", "boto3")
     .add_local_dir("fx-api/api", remote_path="/root/api")
 )
 
