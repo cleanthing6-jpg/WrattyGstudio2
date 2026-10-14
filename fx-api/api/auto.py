@@ -1287,7 +1287,7 @@ def _role_chain(voc, sr, st, role):
             import clip_gain
             _cg_in = _rms_db(voc)
             voc = clip_gain.clip_gain_ride(voc, sr, window_ms=100.0,
-                                           max_gain_db=0.0,
+                                           max_gain_db=1.5,
                                            silence_threshold_db=-42.0)
             _cg_out = _rms_db(voc)
             moves.append(["clip-gain", "linked +/-3dB  100ms  mean shift %.2f dB" % (_cg_out - _cg_in)])
@@ -1773,7 +1773,9 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["double"] = False
         rep["double_error"] = "side_ids empty"
 
-    ducked_stft, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
+    # TEST: duck bypassed to isolate breathing
+    ducked_stft, plan, vpres, post = beat.copy(), {}, 0.0, None
+    # ducked_stft, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
     ducked = _band_carve(ducked_stft, _dry_voc, sr)
     tries = 1
 
