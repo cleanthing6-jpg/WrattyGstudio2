@@ -34,7 +34,7 @@ _NEW = {
     "parallel_ny":   False,
 }
 from pedalboard import (
-    Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter,
+    Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
     Compressor, Limiter, Distortion, Clipping, Delay, Reverb,
 )
 
