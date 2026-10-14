@@ -311,7 +311,7 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
     return ol, orr
 
 
-def plate_wet(voc, sr, mix=0.089, duck_depth=0.5,
+def plate_wet(voc, sr, mix=1.0, duck_depth=0.5,
               predelay_ms=30.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)

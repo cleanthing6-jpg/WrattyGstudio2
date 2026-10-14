@@ -1006,7 +1006,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if _NEW["plate_t1"]:
         try:
             import dsp_pro
-            plate = dsp_pro.plate_wet(voc, sr, mix=0.089, duck_depth=0.5)
+            plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=0.5)
         except Exception as _pr:
             _REVERB_LAST["error"] = str(_pr)[:200]
             plate = None

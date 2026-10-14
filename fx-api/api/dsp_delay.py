@@ -75,7 +75,7 @@ def coeff_tau(tau, sr):
 
 
 def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
-                 note_div=0.25, feedback=0.25, mix=0.20, width=0.80,
+                 note_div=0.25, feedback=0.25, mix=1.0, width=0.80,
                  hp_cut=400.0, lp_cut=5000.0,
                  mod_rate=0.4, mod_depth_ms=2.0,
                  duck_depth=0.5, tape=True):
