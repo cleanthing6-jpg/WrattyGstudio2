@@ -51,8 +51,8 @@ def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
         dg = 1.0 - duck_depth * env
 
         # Tape sat + cross-feedback write
-        sL = lp_R
-        sR = lp_L
+        sL = np.tanh(lp_R * 1.2 + 0.05) - np.tanh(0.05)
+        sR = np.tanh(lp_L * 1.2 + 0.05) - np.tanh(0.05)
         bufL[ptr] = xL[i] + fb * sL
         bufR[ptr] = xR[i] + fb * sR
 
@@ -84,7 +84,7 @@ def coeff_tau(tau, sr):
 def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
                  note_div=0.75, feedback=0.30, mix=1.0, width=0.80,
                  hp_cut=400.0, lp_cut=5000.0,
-                 mod_rate=0.4, mod_depth_ms=0.0,
+                 mod_rate=0.4, mod_depth_ms=2.0,
                  duck_depth=0.3, tape=True):
     """Drop-in for delay_spec.render — same return (wet_2ch, info)."""
     a = np.asarray(voc, dtype=np.float32)
