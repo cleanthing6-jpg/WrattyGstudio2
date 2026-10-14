@@ -247,7 +247,7 @@ from numpy.fft import rfft as _rfft, irfft as _irfft
 _IR_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "irs")
 _IR_CACHE = {}
 
-def _load_ir(path, sr_target=44100, max_len=int(1.8*48000)):
+def _load_ir(path, sr_target=44100, max_len=int(1.67*48000)):
     """Load + resample IR to engine sr + fade tail. Cached."""
     key = (path, sr_target)
     if key in _IR_CACHE:
@@ -323,8 +323,8 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
     return ol, orr
 
 
-def plate_wet(voc, sr, mix=1.0, duck_depth=0.25,
-              predelay_ms=30.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
+def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
+              predelay_ms=37.5, mod_rate_hz=0.2, mod_depth_ms=0.5):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
