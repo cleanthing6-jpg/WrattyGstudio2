@@ -1302,7 +1302,7 @@ def _role_chain(voc, sr, st, role):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
-            _fet_thr = float(np.clip(_fet_rms + 3.0, -30.0, -8.0))
+            _fet_thr = float(np.clip(_fet_rms + 7.0, -30.0, -6.0))
             _fet_out, _fet_info = fet_comp.fet_compress(
                 out, sr,
                 threshold_db=_fet_thr,
