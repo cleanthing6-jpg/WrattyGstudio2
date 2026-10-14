@@ -139,16 +139,3 @@ def api():
     return web
 
 # FORCE_CACHE_CLEAR_TOKEN = 1791533260
-
-
-@app.function(image=image, cpu=0.1, memory=256, timeout=120)
-def health_check():
-    import importlib
-    out = {}
-    for m in ("numpy", "scipy", "numba", "pedalboard", "soundfile"):
-        try:
-            mod = importlib.import_module(m)
-            out[m] = getattr(mod, "__version__", "ok")
-        except Exception as e:
-            out[m] = "MISSING: " + repr(e)
-    return out
