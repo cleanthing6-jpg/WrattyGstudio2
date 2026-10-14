@@ -1006,7 +1006,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if _NEW["plate_t1"]:
         try:
             import dsp_pro
-            plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=0.5)
+            plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=0.25)
         except Exception as _pr:
             _REVERB_LAST["error"] = str(_pr)[:200]
             plate = None
@@ -1081,7 +1081,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.50, "delay": 0.60, "exciter": True, "plate_from_delay": False, "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.35, "delay": 0.50, "exciter": True, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.06, "delay": 0.40, "exciter": True,  "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 0.32, "delay": 0.90, "exciter": True,  "note": 0.75},
 }
