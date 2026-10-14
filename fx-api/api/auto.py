@@ -1287,7 +1287,7 @@ def _role_chain(voc, sr, st, role):
             import clip_gain
             _cg_in = _rms_db(voc)
             voc = clip_gain.clip_gain_ride(voc, sr, window_ms=100.0,
-                                           max_gain_db=1.5,
+                                           max_gain_db=0.0,
                                            silence_threshold_db=-42.0)
             _cg_out = _rms_db(voc)
             moves.append(["clip-gain", "linked +/-3dB  100ms  mean shift %.2f dB" % (_cg_out - _cg_in)])
