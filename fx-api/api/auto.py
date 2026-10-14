@@ -1058,8 +1058,6 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if role is not None:
         _DELAY_LAST[role] = dly_info
     if dly_wet is not None:
-        # delay_spec engine applies its own send level internally; do NOT
-        # multiply by delay_scale (that double-attenuates).
         try:
             import numpy as _np
             _dry_rms = float(_np.sqrt(_np.mean(np.asarray(voc, np.float32)**2)) + 1e-12)
