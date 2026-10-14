@@ -230,3 +230,179 @@ def deess_drop_in(voc, sr, st=None, ratio=4.0):
     """Returns (audio, max_reduction_estimate)."""
     y = pro_deesser(voc, sr, ratio=ratio)
     return y, 2.5
+
+
+# ══════════════════════════════════════════════════════════════
+# PLATE REVERB — Greg Hopkins EMT-140 medium (free CC-BY)
+# Returns WET ONLY (matches the old _plate signature)
+# ══════════════════════════════════════════════════════════════
+import os as _os
+try:
+    import soundfile as _sf
+except Exception:
+    _sf = None
+
+from numpy.fft import rfft as _rfft, irfft as _irfft
+
+_IR_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "irs")
+_IR_CACHE = {}
+
+def _load_ir(path, max_len=6*48000):
+    if path in _IR_CACHE:
+        return _IR_CACHE[path]
+    if _sf is None:
+        return None
+    ir, sr_ir = _sf.read(path)
+    if ir.ndim > 1:
+        ir = np.mean(ir, axis=1)
+    ir = ir[:max_len].astype(np.float32)
+    fade = int(0.05 * sr_ir)
+    if len(ir) > fade:
+        w = np.ones(len(ir), dtype=np.float32)
+        w[-fade:] = np.linspace(1.0, 0.0, fade, dtype=np.float32)
+        ir *= w
+    _IR_CACHE[path] = ir
+    return ir
+
+
+def _coeff_tau(tau, sr):
+    return 1.0 - np.exp(-1.0 / (tau * sr))
+
+
+@njit(cache=True)
+def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp, a_atk, a_rel, duck):
+    n = len(wet_l)
+    ol = np.zeros(n, dtype=np.float32)
+    orr = np.zeros(n, dtype=np.float32)
+    h_in_l = 0.0; h_out_l = 0.0; l_out_l = 0.0
+    h_in_r = 0.0; h_out_r = 0.0; l_out_r = 0.0
+    env = 0.0
+    for s in range(n):
+        r = abs(dry_mono[s])
+        if r > env: env += a_atk * (r - env)
+        else:       env += a_rel * (r - env)
+        att = 1.0 / (1.0 + env * duck)
+        wl = wet_l[s] * att
+        wr = wet_r[s] * att
+        chl = a_hp * (h_out_l + wl - h_in_l); h_in_l = wl; h_out_l = chl
+        cll = l_out_l + a_lp * (chl - l_out_l); l_out_l = cll; ol[s] = cll
+        chr_ = a_hp * (h_out_r + wr - h_in_r); h_in_r = wr; h_out_r = chr_
+        clr = l_out_r + a_lp * (chr_ - l_out_r); l_out_r = clr; orr[s] = clr
+    return ol, orr
+
+
+def plate_wet(voc, sr, mix=0.089, duck_depth=0.5):
+    """Returns WET stereo tail only (matches old _plate return)."""
+    a = np.asarray(voc, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    x_mono = a.mean(axis=0).astype(np.float32)
+    n = len(x_mono)
+
+    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"))
+    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"))
+    if ir_l is None or ir_r is None:
+        return None
+
+    N = n + len(ir_l) - 1
+    X = _rfft(x_mono, n=N)
+    rev_l = _irfft(X * _rfft(ir_l, n=N), n=N)[:n].astype(np.float32)
+    rev_r = _irfft(X * _rfft(ir_r, n=N), n=N)[:n].astype(np.float32)
+
+    a_hp  = np.float32(_coeff_tau(1.0/(2*np.pi*250.0), sr))
+    a_lp  = np.float32(_coeff_tau(1.0/(2*np.pi*9000.0), sr))
+    a_atk = np.float32(_coeff_tau(0.005, sr))
+    a_rel = np.float32(_coeff_tau(0.100, sr))
+
+    wl, wr = _reverb_duck_filter(rev_l, rev_r, x_mono,
+                                 a_hp, a_lp, a_atk, a_rel, np.float32(duck_depth))
+    wet = np.stack([wl, wr]).astype(np.float32) * np.float32(mix)
+    return wet
+
+
+# ══════════════════════════════════════════════════════════════
+# PLATE REVERB — Greg Hopkins EMT-140 medium (free CC-BY)
+# Returns WET ONLY (matches the old _plate signature)
+# ══════════════════════════════════════════════════════════════
+import os as _os
+try:
+    import soundfile as _sf
+except Exception:
+    _sf = None
+
+from numpy.fft import rfft as _rfft, irfft as _irfft
+
+_IR_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "irs")
+_IR_CACHE = {}
+
+def _load_ir(path, max_len=6*48000):
+    if path in _IR_CACHE:
+        return _IR_CACHE[path]
+    if _sf is None:
+        return None
+    ir, sr_ir = _sf.read(path)
+    if ir.ndim > 1:
+        ir = np.mean(ir, axis=1)
+    ir = ir[:max_len].astype(np.float32)
+    fade = int(0.05 * sr_ir)
+    if len(ir) > fade:
+        w = np.ones(len(ir), dtype=np.float32)
+        w[-fade:] = np.linspace(1.0, 0.0, fade, dtype=np.float32)
+        ir *= w
+    _IR_CACHE[path] = ir
+    return ir
+
+
+def _coeff_tau(tau, sr):
+    return 1.0 - np.exp(-1.0 / (tau * sr))
+
+
+@njit(cache=True)
+def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp, a_atk, a_rel, duck):
+    n = len(wet_l)
+    ol = np.zeros(n, dtype=np.float32)
+    orr = np.zeros(n, dtype=np.float32)
+    h_in_l = 0.0; h_out_l = 0.0; l_out_l = 0.0
+    h_in_r = 0.0; h_out_r = 0.0; l_out_r = 0.0
+    env = 0.0
+    for s in range(n):
+        r = abs(dry_mono[s])
+        if r > env: env += a_atk * (r - env)
+        else:       env += a_rel * (r - env)
+        att = 1.0 / (1.0 + env * duck)
+        wl = wet_l[s] * att
+        wr = wet_r[s] * att
+        chl = a_hp * (h_out_l + wl - h_in_l); h_in_l = wl; h_out_l = chl
+        cll = l_out_l + a_lp * (chl - l_out_l); l_out_l = cll; ol[s] = cll
+        chr_ = a_hp * (h_out_r + wr - h_in_r); h_in_r = wr; h_out_r = chr_
+        clr = l_out_r + a_lp * (chr_ - l_out_r); l_out_r = clr; orr[s] = clr
+    return ol, orr
+
+
+def plate_wet(voc, sr, mix=0.089, duck_depth=0.5):
+    """Returns WET stereo tail only (matches old _plate return)."""
+    a = np.asarray(voc, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    x_mono = a.mean(axis=0).astype(np.float32)
+    n = len(x_mono)
+
+    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"))
+    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"))
+    if ir_l is None or ir_r is None:
+        return None
+
+    N = n + len(ir_l) - 1
+    X = _rfft(x_mono, n=N)
+    rev_l = _irfft(X * _rfft(ir_l, n=N), n=N)[:n].astype(np.float32)
+    rev_r = _irfft(X * _rfft(ir_r, n=N), n=N)[:n].astype(np.float32)
+
+    a_hp  = np.float32(_coeff_tau(1.0/(2*np.pi*250.0), sr))
+    a_lp  = np.float32(_coeff_tau(1.0/(2*np.pi*9000.0), sr))
+    a_atk = np.float32(_coeff_tau(0.005, sr))
+    a_rel = np.float32(_coeff_tau(0.100, sr))
+
+    wl, wr = _reverb_duck_filter(rev_l, rev_r, x_mono,
+                                 a_hp, a_lp, a_atk, a_rel, np.float32(duck_depth))
+    wet = np.stack([wl, wr]).astype(np.float32) * np.float32(mix)
+    return wet

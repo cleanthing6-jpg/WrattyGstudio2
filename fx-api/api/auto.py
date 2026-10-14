@@ -956,7 +956,15 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if plate_scale is None: plate_scale = scale
     n_out = voc.shape[1]
 
-    plate = _plate(voc, sr)
+    plate = None
+    try:
+        import dsp_pro
+        plate = dsp_pro.plate_wet(voc, sr, mix=0.089, duck_depth=0.5)
+    except Exception as _pr:
+        _REVERB_LAST["error"] = str(_pr)[:200]
+        plate = None
+    if plate is None:
+        plate = _plate(voc, sr)
 
     if plate is None or plate_scale <= 0:
         return voc, 0, "none"
