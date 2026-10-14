@@ -1293,6 +1293,19 @@ def _role_chain(voc, sr, st, role):
             drive = drive * 0.5
     except Exception:
         pass
+    # --- Clip-gain ride: level-neutral pre-stage (relative to own average).
+    if role in ("lead", "adlib", "backing"):
+        try:
+            import clip_gain
+            _cg_in = _rms_db(voc)
+            voc = clip_gain.clip_gain_ride(voc, sr, window_ms=100.0,
+                                           max_gain_db=3.0,
+                                           silence_threshold_db=-42.0)
+            _cg_out = _rms_db(voc)
+            moves.append(["clip-gain", "linked +/-3dB  100ms  mean shift %.2f dB" % (_cg_out - _cg_in)])
+        except Exception as _cge:
+            moves.append(["clip-gain-error", str(_cge)[:80]])
+
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
 
     # --- 1176-style FET stage (UREI Rev D topology, feedback, near-instant attack).
