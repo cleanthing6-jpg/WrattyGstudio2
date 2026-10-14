@@ -31,7 +31,7 @@ _NEW = {
     "adt_t1":        True,
     "delay_t1":      True,
     "plate_t1":      True,
-    "parallel_ny":   False,
+    "parallel_ny":   True,
 }
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
