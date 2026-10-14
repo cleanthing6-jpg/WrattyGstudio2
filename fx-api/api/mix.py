@@ -237,8 +237,8 @@ def setjob(jid, status, url=""):
 PAN_ENABLED = True
 PAN_HZ = 200.0
 PAN_VALUES = {
-    "backing": (-0.75, 0.75, -0.55, 0.55),
-    "adlib":   (-0.85, 0.85, -0.60, 0.60),
+    "backing": (-0.55, 0.55, -0.35, 0.35),
+    "adlib":   (-0.70, 0.70, -0.50, 0.50),
 }
 _PAN_N = {"backing": 0, "adlib": 0}
 _PAN_REPORT = {"backing": [], "adlib": []}
