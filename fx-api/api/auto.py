@@ -18,6 +18,21 @@ try:
 except Exception:
     polish = None
 import pedalboard
+
+# ── Feature gates for engines added 2026-10-14. Flip one at a time to
+#    isolate regressions. All False = chain runs pre-upgrade code.
+_NEW = {
+    "clip_gain":     False,
+    "fet":           False,
+    "la2a_pro":      False,
+    "saturator_pro": False,
+    "deess_pro":     False,
+    "exciter_t1":    False,
+    "adt_t1":        False,
+    "delay_t1":      False,
+    "plate_t1":      False,
+    "parallel_ny":   False,
+}
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter,
     Compressor, Limiter, Distortion, Clipping, Delay, Reverb,
@@ -758,12 +773,24 @@ def _send_sum(voc, sr, plugins):
 # ---------- vocal processing ----------
 
 def _saturate(x, sr, drive_db):
-    """Tier-1 C2-continuous saturator, 4x polyphase OS, Numba'd."""
     if drive_db is None or drive_db <= 0.001:
         return x
+    if _NEW["saturator_pro"]:
+        try:
+            import dsp_pro
+            return dsp_pro.pro_saturator(x, sr, drive_db=float(drive_db))
+        except Exception:
+            return x
     try:
-        import dsp_pro
-        return dsp_pro.pro_saturator(x, sr, drive_db=float(drive_db))
+        import numpy as _np
+        a = _np.asarray(x, dtype=_np.float32)
+        d = 1.0 + float(drive_db) * 2.0
+        b = 0.15 * float(drive_db)
+        y = _np.tanh(a * d + b) - _np.tanh(b)
+        y = y + 0.15 * float(drive_db) * (y ** 2) * _np.sign(y)
+        ri = _np.sqrt(_np.mean(a ** 2)) + 1e-9
+        ro = _np.sqrt(_np.mean(y ** 2)) + 1e-9
+        return (y * (ri / ro)).astype(_np.float32)
     except Exception:
         return x
 
@@ -793,11 +820,30 @@ def _headphone_wrap(x, sr):
 
 
 def _deess(voc, sr, st):
-    """Tier-1 split-band lookahead de-esser (5.5kHz crossover, 5ms lookahead)."""
+    if _NEW["deess_pro"]:
+        try:
+            import dsp_pro
+            return dsp_pro.deess_drop_in(voc, sr, st, ratio=4.0)
+        except Exception:
+            return voc, 0.0
     try:
-        import dsp_pro
-        return dsp_pro.deess_drop_in(voc, sr, st, ratio=4.0)
-    except Exception as _de:
+        freq = np.fft.rfftfreq(N, 1.0 / sr)
+        k = (freq >= 5500) & (freq < 9000)
+        if not np.any(k):
+            return voc, 0.0
+        out = np.empty_like(voc)
+        mx = 0.0
+        for c in range(voc.shape[0]):
+            S = _stft(voc[c])
+            lev = _level_db(S, k)
+            thr = float(np.median(lev)) + DEESS_OFFSET_DB
+            red = _smooth(np.clip(lev - thr, 0.0, MAX_DEESS), atk=DEESS_ATK, rel=DEESS_REL)
+            mx = max(mx, float(np.max(red)))
+            S[:, k] *= (10.0 ** (-red / 20.0))[:, None]
+            out[c] = _istft(S, voc.shape[1])
+            del S
+        return out, round(mx, 2)
+    except Exception:
         return voc, 0.0
 
 
@@ -957,12 +1003,13 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     n_out = voc.shape[1]
 
     plate = None
-    try:
-        import dsp_pro
-        plate = dsp_pro.plate_wet(voc, sr, mix=0.089, duck_depth=0.5)
-    except Exception as _pr:
-        _REVERB_LAST["error"] = str(_pr)[:200]
-        plate = None
+    if _NEW["plate_t1"]:
+        try:
+            import dsp_pro
+            plate = dsp_pro.plate_wet(voc, sr, mix=0.089, duck_depth=0.5)
+        except Exception as _pr:
+            _REVERB_LAST["error"] = str(_pr)[:200]
+            plate = None
     if plate is None:
         plate = _plate(voc, sr)
 
@@ -983,12 +1030,13 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     dly_wet = None
     dly_info = {}
     if role in ("lead", "adlib") or role is None:
-        _dspec = None
-        try:
-            import dsp_delay as _dspec
-            _spec_render = _dspec.delay_render
-        except Exception:
-            _spec_render = None
+        _spec_render = None
+        if _NEW["delay_t1"]:
+            try:
+                import dsp_delay as _dspec
+                _spec_render = _dspec.delay_render
+            except Exception:
+                _spec_render = None
         if _spec_render is None:
             try:
                 import delay_spec as _dspec2
@@ -1122,19 +1170,31 @@ def _kick_punch(x, sr):
 
 
 def _double(voc, sr):
-    """Tier-1 LFO ADT doubler (cubic Hermite, polyphase, live taps 14/22 ms)."""
+    if _NEW["adt_t1"]:
+        try:
+            import dsp_tier1
+            blend = 10.0 ** (DOUBLE_DB / 20.0)
+            out = dsp_tier1.adt_double(voc, sr, depth_ms=14.0, rate_hz=0.5,
+                                       right_offset_ms=8.0, pan=0.30, blend=blend)
+            _DBL["kind"] = "adt (LFO+cubic, 14/22ms, +/-0.30pan)"
+            return out
+        except Exception as _e:
+            _DBL["error"] = repr(_e)
+            return None
     try:
-        import dsp_tier1
-        blend = 10.0 ** (DOUBLE_DB / 20.0)
-        out = dsp_tier1.adt_double(
-            voc, sr,
-            depth_ms=14.0,
-            rate_hz=0.5,
-            right_offset_ms=8.0,
-            pan=0.30,
-            blend=blend,
-        )
-        _DBL["kind"] = "adt (LFO+cubic, 14/22ms, +/-0.30pan)"
+        out = np.zeros_like(voc)
+        for cents, ms, pan in ((7.0, 14.0, 0.30), (-6.0, 22.0, -0.30)):
+            ch = ([] if PitchShift is None else [PitchShift(semitones=cents / 100.0)]) + [
+                  HighpassFilter(cutoff_frequency_hz=150.0),
+                  LowpassFilter(cutoff_frequency_hz=10000.0)]
+            _opt(ch, Chorus, rate_hz=0.4, depth=0.06, mix=0.25)
+            ch.append(Delay(delay_seconds=ms / 1000.0, feedback=0.0, mix=1.0))
+            y = Pedalboard(ch)(voc, sr).astype(np.float32)
+            y[0] *= float(np.sqrt(max(0.0, (1.0 - pan) * 0.5)) * 1.414)
+            y[1] *= float(np.sqrt(max(0.0, (1.0 + pan) * 0.5)) * 1.414)
+            out += y
+        out *= 10.0 ** (DOUBLE_DB / 20.0)
+        _DBL["kind"] = "adt (detune+delay+pan)" if PitchShift is not None else "delays+pan only (no PitchShift)"
         return out
     except Exception as _e:
         _DBL["error"] = repr(_e)
@@ -1281,16 +1341,16 @@ def _role_chain(voc, sr, st, role):
             drive = drive * 0.5
     except Exception:
         pass
-    # --- Clip-gain ride: level-neutral pre-stage (relative to own average).
-    if role in ("lead", "adlib", "backing"):
+    # --- Clip-gain ride (gated)
+    if _NEW["clip_gain"] and role in ("lead", "adlib", "backing"):
         try:
             import clip_gain
             _cg_in = _rms_db(voc)
             voc = clip_gain.clip_gain_ride(voc, sr, window_ms=100.0,
-                                           max_gain_db=0.0,
-                                           silence_threshold_db=-42.0)
+                                           max_gain_db=1.5,
+                                           silence_threshold_db=-32.0)
             _cg_out = _rms_db(voc)
-            moves.append(["clip-gain", "linked +/-3dB  100ms  mean shift %.2f dB" % (_cg_out - _cg_in)])
+            moves.append(["clip-gain", "linked +/-1.5dB  100ms  mean shift %.2f dB" % (_cg_out - _cg_in)])
         except Exception as _cge:
             moves.append(["clip-gain-error", str(_cge)[:80]])
 
@@ -1298,7 +1358,7 @@ def _role_chain(voc, sr, st, role):
 
     # --- 1176-style FET stage (UREI Rev D topology, feedback, near-instant attack).
     #     Runs BEFORE the LA-2A: FET catches peaks, LA-2A glues the body.
-    if role in ("lead", "adlib", "backing"):
+    if _NEW["fet"] and role in ("lead", "adlib", "backing"):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
@@ -1332,7 +1392,8 @@ def _role_chain(voc, sr, st, role):
         _vocal_rms = _rms_db(out)
         _opto_thr_cal = float(max(-14.0, _vocal_rms + 8.0))
         moves.append(["opto-thr", round(_opto_thr_cal, 1)])
-        out, _opto_info = dsp_pro.la2a_compress(
+        _la2a_fn = dsp_pro.la2a_compress if _NEW["la2a_pro"] else opto_comp.opto_compress
+        out, _opto_info = _la2a_fn(
             out, sr,
             threshold_db=_opto_thr_cal,
             ratio=2.0,
@@ -1857,33 +1918,59 @@ def _master(x, sr, rep, loud="MEDIUM"):
 # ---------- polish additions ----------
 
 def _parallel(x, sr):
-    """NY parallel — 12:1 smash, HPF 120 sidechain, additive blend."""
+    if _NEW["parallel_ny"]:
+        try:
+            import parallel_comp
+            out = parallel_comp.industry_parallel_compressor(x, sr, blend_amount=0.30)
+            _PAR_LAST["ran"] = True
+            _PAR_LAST["mode"] = "ny 6:1 8ms hpf120 sub30"
+            return out
+        except Exception as _e:
+            _PAR_LAST["error"] = str(_e)[:200]
+            return x
     try:
-        import parallel_comp
-        out = parallel_comp.industry_parallel_compressor(x, sr, blend_amount=0.30)
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
+            return x
+        crushed = Pedalboard([
+            Compressor(threshold_db=-24.0, ratio=6.0, attack_ms=8.0, release_ms=90.0),
+            Gain(gain_db=3.0),
+        ])(a, int(sr)).astype(np.float32)
+        y = (a * 0.70 + crushed * 0.30).astype(np.float32)
         _PAR_LAST["ran"] = True
-        _PAR_LAST["mode"] = "ny 6:1 8ms hpf120 sub30"
-        return out
+        return _headroom(y, -1.0).astype(np.float32)
     except Exception as _e:
         _PAR_LAST["error"] = str(_e)[:200]
         return x
 
 
 def _exciter(x, sr):
-    """Tier-1 asymmetric 5-10k exciter (Numba + polyphase 2x)."""
-    try:
-        import dsp_tier1
-        a = np.asarray(x, dtype=np.float32)
-        if a.ndim != 2 or a.shape[1] == 0:
+    if _NEW["exciter_t1"]:
+        try:
+            import dsp_tier1
+            a = np.asarray(x, dtype=np.float32)
+            if a.ndim != 2 or a.shape[1] == 0:
+                return x
+            y = dsp_tier1.exciter(a, int(sr), drive_db=8.0, blend=0.08)
+            _EXC_LAST["ran"] = True
+            return _headroom(y, -1.0).astype(np.float32)
+        except Exception as _e:
+            _EXC_LAST["error"] = str(_e)[:200]
             return x
-        y = dsp_tier1.exciter(a, int(sr), drive_db=8.0, blend=0.08)
+    try:
+        from pedalboard import Pedalboard as _PB, HighpassFilter as _HP, LowpassFilter as _LP, Distortion as _D, Gain as _G
+        a = np.asarray(x, dtype=np.float32)
+        if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
+            return x
+        air = _PB([_HP(cutoff_frequency_hz=5000.0),
+                   _D(drive_db=0.8),
+                   _LP(cutoff_frequency_hz=10000.0),
+                   _G(gain_db=-9.0)])(a, int(sr)).astype(np.float32)
+        y = (a + air * 0.08).astype(np.float32)
         _EXC_LAST["ran"] = True
         return _headroom(y, -1.0).astype(np.float32)
     except Exception as _e:
-        try:
-            _EXC_LAST["error"] = str(_e)[:200]
-        except Exception:
-            pass
+        _EXC_LAST["error"] = str(_e)[:200]
         return x
 
 
