@@ -758,21 +758,12 @@ def _send_sum(voc, sr, plugins):
 # ---------- vocal processing ----------
 
 def _saturate(x, sr, drive_db):
-    """Tube-style saturation. Asymmetric bias generates even harmonics
-    (2nd, 4th) — warm, musical character, not the odd-harmonic grit of a
-    generic distortion. Level-matched so mix balance stays the same."""
+    """Tier-1 C2-continuous saturator, 4x polyphase OS, Numba'd."""
     if drive_db is None or drive_db <= 0.001:
         return x
     try:
-        import numpy as _np
-        a = _np.asarray(x, dtype=_np.float32)
-        d = 1.0 + float(drive_db) * 2.0
-        b = 0.15 * float(drive_db)
-        y = _np.tanh(a * d + b) - _np.tanh(b)
-        y = y + 0.15 * float(drive_db) * (y ** 2) * _np.sign(y)
-        ri = _np.sqrt(_np.mean(a ** 2)) + 1e-9
-        ro = _np.sqrt(_np.mean(y ** 2)) + 1e-9
-        return (y * (ri / ro)).astype(_np.float32)
+        import dsp_pro
+        return dsp_pro.pro_saturator(x, sr, drive_db=float(drive_db))
     except Exception:
         return x
 
@@ -802,24 +793,12 @@ def _headphone_wrap(x, sr):
 
 
 def _deess(voc, sr, st):
-    """Sibilance control calibrated off the band's own level so it fires when
-    sibilance is actually present. Runs BEFORE the air shelf in _role_chain."""
-    freq = np.fft.rfftfreq(N, 1.0 / sr)
-    k = (freq >= 5500) & (freq < 9000)
-    if not np.any(k):
+    """Tier-1 split-band lookahead de-esser (5.5kHz crossover, 5ms lookahead)."""
+    try:
+        import dsp_pro
+        return dsp_pro.deess_drop_in(voc, sr, st, ratio=4.0)
+    except Exception as _de:
         return voc, 0.0
-    out = np.empty_like(voc)
-    mx = 0.0
-    for c in range(voc.shape[0]):
-        S = _stft(voc[c])
-        lev = _level_db(S, k)
-        thr = float(np.median(lev)) + DEESS_OFFSET_DB
-        red = _smooth(np.clip(lev - thr, 0.0, MAX_DEESS), atk=DEESS_ATK, rel=DEESS_REL)
-        mx = max(mx, float(np.max(red)))
-        S[:, k] *= (10.0 ** (-red / 20.0))[:, None]
-        out[c] = _istft(S, voc.shape[1])
-        del S
-    return out, round(mx, 2)
 
 
 SEND_PLATE = 10.0 ** (-12.0 / 20.0)   # plate send
@@ -1332,6 +1311,7 @@ def _role_chain(voc, sr, st, role):
     # Runs on the chain output so EQ/de-ess shape the signal before
     # compression sees it, matching real vocal-chain signal flow.
     try:
+        import dsp_pro
         import opto_comp
         # Adaptive threshold: measure THIS vocal's RMS, set threshold
         # 8 dB above it. Works for every user regardless of recording
@@ -1340,7 +1320,7 @@ def _role_chain(voc, sr, st, role):
         _vocal_rms = _rms_db(out)
         _opto_thr_cal = float(max(-14.0, _vocal_rms + 8.0))
         moves.append(["opto-thr", round(_opto_thr_cal, 1)])
-        out, _opto_info = opto_comp.opto_compress(
+        out, _opto_info = dsp_pro.la2a_compress(
             out, sr,
             threshold_db=_opto_thr_cal,
             ratio=2.0,

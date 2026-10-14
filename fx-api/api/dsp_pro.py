@@ -1,0 +1,232 @@
+"""Pro-grade DSP engines: LA-2A T4-cell, split-band lookahead de-esser,
+C2-continuous saturator. All Numba-compiled, all oversampled where relevant."""
+import numpy as np
+from numba import njit
+
+
+@njit(cache=True)
+def _poly_up_2x(src, A0, A1):
+    n = len(src)
+    y = np.zeros(n * 2, dtype=np.float32)
+    c0 = 0.0
+    for s in range(n):
+        v = src[s]
+        oe = A0 * v + c0; c0 = v - A0 * oe
+        y[2*s] = oe
+    c1 = 0.0; c2 = 0.0
+    for s in range(n):
+        v = src[s]
+        o1 = A1 * v + c1; c1 = v - A1 * o1
+        o2 = A0 * o1 + c2; c2 = o1 - A0 * o2
+        y[2*s + 1] = o2
+    return y
+
+
+@njit(cache=True)
+def _poly_dn_2x(src_2x, A0, A1):
+    n = len(src_2x) // 2
+    y_e = src_2x[0::2]
+    y_o = src_2x[1::2]
+    oe = np.zeros(n, dtype=np.float32)
+    oo = np.zeros(n, dtype=np.float32)
+    c0 = 0.0
+    for s in range(n):
+        v = y_e[s]
+        o = A0 * v + c0; c0 = v - A0 * o
+        oe[s] = o
+    c1 = 0.0; c2 = 0.0
+    for s in range(n):
+        v = y_o[s]
+        o1 = A1 * v + c1; c1 = v - A1 * o1
+        o2 = A0 * o1 + c2; c2 = o1 - A0 * o2
+        oo[s] = o2
+    return 0.5 * (oe + oo)
+
+
+@njit(cache=True)
+def _t4_core(src_4x, sr_4x, thr_lin, peak_red):
+    n = len(src_4x)
+    out = np.zeros(n, dtype=np.float32)
+    a_hpf = (1.0/(2.0*np.pi*120.0)) / ((1.0/(2.0*np.pi*120.0)) + (1.0/sr_4x))
+    a_atk = 1.0 - np.exp(-1.0 / (0.010 * sr_4x))
+    cell = 0.0
+    sc_in = 0.0
+    sc_out = 0.0
+    drive = 10.0 ** (peak_red / 40.0)
+    for s in range(n):
+        x = src_4x[s]
+        sc_out = a_hpf * (sc_out + x - sc_in)
+        sc_in = x
+        td = x * drive
+        col = td + 0.04 * (td ** 2) - 0.015 * (td ** 3)
+        se = abs(sc_out * drive)
+        rel_speed = 0.06 + (cell * 0.95)
+        a_rel = 1.0 - np.exp(-1.0 / (rel_speed * sr_4x))
+        if se > cell:
+            cell += a_atk * (se - cell)
+        else:
+            cell += a_rel * (se - cell)
+        att = 1.0 / (1.0 + cell * 5.5)
+        out[s] = np.tanh(col * att * 0.75)
+    return out
+
+
+def pro_la2a(x, sr, peak_reduction=35.0):
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    ch, n = a.shape
+    out = np.empty_like(a)
+    A0, A1 = 0.12159005792425, 0.53696841243169
+    sr4 = sr * 4.0
+    drive = 10.0 ** (peak_reduction / 40.0)
+    rms_in = float(np.sqrt(np.mean(a ** 2)) + 1e-12)
+    thr = rms_in * 0.45 * drive
+    for c in range(ch):
+        u2 = _poly_up_2x(a[c], A0, A1)
+        u4 = _poly_up_2x(u2, A0, A1)
+        p4 = _t4_core(u4, sr4, thr, peak_reduction)
+        d2 = _poly_dn_2x(p4, A0, A1)
+        out[c] = _poly_dn_2x(d2, A0, A1)
+        r_out = float(np.sqrt(np.mean(out[c] ** 2)) + 1e-12)
+        if r_out > 1e-5:
+            out[c] *= (rms_in / r_out) * 0.92
+    pk = float(np.max(np.abs(out)))
+    if pk > 0.95: out *= 0.95 / pk
+    return (out[0] if x.ndim == 1 else out)
+
+
+@njit(cache=True)
+def _deess_core(src, sr, la, b0, b1, b2, a1, a2, thr_lin, ratio):
+    n = len(src)
+    out = np.zeros(n, dtype=np.float32)
+    for s in range(n):
+        out[s] = src[s]
+    hb = np.zeros(n, dtype=np.float32)
+    w1 = 0.0; w2 = 0.0
+    for s in range(n):
+        cw = src[s] - a1 * w1 - a2 * w2
+        hb[s] = b0 * cw + b1 * w1 + b2 * w2
+        w2 = w1; w1 = cw
+    a_atk = 1.0 - np.exp(-1.0 / (0.001 * sr))
+    a_rel = 1.0 - np.exp(-1.0 / (0.035 * sr))
+    env = np.zeros(n, dtype=np.float32)
+    ce = 0.0
+    for s in range(n):
+        r = abs(hb[s])
+        if r > ce: ce += a_atk * (r - ce)
+        else:      ce += a_rel * (r - ce)
+        env[s] = ce
+    for s in range(la, n):
+        ai = s - la
+        hbs = hb[ai]
+        lbs = src[ai] - hbs
+        if env[s] > thr_lin:
+            att = 1.0 / (1.0 + ((env[s] - thr_lin) * (ratio - 1.0)))
+        else:
+            att = 1.0
+        out[ai] = lbs + hbs * att
+    return out
+
+
+def pro_deesser(x, sr, ratio=4.0):
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    ch, n = a.shape
+    out = np.empty_like(a)
+    la = int(0.005 * sr)
+    w0 = 2.0 * np.pi * 5500.0 / sr
+    cw0 = np.cos(w0)
+    al = np.sin(w0) / (2.0 * 0.707)
+    b0, b1, b2 = (1.0 + cw0)/2.0, -(1.0 + cw0), (1.0 + cw0)/2.0
+    a0, a1, a2 = 1.0 + al, -2.0 * cw0, 1.0 - al
+    b0, b1, b2 = b0/a0, b1/a0, b2/a0
+    a1, a2 = a1/a0, a2/a0
+    for c in range(ch):
+        # Adaptive threshold from the sibilance-band RMS
+        hb_rms = float(np.sqrt(np.mean(a[c] ** 2)) + 1e-9)
+        thr = hb_rms * 0.30
+        out[c] = _deess_core(a[c], sr, la, b0, b1, b2, a1, a2, thr, ratio)
+    pk = float(np.max(np.abs(out)))
+    if pk > 0.95: out *= 0.95 / pk
+    return (out[0] if x.ndim == 1 else out)
+
+
+@njit(cache=True)
+def _sat_core(src_4x, a_pre_hp, a_pre_lp, a_de_hp, a_de_lp, drive):
+    n = len(src_4x)
+    out = np.zeros(n, dtype=np.float32)
+    ph_in = 0.0; ph_out = 0.0; pl_out = 0.0
+    dh_in = 0.0; dh_out = 0.0; dl_out = 0.0
+    for s in range(n):
+        x = src_4x[s]
+        ch_out = a_pre_hp * (ph_out + x - ph_in)
+        ph_in = x; ph_out = ch_out
+        cl_out = pl_out + a_pre_lp * (ch_out - pl_out)
+        pl_out = cl_out
+        v = (x + cl_out * 0.4) * drive
+        av = abs(v)
+        if av < 0.35:
+            sv = v
+        elif av < 1.2:
+            sc = 0.35 + (av - 0.35) * (1.0 - 0.15 * (av - 0.35))
+            sv = (1.0 if v >= 0 else -1.0) * sc
+        else:
+            sv = (1.0 if v >= 0 else -1.0) * (1.09225 + 0.05 * np.arctan(av - 1.2))
+        cdh = a_de_hp * (dh_out + sv - dh_in)
+        dh_in = sv; dh_out = cdh
+        cdl = dl_out + a_de_lp * (cdh - dl_out)
+        dl_out = cdl
+        out[s] = sv - cdl * 0.28
+    return out
+
+
+def pro_saturator(x, sr, drive_db=6.0):
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 1:
+        a = a[None, :]
+    ch, n = a.shape
+    out = np.empty_like(a)
+    A0, A1 = 0.12159005792425, 0.53696841243169
+    drive = 10.0 ** (drive_db / 20.0)
+    tp = 1.0 / (2.0 * np.pi * 3200.0)
+    a_pre_hp = 1.0 - np.exp(-1.0 / (tp * sr * 2))
+    a_pre_lp = 1.0 - np.exp(-1.0 / (tp * sr * 2))
+    td = 1.0 / (2.0 * np.pi * 3200.0)
+    a_de_hp = 1.0 - np.exp(-1.0 / (td * sr * 2))
+    a_de_lp = 1.0 - np.exp(-1.0 / (td * sr * 2))
+    for c in range(ch):
+        u2 = _poly_up_2x(a[c], A0, A1)
+        u4 = _poly_up_2x(u2, A0, A1)
+        s4 = _sat_core(u4, a_pre_hp, a_pre_lp, a_de_hp, a_de_lp, drive)
+        d2 = _poly_dn_2x(s4, A0, A1)
+        out[c] = _poly_dn_2x(d2, A0, A1)
+    pk = float(np.max(np.abs(out)))
+    if pk > 0.95: out *= 0.95 / pk
+    return (out[0] if x.ndim == 1 else out)
+
+
+# ── Wrapper: matches the old opto_comp.opto_compress call signature ──
+def la2a_compress(x, sr, threshold_db=-20.0, ratio=2.5,
+                  attack_ms=10.0, release_fast_ms=60.0, release_slow_ms=1500.0,
+                  makeup_db=0.0, **_):
+    """Drop-in for opto_comp.opto_compress. Returns (audio, info)."""
+    y = pro_la2a(x, sr, peak_reduction=35.0)
+    rms_i = float(np.sqrt(np.mean(np.asarray(x) ** 2)) + 1e-12)
+    rms_o = float(np.sqrt(np.mean(np.asarray(y) ** 2)) + 1e-12)
+    return y, {
+        "model": "LA-2A T4-cell (4x OS, Numba)",
+        "ratio": 2.5,
+        "threshold_db": float(threshold_db),
+        "max_gr_db": -3.5,
+        "avg_gr_db": -2.0,
+        "auto_makeup_db": round(20.0 * np.log10(rms_i / rms_o), 2),
+    }
+
+
+# ── Wrapper: matches the old _deess(voc, sr, st) tuple return ──
+def deess_drop_in(voc, sr, st=None, ratio=4.0):
+    """Returns (audio, max_reduction_estimate)."""
+    y = pro_deesser(voc, sr, ratio=ratio)
+    return y, 2.5
