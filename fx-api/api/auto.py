@@ -65,7 +65,7 @@ PRESETS = {
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
-        "max_air": 2.0, "max_deess": 3.5,
+        "max_air": 2.0, "max_deess": 2.5,
         "max_mud_cut": 6.0, "max_box_cut": 4.0,
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 135.0, "hpf_max": 165.0,
@@ -94,12 +94,12 @@ PRESETS = {
             "body_db": 0.0,
         },
         "role_treat_lead": {
-            "gain": 0.0, "hpf": 95.0,
+            "gain": 0.0, "hpf": 95.0, "body_db": 2.0,
             "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
             "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
             "pres": 0.8, "pres_hz": 3200.0, "pres_q": 1.0,
             "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 0.3, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
+            "air": 2.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.15, "width": 1.0,
             "body_db": 0.0,
         },
@@ -1302,12 +1302,12 @@ def _role_chain(voc, sr, st, role):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
-            _fet_thr = float(np.clip(_fet_rms + 7.0, -30.0, -6.0))
+            _fet_thr = float(np.clip(_fet_rms + 9.0, -30.0, -6.0))
             _fet_out, _fet_info = fet_comp.fet_compress(
                 out, sr,
                 threshold_db=_fet_thr,
                 ratio=4.0,
-                attack_ms=0.100,
+                attack_ms=3.0,
                 release_ms=250.0,
                 sidechain_hpf_hz=90.0,
                 sat_drive=0.10,
@@ -1883,9 +1883,9 @@ def _exciter(x, sr):
         if a.ndim != 2 or a.shape[0] not in (1, 2) or a.shape[1] == 0:
             return x
         air = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=9000.0),
+            HighpassFilter(cutoff_frequency_hz=5000.0),
             Distortion(drive_db=0.8),
-            LowpassFilter(cutoff_frequency_hz=14000.0),
+            LowpassFilter(cutoff_frequency_hz=10000.0),
             Gain(gain_db=-9.0),
         ])(a, int(sr)).astype(np.float32)
         y = (a + air * 0.18).astype(np.float32)
