@@ -1301,7 +1301,7 @@ def _role_chain(voc, sr, st, role):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
-            _fet_thr = float(np.clip(_fet_rms + 6.0, -30.0, -6.0))
+            _fet_thr = float(np.clip(_fet_rms + 10.0, -30.0, -6.0))
             _fet_out, _fet_info = fet_comp.fet_compress(
                 out, sr,
                 threshold_db=_fet_thr,
@@ -1887,7 +1887,7 @@ def _exciter(x, sr):
             LowpassFilter(cutoff_frequency_hz=10000.0),
             Gain(gain_db=-9.0),
         ])(a, int(sr)).astype(np.float32)
-        y = (a + air * 0.18).astype(np.float32)
+        y = (a + air * 0.08).astype(np.float32)
         try:
             _EXC_LAST["ran"] = True
         except Exception:
