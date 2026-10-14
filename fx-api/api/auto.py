@@ -96,7 +96,7 @@ PRESETS = {
         "role_treat_lead": {
             "gain": 0.0, "hpf": 95.0, "body_db": 2.0,
             "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
-            "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
+            "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
             "pres": 0.8, "pres_hz": 3200.0, "pres_q": 1.0,
             "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
             "air": 2.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
@@ -1308,7 +1308,7 @@ def _role_chain(voc, sr, st, role):
                 threshold_db=_fet_thr,
                 ratio=4.0,
                 attack_ms=3.0,
-                release_ms=250.0,
+                release_ms=80.0,
                 sidechain_hpf_hz=90.0,
                 sat_drive=0.10,
             )
