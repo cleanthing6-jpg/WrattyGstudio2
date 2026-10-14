@@ -1302,12 +1302,12 @@ def _role_chain(voc, sr, st, role):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
-            _fet_thr = float(np.clip(_fet_rms + 9.0, -30.0, -6.0))
+            _fet_thr = float(np.clip(_fet_rms + 6.0, -30.0, -6.0))
             _fet_out, _fet_info = fet_comp.fet_compress(
                 out, sr,
                 threshold_db=_fet_thr,
                 ratio=4.0,
-                attack_ms=3.0,
+                attack_ms=5.0,
                 release_ms=80.0,
                 sidechain_hpf_hz=90.0,
                 sat_drive=0.10,
@@ -1335,9 +1335,9 @@ def _role_chain(voc, sr, st, role):
             out, sr,
             threshold_db=_opto_thr_cal,
             ratio=2.0,
-            attack_ms=25.0,
-            release_fast_ms=150.0,
-            release_slow_ms=900.0,
+            attack_ms=10.0,
+            release_fast_ms=60.0,
+            release_slow_ms=1500.0,
             makeup_db=0.0,
         )
         moves.append(["opto-gr", _opto_info.get("max_gr_db", 0.0)])
@@ -1370,7 +1370,7 @@ def _role_chain(voc, sr, st, role):
 
     try:
         # Boost clean high fidelity air gracefully at the top of the chain
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=11000.0,
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
                                           gain_db=min(1.5, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
