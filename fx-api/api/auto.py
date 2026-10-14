@@ -985,15 +985,19 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     if role in ("lead", "adlib") or role is None:
         _dspec = None
         try:
-            import delay_spec as _dspec
+            import dsp_delay as _dspec
+            _spec_render = _dspec.delay_render
         except Exception:
+            _spec_render = None
+        if _spec_render is None:
             try:
-                from . import delay_spec as _dspec
+                import delay_spec as _dspec2
+                _spec_render = _dspec2.render
             except Exception:
-                _dspec = None
-        if _dspec is not None:
+                _spec_render = None
+        if _spec_render is not None:
             try:
-                _dy, _dinfo = _dspec.render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
+                _dy, _dinfo = _spec_render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
                 if _dy is not None:
                     if _dy.shape[1] < n_out:
                         _dy = np.concatenate([_dy, np.zeros((_dy.shape[0], n_out - _dy.shape[1]), np.float32)], axis=1)
