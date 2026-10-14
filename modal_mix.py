@@ -139,3 +139,38 @@ def api():
     return web
 
 # FORCE_CACHE_CLEAR_TOKEN = 1791533260
+
+
+@app.function(image=image, cpu=0.5, memory=1024, timeout=180)
+def engine_probe():
+    import numpy as np
+    import sys, os
+    sys.path.insert(0, "/root/api")
+    import dsp_delay
+    import dsp_pro
+
+    sr = 44100
+    dur = 5.0
+    n = int(sr * dur)
+    t = np.arange(n) / sr
+    x = (0.3 * np.sin(2 * np.pi * 220 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 2 * t))).astype(np.float32)
+    xs = np.stack([x, x])
+
+    out = {}
+    wet, info = dsp_delay.delay_render(xs, sr, bpm=99.4, note_div=0.25)
+    dry_rms = float(np.sqrt(np.mean(xs ** 2)))
+    wet_rms = float(np.sqrt(np.mean(wet ** 2)))
+    out["delay_dry_rms"]   = round(dry_rms, 6)
+    out["delay_wet_rms"]   = round(wet_rms, 6)
+    out["delay_rel_db"]    = round(20.0 * np.log10(wet_rms / dry_rms + 1e-12), 2)
+    out["delay_info"]      = info
+
+    plate = dsp_pro.plate_wet(xs, sr, mix=1.0, duck_depth=0.25)
+    if plate is None:
+        out["plate"] = "returned None"
+    else:
+        p_rms = float(np.sqrt(np.mean(plate ** 2)))
+        out["plate_dry_rms"] = round(dry_rms, 6)
+        out["plate_wet_rms"] = round(p_rms, 6)
+        out["plate_rel_db"]  = round(20.0 * np.log10(p_rms / dry_rms + 1e-12), 2)
+    return out
