@@ -272,6 +272,11 @@ def _load_ir(path, sr_target=44100, max_len=6*48000):
         w = np.ones(len(ir), dtype=np.float32)
         w[-fade:] = np.linspace(1.0, 0.0, fade, dtype=np.float32)
         ir *= w
+    # Energy-normalize so convolution yields ~unity gain (conventional
+    # reverb IR prep — without this, wet output is +20-25 dB above dry).
+    energy = float(np.sum(ir.astype(np.float64) ** 2))
+    if energy > 1e-12:
+        ir = (ir / np.sqrt(energy)).astype(np.float32)
     _IR_CACHE[key] = ir
     return ir
 
@@ -349,10 +354,9 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=0.25,
         t = np.arange(n, dtype=np.float32) / float(sr)
         lfo = (mod_depth_ms / 1000.0 * sr) * np.sin(2.0 * np.pi * mod_rate_hz * t).astype(np.float32)
         idx = np.arange(n, dtype=np.float32)
-        il = np.clip(idx + lfo, 0.0, float(n - 1))
-        ir_ = np.clip(idx - lfo, 0.0, float(n - 1))
-        rev_l = np.interp(il, idx, rev_l).astype(np.float32)
-        rev_r = np.interp(ir_, idx, rev_r).astype(np.float32)
+        shift = np.clip(idx + lfo, 0.0, float(n - 1))
+        rev_l = np.interp(shift, idx, rev_l).astype(np.float32)
+        rev_r = np.interp(shift, idx, rev_r).astype(np.float32)
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
     a_hp       = np.float32(coeff_hpf(250.0, sr))
