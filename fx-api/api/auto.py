@@ -32,6 +32,7 @@ _NEW = {
     "delay_t1":      True,
     "plate_t1":      True,
     "parallel_ny":   True,
+    "wrap3d":        True,
 }
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
@@ -1457,6 +1458,16 @@ def _role_chain(voc, sr, st, role):
     moves.append(["air 11k", round(min(1.5, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
+
+    # --- 3D head-wrap on lead only (stereo out)
+    if _NEW["wrap3d"] and role == "lead":
+        try:
+            import wrap3d
+            out = wrap3d.apply_wrap(_mono(out), int(sr), instrumental_rms=-14.0)
+            moves.append(["wrap3d", "3d head-wrap (M/S, HRTF, Haas)"])
+        except Exception as _we:
+            moves.append(["wrap3d-error", str(_we)[:80]])
+
     return out, moves
 
 
