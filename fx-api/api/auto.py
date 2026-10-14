@@ -1873,7 +1873,7 @@ def _parallel(x, sr):
         import parallel_comp
         out = parallel_comp.industry_parallel_compressor(x, sr, blend_amount=0.30)
         _PAR_LAST["ran"] = True
-        _PAR_LAST["mode"] = "ny 12:1 0.5ms hpf120 add30"
+        _PAR_LAST["mode"] = "ny 6:1 8ms hpf120 sub30"
         return out
     except Exception as _e:
         _PAR_LAST["error"] = str(_e)[:200]
