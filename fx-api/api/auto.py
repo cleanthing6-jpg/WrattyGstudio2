@@ -1075,6 +1075,8 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
         _REVERB_LAST["plate_db_rel_dry"] = round(20.0*_np.log10(_wet_rms_p/_dry_rms_p + 1e-12), 2)
     except Exception:
         pass
+    if dly_wet is not None and delay_scale is not None:
+        dly_wet = (dly_wet * float(delay_scale)).astype(np.float32)
     base = (voc + wet) if dly_wet is None else (voc + wet + dly_wet)
     return base.astype(np.float32), 0, "plate"
 
