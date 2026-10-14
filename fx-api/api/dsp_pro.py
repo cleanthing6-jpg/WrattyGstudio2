@@ -266,7 +266,7 @@ def _load_ir(path, sr_target=44100, max_len=int(0.9*48000)):
             np.arange(len(ir), dtype=np.float64),
             ir,
         ).astype(np.float32)
-    ir = ir[:max_len]
+    ir = ir[:int(max_len * sr_target / 48000)]
     fade = int(0.05 * sr_target)
     if len(ir) > fade:
         w = np.ones(len(ir), dtype=np.float32)
