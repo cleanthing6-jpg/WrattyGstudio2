@@ -51,8 +51,8 @@ def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
         dg = 1.0 - duck_depth * env
 
         # Tape sat + cross-feedback write
-        sL = np.tanh(lp_R * 1.2 + 0.05) - np.tanh(0.05)
-        sR = np.tanh(lp_L * 1.2 + 0.05) - np.tanh(0.05)
+        sL = lp_R
+        sR = lp_L
         bufL[ptr] = xL[i] + fb * sL
         bufR[ptr] = xR[i] + fb * sR
 
