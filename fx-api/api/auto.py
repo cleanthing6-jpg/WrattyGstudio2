@@ -32,7 +32,7 @@ _NEW = {
     "delay_t1":      True,
     "plate_t1":      True,
     "parallel_ny":   True,
-    "wrap3d":        True,
+    "wrap3d":        False,
 }
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
