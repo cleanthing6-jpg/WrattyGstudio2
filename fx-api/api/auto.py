@@ -29,8 +29,8 @@ _NEW = {
     "deess_pro":     False,
     "exciter_t1":    False,
     "adt_t1":        False,
-    "delay_t1":      True,
-    "plate_t1":      True,
+    "delay_t1":      False,
+    "plate_t1":      False,
     "parallel_ny":   False,
 }
 from pedalboard import (
