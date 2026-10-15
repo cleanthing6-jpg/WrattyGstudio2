@@ -247,9 +247,9 @@ from numpy.fft import rfft as _rfft, irfft as _irfft
 _IR_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "irs")
 _IR_CACHE = {}
 
-def _load_ir(path, sr_target=44100, max_len=int(0.65*48000)):
+def _load_ir(path, sr_target=44100, max_len=int(0.9*48000)):
     """Load + resample IR to engine sr + fade tail. Cached."""
-    key = (path, sr_target, int(max_len))
+    key = (path, sr_target)
     if key in _IR_CACHE:
         return _IR_CACHE[key]
     if _sf is None:
@@ -267,7 +267,7 @@ def _load_ir(path, sr_target=44100, max_len=int(0.65*48000)):
             ir,
         ).astype(np.float32)
     ir = ir[:int(max_len * sr_target / 48000)]
-    fade = int(0.15 * sr_target)
+    fade = int(0.05 * sr_target)
     if len(ir) > fade:
         w = np.ones(len(ir), dtype=np.float32)
         w[-fade:] = np.linspace(1.0, 0.0, fade, dtype=np.float32)
@@ -325,8 +325,7 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
 
 
 def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
-              predelay_ms=50.0, mod_rate_hz=0.2, mod_depth_ms=0.5,
-              hp_hz=350.0, lp_hz=7500.0, ir_len_s=None):
+              predelay_ms=50.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
@@ -334,9 +333,8 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
     x_mono = a.mean(axis=0).astype(np.float32)
     n = len(x_mono)
 
-    _irk = {} if ir_len_s is None else {"max_len": int(ir_len_s * 48000)}
-    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"), sr_target=int(sr), **_irk)
-    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"), sr_target=int(sr), **_irk)
+    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"), sr_target=int(sr))
+    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"), sr_target=int(sr))
     if ir_l is None or ir_r is None:
         return None
 
@@ -362,8 +360,8 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
         rev_r = np.interp(shift, idx, rev_r).astype(np.float32)
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
-    a_hp       = np.float32(coeff_hpf(hp_hz, sr))
-    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*lp_hz), sr))
+    a_hp       = np.float32(coeff_hpf(350.0, sr))
+    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*8500.0), sr))
     a_atk      = np.float32(_coeff_tau(0.005, sr))
     a_rel_fast = np.float32(_coeff_tau(0.080, sr))
     a_rel_slow = np.float32(_coeff_tau(0.400, sr))

@@ -31,7 +31,7 @@ _NEW = {
     "adt_t1":        False,
     "delay_t1":      False,
     "plate_t1":      True,
-    "adaptive_amb":  True,
+    "adaptive_amb":  False,
     "parallel_ny":   False,
     "wrap3d":        False,
 }
@@ -87,8 +87,8 @@ PRESETS = {
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 80.0, "hpf_max": 100.0,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
-        "duck_cap": {BODY: 1.2, PRES: 2.5, HARSH: 1.5},
-        "duck_target": {BODY: 1.0, PRES: 2.2, HARSH: 1.0},
+        "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
+        "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
         "low_mono_hz": 80.0,
         "role_treat_adlib": {
             "gain": -5.0, "hpf": 150.0,
@@ -1005,25 +1005,10 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     n_out = voc.shape[1]
 
     plate = None
-    _ap = None
-    _aa = None
     if _NEW["plate_t1"]:
         try:
             import dsp_pro
-            if _NEW.get("adaptive_amb", False):
-                try:
-                    import adaptive_ambience as _aa
-                    _ap = _aa.choose_params(voc, sr, bpm, role or "lead",
-                                            str(_PRESET.get("ambience_style") or "clean"))
-                except Exception as _ae:
-                    _REVERB_LAST["adaptive_error"] = str(_ae)[:200]
-                    _ap = None
-            if _ap is not None:
-                plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
-                                          predelay_ms=_ap["predelay_ms"], hp_hz=_ap["hpf_hz"],
-                                          lp_hz=_ap["lpf_hz"], ir_len_s=_ap["ir_len_s"])
-            else:
-                plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0)
+            plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0)
         except Exception as _pr:
             _REVERB_LAST["error"] = str(_pr)[:200]
             plate = None
@@ -1041,17 +1026,7 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     else:
         a = a[:, :n_out]
 
-    _send = float(plate_scale)
-    if _ap is not None:
-        try:
-            _send = _aa.calibrate_send(voc, a, _ap["target_db"])
-            _REVERB_LAST["adaptive"] = {k: (round(v, 3) if isinstance(v, float) else v)
-                                        for k, v in _ap.items() if k != "analysis"}
-            _REVERB_LAST["adaptive"]["send"] = round(_send, 4)
-        except Exception as _ce:
-            _REVERB_LAST["adaptive_error"] = str(_ce)[:200]
-            _send = float(plate_scale)
-    wet = a * _send
+    wet = a * float(plate_scale)
 
     # --- SPEC DELAY (afrobeats_default_preset_v1.json) ---
     dly_wet = None
@@ -1108,9 +1083,9 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.22, "delay": 0.2, "exciter": True, "plate_from_delay": False, "note": 0.75},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.08, "delay": 0.18, "exciter": True,  "note": 1.00},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.18, "delay": 0.3, "exciter": True,  "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.18, "delay": 0.2, "exciter": True, "plate_from_delay": False, "note": 0.75},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.05, "delay": 0.25, "exciter": True,  "note": 1.00},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.18, "delay": 0.40, "exciter": True,  "note": 0.75},
 }
 
 
@@ -1526,7 +1501,7 @@ def _duck(beat, voc_eq, freq, st, extra=0.0):
         if db >= -0.05:
             continue
         k = (freq >= b[0]) & (freq < b[1])
-        act = _smooth(_activity(_level_db(Vq, k)), atk=2.0, rel=25.0)
+        act = _smooth(_activity(_level_db(Vq, k)))
         gains[b] = (k, (10.0 ** ((db * act) / 20.0)).astype(np.float32))
     del Vq
     if not gains:

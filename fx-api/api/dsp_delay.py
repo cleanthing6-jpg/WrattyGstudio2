@@ -6,7 +6,7 @@ from numba import njit
 
 @njit(cache=True)
 def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
-                fb, mix, ahp, alp, atk, rel, duck_depth, width, rms_vocal):
+                fb, mix, ahp, alp, atk, rel, duck_depth, width):
     n = len(xL)
     max_delay = delay_samples + int(mod_depth_samps) + 4
     bufL = np.zeros(max_delay, dtype=np.float32)
@@ -46,18 +46,15 @@ def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
         rL = xL[i] if xL[i] >= 0.0 else -xL[i]
         rR = xR[i] if xR[i] >= 0.0 else -xR[i]
         rr = rL if rL >= rR else rR
-        # Normalize by this vocal's own RMS so duck scales per user
-        rr_norm = rr / (rms_vocal + 1e-9)
-        if rr_norm > env: env += atk * (rr_norm - env)
-        else:             env += rel * (rr_norm - env)
+        if rr > env: env += atk * (rr - env)
+        else:        env += rel * (rr - env)
         dg = 1.0 - duck_depth * env
-        if dg < 0.0: dg = 0.0
 
-        # Fixed-side delay: dry -> L only, R stays silent
+        # Tape sat + cross-feedback write
         sL = lp_R
         sR = lp_L
         bufL[ptr] = xL[i] + fb * sL
-        bufR[ptr] = 0.0
+        bufR[ptr] = xR[i] + fb * sR
 
         # Wet only widened; dry untouched
         wL = lp_L * mix * dg
@@ -85,10 +82,10 @@ def coeff_tau(tau, sr):
 
 
 def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
-                 note_div=0.75, feedback=0.10, mix=1.0, width=1.0,
-                 hp_cut=600.0, lp_cut=3000.0,
-                 mod_rate=0.4, mod_depth_ms=0.8,
-                 duck_depth=0.8, tape=True):
+                 note_div=0.75, feedback=0.30, mix=1.0, width=0.80,
+                 hp_cut=400.0, lp_cut=5000.0,
+                 mod_rate=0.4, mod_depth_ms=0.0,
+                 duck_depth=0.3, tape=True):
     """Drop-in for delay_spec.render — same return (wet_2ch, info)."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
@@ -99,9 +96,6 @@ def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
     try: bpm = float(bpm)
     except Exception: bpm = 100.0
     if not (bpm > 0.0): bpm = 100.0
-
-    # Multi-user safe: RMS of this user's own vocal
-    rms_vocal = float(np.sqrt(np.mean(a.astype(np.float64) ** 2)) + 1e-9)
 
     delay_sec = (60.0 / bpm) * float(note_div)
     delay_samples = int(delay_sec * sr)
@@ -117,7 +111,7 @@ def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
         float(sr), int(delay_samples), float(mod_depth_samps),
         float(mod_rate), float(feedback), float(mix),
         float(ahp), float(alp), float(atk), float(rel),
-        float(duck_depth), float(width), float(rms_vocal),
+        float(duck_depth), float(width),
     )
 
     wet = np.stack([L - a[0], R - a[1]]).astype(np.float32)
