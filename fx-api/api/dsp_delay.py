@@ -82,10 +82,10 @@ def coeff_tau(tau, sr):
 
 
 def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
-                 note_div=0.75, feedback=0.30, mix=1.0, width=0.80,
+                 note_div=0.75, feedback=0.30, mix=1.0, width=1.0,
                  hp_cut=400.0, lp_cut=5000.0,
                  mod_rate=0.4, mod_depth_ms=0.0,
-                 duck_depth=0.3, tape=True):
+                 duck_depth=1.5, tape=True):
     """Drop-in for delay_spec.render — same return (wet_2ch, info)."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
