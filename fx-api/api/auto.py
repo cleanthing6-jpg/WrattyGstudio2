@@ -31,6 +31,7 @@ _NEW = {
     "adt_t1":        False,
     "delay_t1":      False,
     "plate_t1":      True,
+    "adaptive_amb":  True,
     "parallel_ny":   False,
     "wrap3d":        False,
 }
@@ -1004,10 +1005,25 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     n_out = voc.shape[1]
 
     plate = None
+    _ap = None
+    _aa = None
     if _NEW["plate_t1"]:
         try:
             import dsp_pro
-            plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0)
+            if _NEW.get("adaptive_amb", False):
+                try:
+                    import adaptive_ambience as _aa
+                    _ap = _aa.choose_params(voc, sr, bpm, role or "lead",
+                                            str(_PRESET.get("ambience_style") or "clean"))
+                except Exception as _ae:
+                    _REVERB_LAST["adaptive_error"] = str(_ae)[:200]
+                    _ap = None
+            if _ap is not None:
+                plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
+                                          predelay_ms=_ap["predelay_ms"], hp_hz=_ap["hpf_hz"],
+                                          lp_hz=_ap["lpf_hz"], ir_len_s=_ap["ir_len_s"])
+            else:
+                plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0)
         except Exception as _pr:
             _REVERB_LAST["error"] = str(_pr)[:200]
             plate = None
@@ -1025,7 +1041,17 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
     else:
         a = a[:, :n_out]
 
-    wet = a * float(plate_scale)
+    _send = float(plate_scale)
+    if _ap is not None:
+        try:
+            _send = _aa.calibrate_send(voc, a, _ap["target_db"])
+            _REVERB_LAST["adaptive"] = {k: (round(v, 3) if isinstance(v, float) else v)
+                                        for k, v in _ap.items() if k != "analysis"}
+            _REVERB_LAST["adaptive"]["send"] = round(_send, 4)
+        except Exception as _ce:
+            _REVERB_LAST["adaptive_error"] = str(_ce)[:200]
+            _send = float(plate_scale)
+    wet = a * _send
 
     # --- SPEC DELAY (afrobeats_default_preset_v1.json) ---
     dly_wet = None
