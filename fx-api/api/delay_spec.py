@@ -26,10 +26,10 @@ PRESETS = {
     "afrobeats": dict(
         feedback=0.25, feedback_max=0.35,
         send_db=-14.0,
-        hpf_hz=400.0, lpf_hz=5000.0,
-        saturation_drive_db=3.0,
+        hpf_hz=500.0, lpf_hz=5000.0,
+        saturation_drive_db=1.0,
         width=0.80,
-        modulation_rate_hz=0.40, modulation_depth_ms=2.0,
+        modulation_rate_hz=0.40, modulation_depth_ms=0.8,
         duck_db=6.0, duck_atk_ms=5.0, duck_rel_ms=150.0,
         note_factor_pref=(0.75, 0.5, 0.25, 1.0),
     ),
@@ -114,8 +114,11 @@ def render(voc, sr, bpm, preset="afrobeats"):
         g *= fb
 
     out = Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=float(p["hpf_hz"])),
-        LowpassFilter(cutoff_frequency_hz=float(p["lpf_hz"])),
+        HighpassFilter(cutoff_frequency_hz=float(p["hpf_hz"]) / 1.96),
+        HighpassFilter(cutoff_frequency_hz=float(p["hpf_hz"]) / 1.96),
+        HighpassFilter(cutoff_frequency_hz=float(p["hpf_hz"]) / 1.96),
+        LowpassFilter(cutoff_frequency_hz=float(p["lpf_hz"]) / 0.644),
+        LowpassFilter(cutoff_frequency_hz=float(p["lpf_hz"]) / 0.644),
     ])(out, sr).astype(np.float32)
 
     try:

@@ -373,6 +373,13 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
                                  np.float32(duck_depth), prog_mix)
     wet = np.stack([wl, wr]).astype(np.float32)
     try:
+        from scipy.signal import butter as _bt, sosfilt as _sf2
+        wet = _sf2(_bt(2, 11000.0, btype="lowpass", fs=sr, output="sos"),
+                   _sf2(_bt(4, 200.0, btype="highpass", fs=sr, output="sos"), wet, axis=-1),
+                   axis=-1).astype(np.float32)
+    except Exception:
+        pass
+    try:
         from pedalboard import Pedalboard as _PB, PeakFilter as _PF
         wet = _PB([_PF(cutoff_frequency_hz=6000.0, gain_db=0.5, q=1.0)])(wet, sr).astype(np.float32)
     except Exception:
