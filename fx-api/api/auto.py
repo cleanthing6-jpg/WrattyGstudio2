@@ -1083,9 +1083,9 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
-    "lead":    {"glue": None,          "plate": 0.14, "delay": 0.0, "exciter": True, "plate_from_delay": False, "note": 0.75},
-    "backing": {"glue": (-12.0, 1.30), "plate": 0.08, "delay": 0.0, "exciter": True,  "note": 1.00},
-    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.18, "delay": 0.0, "exciter": True,  "note": 0.75},
+    "lead":    {"glue": None,          "plate": 0.16, "delay": 0.0, "exciter": True, "plate_from_delay": False, "note": 0.75},
+    "backing": {"glue": (-12.0, 1.30), "plate": 0.1, "delay": 0.0, "exciter": True,  "note": 1.00},
+    "adlib":   {"glue": (-14.0, 1.20), "plate": 0.2, "delay": 0.0, "exciter": True,  "note": 0.75},
 }
 
 
