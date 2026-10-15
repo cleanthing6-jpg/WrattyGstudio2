@@ -6,7 +6,7 @@ from numba import njit
 
 @njit(cache=True)
 def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
-                fb, mix, ahp, alp, atk, rel, duck_depth, width):
+                fb, mix, ahp, alp, atk, rel, duck_depth, width, rms_vocal):
     n = len(xL)
     max_delay = delay_samples + int(mod_depth_samps) + 4
     bufL = np.zeros(max_delay, dtype=np.float32)
@@ -46,15 +46,18 @@ def _delay_core(xL, xR, sr, delay_samples, mod_depth_samps, mod_rate,
         rL = xL[i] if xL[i] >= 0.0 else -xL[i]
         rR = xR[i] if xR[i] >= 0.0 else -xR[i]
         rr = rL if rL >= rR else rR
-        if rr > env: env += atk * (rr - env)
-        else:        env += rel * (rr - env)
+        # Normalize by this vocal's own RMS so duck scales per user
+        rr_norm = rr / (rms_vocal + 1e-9)
+        if rr_norm > env: env += atk * (rr_norm - env)
+        else:             env += rel * (rr_norm - env)
         dg = 1.0 - duck_depth * env
+        if dg < 0.0: dg = 0.0
 
-        # Tape sat + cross-feedback write
+        # Fixed-side delay: dry -> L only, R stays silent
         sL = lp_R
         sR = lp_L
         bufL[ptr] = xL[i] + fb * sL
-        bufR[ptr] = xR[i] + fb * sR
+        bufR[ptr] = 0.0
 
         # Wet only widened; dry untouched
         wL = lp_L * mix * dg
@@ -97,6 +100,9 @@ def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
     except Exception: bpm = 100.0
     if not (bpm > 0.0): bpm = 100.0
 
+    # Multi-user safe: RMS of this user's own vocal
+    rms_vocal = float(np.sqrt(np.mean(a.astype(np.float64) ** 2)) + 1e-9)
+
     delay_sec = (60.0 / bpm) * float(note_div)
     delay_samples = int(delay_sec * sr)
     mod_depth_samps = (mod_depth_ms / 1000.0) * sr
@@ -111,7 +117,7 @@ def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
         float(sr), int(delay_samples), float(mod_depth_samps),
         float(mod_rate), float(feedback), float(mix),
         float(ahp), float(alp), float(atk), float(rel),
-        float(duck_depth), float(width),
+        float(duck_depth), float(width), float(rms_vocal),
     )
 
     wet = np.stack([L - a[0], R - a[1]]).astype(np.float32)
