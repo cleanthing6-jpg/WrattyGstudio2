@@ -86,7 +86,7 @@ def coeff_tau(tau, sr):
 
 def delay_render(voc, sr, bpm=100.0, preset="afrobeats",
                  note_div=0.75, feedback=0.10, mix=1.0, width=1.0,
-                 hp_cut=400.0, lp_cut=3000.0,
+                 hp_cut=600.0, lp_cut=3000.0,
                  mod_rate=0.4, mod_depth_ms=0.8,
                  duck_depth=0.8, tape=True):
     """Drop-in for delay_spec.render — same return (wet_2ch, info)."""

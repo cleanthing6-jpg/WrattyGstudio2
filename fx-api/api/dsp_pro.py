@@ -360,8 +360,8 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
         rev_r = np.interp(shift, idx, rev_r).astype(np.float32)
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
-    a_hp       = np.float32(coeff_hpf(450.0, sr))
-    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*6500.0), sr))
+    a_hp       = np.float32(coeff_hpf(350.0, sr))
+    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*7500.0), sr))
     a_atk      = np.float32(_coeff_tau(0.005, sr))
     a_rel_fast = np.float32(_coeff_tau(0.080, sr))
     a_rel_slow = np.float32(_coeff_tau(0.400, sr))
