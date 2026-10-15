@@ -30,7 +30,7 @@ _NEW = {
     "exciter_t1":    False,
     "adt_t1":        False,
     "delay_t1":      False,
-    "plate_t1":      False,
+    "plate_t1":      True,
     "adaptive_amb":  False,
     "parallel_ny":   False,
     "wrap3d":        False,
