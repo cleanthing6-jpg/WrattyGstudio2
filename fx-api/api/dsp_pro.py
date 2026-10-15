@@ -333,8 +333,8 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
     x_mono = a.mean(axis=0).astype(np.float32)
     n = len(x_mono)
 
-    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"), sr_target=int(sr))
-    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"), sr_target=int(sr))
+    ir_l = _load_ir(_os.path.join(_IR_DIR, "bright_L.wav"), sr_target=int(sr))
+    ir_r = _load_ir(_os.path.join(_IR_DIR, "bright_R.wav"), sr_target=int(sr))
     if ir_l is None or ir_r is None:
         return None
 
