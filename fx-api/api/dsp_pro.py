@@ -324,8 +324,8 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
     return ol, orr
 
 
-def plate_wet(voc, sr, mix=1.0, duck_depth=13.0,
-              predelay_ms=65.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
+def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
+              predelay_ms=30.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
@@ -360,8 +360,8 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=13.0,
         rev_r = np.interp(shift, idx, rev_r).astype(np.float32)
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
-    a_hp       = np.float32(coeff_hpf(400.0, sr))
-    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*7500.0), sr))
+    a_hp       = np.float32(coeff_hpf(250.0, sr))
+    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*8000.0), sr))
     a_atk      = np.float32(_coeff_tau(0.005, sr))
     a_rel_fast = np.float32(_coeff_tau(0.080, sr))
     a_rel_slow = np.float32(_coeff_tau(0.400, sr))
