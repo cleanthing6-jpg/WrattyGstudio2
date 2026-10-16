@@ -154,7 +154,7 @@ def tune_vocal(voc, sr, role="lead"):
 #  Send level: ratio-calibrated, same method as reverb.
 # ═══════════════════════════════════════════════════════════════════════
 
-DELAY_TARGET_DB = {"lead": -16.0, "adlib": -14.0, "backing": -20.0}
+DELAY_TARGET_DB = {"lead": -18.0, "adlib": -15.0, "backing": -21.0}
 
 
 def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
