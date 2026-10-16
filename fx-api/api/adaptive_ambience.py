@@ -175,8 +175,10 @@ def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
     ]
     note, delay_ms = min(candidates, key=lambda c: abs(c[1] - target_ms))
 
+    # Feedback from density, mapped to the ref-measured range.
+    # Sparse vocal (Burna 0.53) -> 0.40 fb, dense (Davido 0.96) -> 0.20 fb.
     density = float(a["active_frac"])
-    fb = float(np.clip(0.20 + (1.0 - density) * 0.15, 0.15, 0.35))
+    fb = float(np.clip(0.40 - (density - 0.50) * 0.50, 0.20, 0.45))
 
     base = DELAY_TARGET_DB.get(role, -16.0)
     if style == "dry":
