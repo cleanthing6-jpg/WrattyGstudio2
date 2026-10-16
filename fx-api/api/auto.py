@@ -1892,6 +1892,13 @@ def mix(groups, sr, loud="MEDIUM"):
 
     _dry_voc = core.copy()
     core, _info = _role_buses(_pre, sr, bpm, raised)
+
+    # Parallel compression on the summed vocal bus (two-track path)
+    if _NEW.get("parallel_ny", False):
+        try:
+            core = _parallel(core, sr)
+        except Exception as _pe:
+            _PAR_LAST["error"] = str(_pe)[:200]
     try:
         beat = _kick_punch(beat, sr)
         rep["kick_punch_db"] = KICK_PUNCH_DB
