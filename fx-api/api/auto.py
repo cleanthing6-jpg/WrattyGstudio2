@@ -1358,6 +1358,13 @@ def _adaptive_hpf(voc, sr, fallback_hz):
 
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
+    _tone_plan = None
+    if role == "lead":
+        try:
+            import adaptive_tone as _at
+            voc, _tone_plan = _at.tone_correct(voc, sr, return_plan=True)
+        except Exception:
+            _tone_plan = None
     _comp = None
     if role == "lead":
         try:
@@ -1381,6 +1388,14 @@ def _role_chain(voc, sr, st, role):
         if _h > 0:
             t["hpf"] = _h
     moves = [["role", role], ["highpass", t["hpf"]]]
+    if _tone_plan is not None:
+        moves.append(["tone-hpf", _tone_plan["hpf_hz"]])
+        if _tone_plan["low_shelf_db"] < -0.2:
+            moves.append(["tone-low", round(_tone_plan["low_shelf_db"], 2)])
+        if _tone_plan["dip_db"] < -0.2:
+            moves.append(["tone-dip", round(_tone_plan["dip_db"], 2)])
+        if _tone_plan["hi_shelf_db"] > 0.2:
+            moves.append(["tone-hi", round(_tone_plan["hi_shelf_db"], 2)])
     # (vocal chop disabled — was cutting the start of the first word)
     ch = [HighpassFilter(cutoff_frequency_hz=t["hpf"])]
     # Chest/body shelf — restores 250-600 Hz weight the mud+box cuts remove.
