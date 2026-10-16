@@ -91,3 +91,34 @@ def qc_ambience(dry, wet_scaled, sr):
     out["gap_wet_db"] = float(np.percentile(wd[gap], 90)) if gap.any() else None
     out["ok"] = bool(out["wet_vs_dry_db"] is not None and -26 <= out["wet_vs_dry_db"] <= -14)
     return out
+
+# ── Adaptive vocal tone: lowmid measurement -> body/mud adjustment ──
+VOCAL_NEUTRAL_LOWMID = 0.25
+VOCAL_LOWMID_MUD_SLOPE = 10.0
+VOCAL_LOWMID_BODY_SLOPE = 7.0
+
+
+def tune_vocal(voc, sr, role="lead"):
+    """Return adaptive body_db and mud_cap from the vocal's low-mid content.
+
+    Muddy vocal  -> deeper mud cut, thinner body shelf
+    Thin vocal   -> shallower mud cut, more body shelf
+    Neutral      -> preset defaults (body 2.0 dB, mud 2.5 dB)
+    All values in dB. Ratio-based, so level-independent -> multi-user safe.
+    """
+    try:
+        a = analyze_vocal(voc, sr)
+        lowmid = float(a["lowmid"])
+    except Exception:
+        return None
+
+    delta = lowmid - VOCAL_NEUTRAL_LOWMID       # + muddy, - thin
+    mud_extra  = float(np.clip(delta * VOCAL_LOWMID_MUD_SLOPE,  -1.5, +3.0))
+    body_delta = float(np.clip(-delta * VOCAL_LOWMID_BODY_SLOPE, -2.0, +1.0))
+
+    return {
+        "body_db": float(np.clip(2.0 + body_delta, 0.0, 4.0)),
+        "mud_cap": float(np.clip(2.5 + mud_extra, 1.0, 6.0)),
+        "lowmid": lowmid,
+    }
+

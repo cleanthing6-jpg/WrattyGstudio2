@@ -31,7 +31,7 @@ _NEW = {
     "adt_t1":        False,
     "delay_t1":      False,
     "plate_t1":      True,
-    "adaptive_amb":  True,
+    "adaptive_amb":  False,
     "parallel_ny":   False,
     "wrap3d":        False,
 }
@@ -1330,6 +1330,17 @@ def _adaptive_hpf(voc, sr, fallback_hz):
 
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
+    # Adaptive vocal tone — measure lowmid, adjust body_db / mud cap per user
+    if role == "lead":
+        try:
+            import adaptive_ambience as _aa
+            _vt = _aa.tune_vocal(voc, sr, role)
+            if _vt is not None:
+                t = dict(t)
+                t["body_db"] = _vt["body_db"]
+                t["mud"] = _vt["mud_cap"]
+        except Exception:
+            pass
     if role == "lead":
         _h = _adaptive_hpf(voc, sr, float(t["hpf"]))
         if _h > 0:
