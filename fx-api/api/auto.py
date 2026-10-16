@@ -32,7 +32,6 @@ _NEW = {
     "delay_t1":      True,
     "plate_t1":      True,
     "adaptive_amb":  True,
-    "whisper":       True,
     "parallel_ny":   False,
     "wrap3d":        False,
 }
@@ -1357,31 +1356,6 @@ def _adaptive_hpf(voc, sr, fallback_hz):
         return fallback_hz
 
 
-def _whisper_layer(x, sr, level_db=-25.0, delay_ms=22.0):
-    """Quiet doubled copy — HPF 500, LPF 8k, small lag, sits under the dry.
-    Adds the 'intimacy' layer pro vocals carry on hooks. Not a widener."""
-    try:
-        from pedalboard import Pedalboard, HighpassFilter, LowpassFilter
-        a = np.asarray(x, dtype=np.float32)
-        n = a.shape[-1]
-        d = int(round(delay_ms * sr / 1000.0))
-        if d >= n or d < 1:
-            return x
-        m = a.mean(axis=0) if a.ndim == 2 else a
-        band = Pedalboard([
-            HighpassFilter(cutoff_frequency_hz=500.0),
-            LowpassFilter(cutoff_frequency_hz=8000.0),
-        ])(m[None, :], sr)[0].astype(np.float32)
-        w = np.zeros_like(band)
-        w[d:] = band[:-d]
-        w = w * (10.0 ** (level_db / 20.0))
-        if a.ndim == 2:
-            return (a + w[None, :]).astype(np.float32)
-        return (a + w).astype(np.float32)
-    except Exception:
-        return x
-
-
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
     # Adaptive vocal tone — measure lowmid, adjust body_db / mud cap per user
@@ -1553,14 +1527,6 @@ def _role_chain(voc, sr, st, role):
     moves.append(["air 11k", round(min(1.5, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
-
-    # Whisper layer — quiet doubled copy under the dry lead
-    if _NEW.get("whisper", False) and role == "lead":
-        try:
-            out = _whisper_layer(out, sr, level_db=-25.0, delay_ms=22.0)
-            moves.append(["whisper", "-25dB @ 22ms"])
-        except Exception as _we:
-            moves.append(["whisper-error", str(_we)[:80]])
 
     # Log output vocal crest — same metric detect_effects.py reports for refs
     try:
