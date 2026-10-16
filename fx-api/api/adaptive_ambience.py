@@ -47,6 +47,23 @@ def analyze_vocal(voc, sr):
                 hot_input=bool(peak_db > -0.3))
 
 
+def _adaptive_target(role, style, a):
+    """Base target by role/style, then nudge from the vocal's own measurements.
+    Bright vocals -> less wet (avoids harshness).
+    Dark vocals -> more wet (adds needed air).
+    Dense vocals -> more wet (so reverb is heard through the words).
+    Sparse vocals -> less wet (reverb already blooms in gaps).
+    """
+    base = TARGET_DB.get(role, -20.0) + STYLE_OFFSET_DB.get(style, 0.0)
+    b = float(a["bright_db"])
+    if b > -14.0:      base -= 2.0
+    elif b < -22.0:    base += 2.0
+    g = float(a["gap_s"])
+    if g > 0.6:        base -= 1.5
+    elif g < 0.2:      base += 1.5
+    return float(np.clip(base, -26.0, -12.0))
+
+
 def choose_params(voc, sr, bpm, role="lead", style="clean"):
     a = analyze_vocal(voc, sr)
     beat = 60.0 / float(np.clip(bpm or 100.0, 70.0, 140.0))
@@ -62,7 +79,7 @@ def choose_params(voc, sr, bpm, role="lead", style="clean"):
     lpf = float(np.clip(6500 - (a["bright_db"] + 12.0) * 150, 5500, 7500))
     return dict(melt=MELT.get(style, 0.8), ir_len_s=float(tail),
                 predelay_ms=predelay, hpf_hz=hpf, lpf_hz=lpf,
-                target_db=TARGET_DB.get(role, -20.0) + STYLE_OFFSET_DB.get(style, 0.0),
+                target_db=_adaptive_target(role, style, a),
                 analysis=a)
 
 
