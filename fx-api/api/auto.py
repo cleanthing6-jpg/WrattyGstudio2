@@ -1022,7 +1022,8 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
                 plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
                                           predelay_ms=_ap["predelay_ms"], hp_hz=_ap["hpf_hz"],
                                           lp_hz=_ap["lpf_hz"], ir_len_s=_ap["ir_len_s"],
-                                          melt=_ap.get("melt", 0.0))
+                                          melt=_ap.get("melt", 0.0),
+                                          duck_depth=_ap.get("duck_db", 13.0))
             else:
                 plate = dsp_pro.plate_wet(voc, sr, mix=1.0, duck_depth=10.0)
         except Exception as _pr:

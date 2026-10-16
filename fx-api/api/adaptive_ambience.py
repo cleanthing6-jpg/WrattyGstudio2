@@ -77,7 +77,12 @@ def choose_params(voc, sr, bpm, role="lead", style="clean"):
     predelay = float(np.clip(beat * 1000 / 12.0, 35.0, 60.0))
     hpf = float(np.clip(400 + (a["lowmid"] - 0.67) * 500, 350, 700))
     lpf = float(np.clip(6500 - (a["bright_db"] + 12.0) * 150, 5500, 7500))
-    return dict(melt=MELT.get(style, 0.8), ir_len_s=float(tail),
+    # Duck depth: dense vocals get less duck (no gaps to bloom in)
+    # sparse vocals get more (wet appears in the silence)
+    _dense = float(a["active_frac"])
+    duck_db = float(np.clip(10.0 - (_dense - 0.5) * 12.0, 3.0, 12.0))
+
+    return dict(duck_db=duck_db, melt=MELT.get(style, 0.8), ir_len_s=float(tail),
                 predelay_ms=predelay, hpf_hz=hpf, lpf_hz=lpf,
                 target_db=_adaptive_target(role, style, a),
                 analysis=a)
