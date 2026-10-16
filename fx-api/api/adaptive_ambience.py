@@ -154,7 +154,7 @@ def tune_vocal(voc, sr, role="lead"):
 #  Send level: ratio-calibrated, same method as reverb.
 # ═══════════════════════════════════════════════════════════════════════
 
-DELAY_TARGET_DB = {"lead": -13.8, "adlib": -11.0, "backing": -18.0}  # measured ref median (5 vocals)
+DELAY_TARGET_DB = {"lead": -16.0, "adlib": -14.0, "backing": -20.0}
 
 
 def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
@@ -178,7 +178,7 @@ def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
     # Feedback from density, mapped to the ref-measured range.
     # Sparse vocal (Burna 0.53) -> 0.40 fb, dense (Davido 0.96) -> 0.20 fb.
     density = float(a["active_frac"])
-    fb = float(np.clip(0.40 - (density - 0.50) * 0.50, 0.20, 0.45))
+    fb = float(np.clip(0.15 - (density - 0.50) * 0.20, 0.05, 0.20))
 
     base = DELAY_TARGET_DB.get(role, -16.0)
     if style == "dry":
