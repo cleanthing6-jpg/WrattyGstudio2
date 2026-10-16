@@ -110,7 +110,7 @@ def qc_ambience(dry, wet_scaled, sr):
     return out
 
 # ── Adaptive vocal tone: lowmid measurement -> body/mud adjustment ──
-VOCAL_NEUTRAL_LOWMID = 0.25
+VOCAL_NEUTRAL_LOWMID = 0.67   # measured from 6 real refs (FOLA 0.53, Burna 0.75, Davido 0.66, Rema 1.21)
 VOCAL_LOWMID_MUD_SLOPE = 10.0
 VOCAL_LOWMID_BODY_SLOPE = 7.0
 
