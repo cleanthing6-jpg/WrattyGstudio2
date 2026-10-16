@@ -144,3 +144,46 @@ def tune_vocal(voc, sr, role="lead"):
         "lowmid": lowmid,
     }
 
+# ═══════════════════════════════════════════════════════════════════════
+#  Adaptive delay — params from BPM + vocal measurements
+#
+#  Ref measurements (Fola, Davido, Boi, Rema, Burna):
+#    delay_ms  : 100, 100, 100, 270, 150   (median 100, range 100-270)
+#    delay_str : 0.53, 0.40, 0.64, 0.57, 0.66
+#  Target: 100-150 ms for dense vocals; up to 270 ms for sparse.
+#  Send level: ratio-calibrated, same method as reverb.
+# ═══════════════════════════════════════════════════════════════════════
+
+DELAY_TARGET_DB = {"lead": -16.0, "adlib": -13.0, "backing": -20.0}
+
+
+def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
+    """Pick note_factor, feedback, target_db from BPM + vocal, multi-user safe."""
+    a = analyze_vocal(voc, sr)
+    bpm = float(np.clip(bpm or 100.0, 70.0, 140.0))
+    beat = 60.0 / bpm
+
+    target_ms = 130.0
+    if a["gap_s"] > 0.08 or a["active_frac"] < 0.70:
+        target_ms = 180.0
+
+    candidates = [
+        (0.125, beat * 1000.0 * 0.125),
+        (0.25,  beat * 1000.0 * 0.25),
+        (0.50,  beat * 1000.0 * 0.50),
+        (0.75,  beat * 1000.0 * 0.75),
+    ]
+    note, delay_ms = min(candidates, key=lambda c: abs(c[1] - target_ms))
+
+    density = float(a["active_frac"])
+    fb = float(np.clip(0.20 + (1.0 - density) * 0.15, 0.15, 0.35))
+
+    base = DELAY_TARGET_DB.get(role, -16.0)
+    if style == "dry":
+        base -= 3.0
+    elif style == "spacious":
+        base += 2.0
+
+    return dict(note_factor=float(note), delay_ms=float(delay_ms),
+                feedback=float(fb), target_db=float(base))
+

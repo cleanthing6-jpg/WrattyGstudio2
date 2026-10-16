@@ -1077,7 +1077,34 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
                 _spec_render = None
         if _spec_render is not None:
             try:
-                _dy, _dinfo = _spec_render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
+                # Adaptive delay — pick note/feedback/send from BPM + vocal
+                _dpar = None
+                try:
+                    import adaptive_ambience as _aa_d
+                    _dpar = _aa_d.choose_delay_params(voc, sr, bpm, role or "lead",
+                                                        str(_PRESET.get("ambience_style") or "clean"))
+                except Exception:
+                    _dpar = None
+                if _dpar is not None:
+                    try:
+                        _dy, _dinfo = _spec_render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"),
+                                                  note_div=_dpar["note_factor"], feedback=_dpar["feedback"])
+                    except TypeError:
+                        _dy, _dinfo = _spec_render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
+                    try:
+                        _dsend = _aa_d.calibrate_send(voc, _dy, _dpar["target_db"])
+                        _dy = (_dy * _dsend).astype(__import__("numpy").float32)
+                        _dinfo["adaptive"] = {
+                            "note_factor": round(_dpar["note_factor"], 3),
+                            "delay_ms": round(_dpar["delay_ms"], 1),
+                            "feedback": round(_dpar["feedback"], 3),
+                            "target_db": _dpar["target_db"],
+                            "send": round(float(_dsend), 4),
+                        }
+                    except Exception as _de:
+                        _dinfo["adaptive_error"] = str(_de)[:200]
+                else:
+                    _dy, _dinfo = _spec_render(voc, sr, bpm, preset=str(_PRESET.get("_name") or "afrobeats"))
                 if _dy is not None:
                     if _dy.shape[1] < n_out:
                         _dy = np.concatenate([_dy, np.zeros((_dy.shape[0], n_out - _dy.shape[1]), np.float32)], axis=1)
