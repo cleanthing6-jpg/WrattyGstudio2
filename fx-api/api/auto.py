@@ -1550,6 +1550,14 @@ def _role_chain(voc, sr, st, role):
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
+    # -1 dBFS true-peak guard on the vocal bus (Claude fix 4b)
+    if role == "lead":
+        try:
+            out = _headroom(out, -1.0).astype(np.float32)
+            moves.append(["peak-guard", -1.0])
+        except Exception:
+            pass
+
     # Log output vocal crest — same metric detect_effects.py reports for refs
     try:
         _w = int(sr * 0.1)
