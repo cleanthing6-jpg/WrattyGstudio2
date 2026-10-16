@@ -197,7 +197,7 @@ def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
 FET_PCT        = 95.0    # top 5% of frames define the peak reference
 FET_HEADROOM   = 4.0     # FET threshold sits 4 dB above that peak
 OPTO_PCT       = 80.0    # top 20% for sustained content
-OPTO_HEADROOM  = 3.0     # LA-2A threshold sits 3 dB above
+OPTO_HEADROOM  = 7.0     # LA-2A threshold sits 3 dB above
 
 
 def tune_compressors(voc, sr):
