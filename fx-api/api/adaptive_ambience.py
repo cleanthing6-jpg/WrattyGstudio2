@@ -4,7 +4,7 @@ import scipy.signal as sig
 
 TARGET_DB = {"lead": -20.0, "adlib": -17.0, "backing": -23.0}
 STYLE_OFFSET_DB = {"dry": -5.0, "clean": 0.0, "spacious": +3.5}
-MELT = {"dry": 0.3, "clean": 0.8, "spacious": 1.0}
+MELT = {"dry": 0.0, "clean": 0.0, "spacious": 0.2}  # plate = no soft onset
 
 
 def _mono(x):
@@ -74,7 +74,7 @@ def choose_params(voc, sr, bpm, role="lead", style="clean"):
         tail = min(tail * 1.25, 0.85)
     if style == "dry":
         tail *= 0.75
-    predelay = float(np.clip(beat * 1000 / 16.0, 25.0, 45.0))  # ~1/16 beat, ref range
+    predelay = float(np.clip(beat * 1000 / 80.0, 5.0, 12.0))  # plate: essentially no predelay
     hpf = float(np.clip(400 + (a["lowmid"] - 0.67) * 500, 350, 700))
     lpf = float(np.clip(6500 - (a["bright_db"] + 12.0) * 150, 5500, 7500))
     # Duck depth: dense vocals get less duck (no gaps to bloom in)

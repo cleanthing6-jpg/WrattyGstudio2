@@ -345,7 +345,7 @@ def _melt_ir(ir, sr, melt):
 
 
 def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
-              predelay_ms=35.0, mod_rate_hz=0.2, mod_depth_ms=0.5,
+              predelay_ms=5.0, mod_rate_hz=0.2, mod_depth_ms=0.5,
               hp_hz=350.0, lp_hz=7500.0, ir_len_s=None, melt=0.0):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)
