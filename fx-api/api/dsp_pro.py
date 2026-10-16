@@ -249,7 +249,7 @@ _IR_CACHE = {}
 
 def _load_ir(path, sr_target=44100, max_len=int(1.8*48000)):
     """Load + resample IR to engine sr + fade tail. Cached."""
-    key = (path, sr_target)
+    key = (path, sr_target, int(max_len))
     if key in _IR_CACHE:
         return _IR_CACHE[key]
     if _sf is None:
@@ -324,8 +324,29 @@ def _reverb_duck_filter(wet_l, wet_r, dry_mono, a_hp, a_lp,
     return ol, orr
 
 
+def _melt_ir(ir, sr, melt):
+    """Soft onset + progressive HF damping + smooth decay. Returns new array, energy-normalised."""
+    from scipy.signal import butter, sosfilt
+    n = len(ir)
+    t = np.arange(n, dtype=np.float32) / float(sr)
+    out = np.array(ir, dtype=np.float32)
+    on = int((0.020 + 0.025 * melt) * sr)
+    if 0 < on < n:
+        out[:on] *= (0.5 - 0.5 * np.cos(np.pi * np.arange(on) / on)).astype(np.float32)
+    dark = sosfilt(butter(2, 3000.0, btype="lowpass", fs=sr, output="sos"), out).astype(np.float32)
+    pos = np.clip(t / max(float(t[-1]), 1e-3), 0.0, 1.0)
+    wgt = (pos ** 0.8 * melt).astype(np.float32)
+    out = out * (1.0 - wgt) + dark * wgt
+    out *= np.exp(-(1.0 + 2.0 * melt) * pos).astype(np.float32)
+    e = float(np.sum(out.astype(np.float64) ** 2))
+    if e > 1e-12:
+        out = (out / np.sqrt(e)).astype(np.float32)
+    return out
+
+
 def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
-              predelay_ms=35.0, mod_rate_hz=0.2, mod_depth_ms=0.5):
+              predelay_ms=35.0, mod_rate_hz=0.2, mod_depth_ms=0.5,
+              hp_hz=350.0, lp_hz=7500.0, ir_len_s=None, melt=0.0):
     """Tier-1 plate: real IR + resample + predelay + mod + two-stage duck."""
     a = np.asarray(voc, dtype=np.float32)
     if a.ndim == 1:
@@ -333,10 +354,14 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
     x_mono = a.mean(axis=0).astype(np.float32)
     n = len(x_mono)
 
-    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"), sr_target=int(sr))
-    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"), sr_target=int(sr))
+    _irk = {} if ir_len_s is None else {"max_len": int(ir_len_s * 48000)}
+    ir_l = _load_ir(_os.path.join(_IR_DIR, "plate_L.wav"), sr_target=int(sr), **_irk)
+    ir_r = _load_ir(_os.path.join(_IR_DIR, "plate_R.wav"), sr_target=int(sr), **_irk)
     if ir_l is None or ir_r is None:
         return None
+    if melt > 0.0:
+        ir_l = _melt_ir(ir_l, int(sr), float(melt))
+        ir_r = _melt_ir(ir_r, int(sr), float(melt))
 
     # 1. Linear convolution at full length
     N = n + len(ir_l) - 1
@@ -360,11 +385,11 @@ def plate_wet(voc, sr, mix=1.0, duck_depth=10.0,
         rev_r = np.interp(shift, idx, rev_r).astype(np.float32)
 
     # 4. Duck coefficients (program-dependent: 5 ms attack, fast 80 ms + slow 400 ms)
-    a_hp       = np.float32(coeff_hpf(200.0, sr))
-    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*11000.0), sr))
+    a_hp       = np.float32(coeff_hpf(hp_hz, sr))
+    a_lp       = np.float32(_coeff_tau(1.0/(2*np.pi*lp_hz), sr))
     a_atk      = np.float32(_coeff_tau(0.005, sr))
     a_rel_fast = np.float32(_coeff_tau(0.080, sr))
-    a_rel_slow = np.float32(_coeff_tau(0.400, sr))
+    a_rel_slow = np.float32(_coeff_tau(0.400 + 0.25 * melt, sr))
     prog_mix   = np.float32(0.55)
 
     wl, wr = _reverb_duck_filter(rev_l, rev_r, x_mono,
