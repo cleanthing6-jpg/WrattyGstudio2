@@ -67,14 +67,14 @@ def _adaptive_target(role, style, a):
 def choose_params(voc, sr, bpm, role="lead", style="clean"):
     a = analyze_vocal(voc, sr)
     beat = 60.0 / float(np.clip(bpm or 100.0, 70.0, 140.0))
-    tail = np.clip(beat * 1.0, 0.40, 0.65)
+    tail = np.clip(beat * 0.65, 0.22, 0.44)  # measured ref tails: 220-440ms, median 355
     if a["active_frac"] > 0.80 or a["gap_s"] < 0.10:
         tail *= 0.80
     if style == "spacious":
         tail = min(tail * 1.25, 0.85)
     if style == "dry":
         tail *= 0.75
-    predelay = float(np.clip(beat * 1000 / 12.0, 35.0, 60.0))
+    predelay = float(np.clip(beat * 1000 / 16.0, 25.0, 45.0))  # ~1/16 beat, ref range
     hpf = float(np.clip(400 + (a["lowmid"] - 0.67) * 500, 350, 700))
     lpf = float(np.clip(6500 - (a["bright_db"] + 12.0) * 150, 5500, 7500))
     # Duck depth: dense vocals get less duck (no gaps to bloom in)
