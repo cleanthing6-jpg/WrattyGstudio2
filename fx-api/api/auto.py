@@ -1528,6 +1528,21 @@ def _role_chain(voc, sr, st, role):
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
+    # Log output vocal crest — same metric detect_effects.py reports for refs
+    try:
+        _w = int(sr * 0.1)
+        _k = out.shape[1] // _w
+        if _k > 5:
+            _o = np.abs(out[:, :_k*_w]).reshape(out.shape[0], _k, _w)
+            _pk = _o.max(axis=(0, 2))
+            _rms = np.sqrt((_o ** 2).mean(axis=(0, 2)))
+            _m = _rms > 1e-6
+            if _m.any():
+                _c = float(np.median(20 * np.log10(_pk[_m] / (_rms[_m] + 1e-9))))
+                moves.append(["vocal-crest-db", round(_c, 2)])
+    except Exception:
+        pass
+
     # --- 3D head-wrap on lead only (stereo out)
     if _NEW["wrap3d"] and role == "lead":
         try:
