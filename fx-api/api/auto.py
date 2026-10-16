@@ -1252,7 +1252,7 @@ def _double(voc, sr):
             import dsp_tier1
             blend = 10.0 ** (DOUBLE_DB / 20.0)
             out = dsp_tier1.adt_double(voc, sr, depth_ms=14.0, rate_hz=0.5,
-                                       right_offset_ms=8.0, pan=0.30, blend=blend)
+                                       right_offset_ms=8.0, pan=0.55, blend=blend)
             _DBL["kind"] = "adt (LFO+cubic, 14/22ms, +/-0.30pan)"
             return out
         except Exception as _e:
