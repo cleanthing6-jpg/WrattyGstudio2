@@ -32,7 +32,7 @@ _NEW = {
     "delay_t1":      True,
     "plate_t1":      True,
     "adaptive_amb":  True,
-    "parallel_ny":   True,
+    "parallel_ny":   False,
     "wrap3d":        False,
 }
 from pedalboard import (
