@@ -189,3 +189,37 @@ def choose_delay_params(voc, sr, bpm, role="lead", style="clean"):
     return dict(note_factor=float(note), delay_ms=float(delay_ms),
                 feedback=float(fb), target_db=float(base))
 
+# ═══════════════════════════════════════════════════════════════════════
+#  Adaptive compressor thresholds — conservative
+#  Goal: same gentle clamping for every user, at any input level.
+# ═══════════════════════════════════════════════════════════════════════
+
+FET_PCT        = 95.0    # top 5% of frames define the peak reference
+FET_HEADROOM   = 4.0     # FET threshold sits 4 dB above that peak
+OPTO_PCT       = 80.0    # top 20% for sustained content
+OPTO_HEADROOM  = 3.0     # LA-2A threshold sits 3 dB above
+
+
+def tune_compressors(voc, sr):
+    """Return FET and LA-2A thresholds in dBFS, from the vocal's envelope.
+
+    Multi-user safe: quiet and loud takes get proportional clamping.
+    """
+    a = _mono(voc)
+    n = len(a)
+    if n < sr:
+        return None
+
+    env_db = _frames_db(a, sr, win=0.02)
+    if len(env_db) < 30:
+        return None
+
+    fet_ref  = float(np.percentile(env_db, FET_PCT))
+    opto_ref = float(np.percentile(env_db, OPTO_PCT))
+
+    fet_thr  = float(np.clip(fet_ref + FET_HEADROOM, -30.0, -6.0))
+    opto_thr = float(np.clip(opto_ref + OPTO_HEADROOM, -30.0, -6.0))
+
+    return dict(fet_thr=fet_thr, opto_thr=opto_thr,
+                fet_ref=fet_ref, opto_ref=opto_ref)
+

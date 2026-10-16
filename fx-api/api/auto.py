@@ -1358,6 +1358,13 @@ def _adaptive_hpf(voc, sr, fallback_hz):
 
 def _role_chain(voc, sr, st, role):
     t = _treat_for(role)
+    _comp = None
+    if role == "lead":
+        try:
+            import adaptive_ambience as _aa_c
+            _comp = _aa_c.tune_compressors(voc, sr)
+        except Exception:
+            _comp = None
     # Adaptive vocal tone — measure lowmid, adjust body_db / mud cap per user
     if role == "lead":
         try:
@@ -1450,7 +1457,7 @@ def _role_chain(voc, sr, st, role):
         try:
             import fet_comp
             _fet_rms = _rms_db(out)
-            _fet_thr = float(np.clip(_fet_rms + 10.0, -30.0, -6.0))
+            _fet_thr = float(_comp["fet_thr"]) if _comp else float(np.clip(_fet_rms + 10.0, -30.0, -6.0))
             _fet_out, _fet_info = fet_comp.fet_compress(
                 out, sr,
                 threshold_db=_fet_thr,
@@ -1478,7 +1485,7 @@ def _role_chain(voc, sr, st, role):
         # level — quiet bedroom mic, hot studio take, whatever.
         # 8 dB headroom means compression only hits peaks, not every sample.
         _vocal_rms = _rms_db(out)
-        _opto_thr_cal = float(max(-14.0, _vocal_rms + 8.0))
+        _opto_thr_cal = float(_comp["opto_thr"]) if _comp else float(max(-14.0, _vocal_rms + 8.0))
         moves.append(["opto-thr", round(_opto_thr_cal, 1)])
         _la2a_fn = dsp_pro.la2a_compress if _NEW["la2a_pro"] else opto_comp.opto_compress
         out, _opto_info = _la2a_fn(
