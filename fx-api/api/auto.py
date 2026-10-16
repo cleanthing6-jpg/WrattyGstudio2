@@ -31,7 +31,7 @@ _NEW = {
     "adt_t1":        False,
     "delay_t1":      False,
     "plate_t1":      True,
-    "adaptive_amb":  False,
+    "adaptive_amb":  True,
     "parallel_ny":   False,
     "wrap3d":        False,
 }
