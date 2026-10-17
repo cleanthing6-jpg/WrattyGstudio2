@@ -487,7 +487,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
 
         # Pre-crest guard: if input is already dense (low crest), back
         # off the loudness target so the limiter doesn't crush dynamics.
-        if mode == "master":
+        # Can be disabled per-preset for exact LUFS targets.
+        if mode == "master" and cfg.get("crest_pre_check", True):
             try:
                 _crest_in = peakdb(mixed) - rmsdb(mixed)
                 if _crest_in < 11.0:
