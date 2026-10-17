@@ -493,12 +493,45 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     report["crest_pre_check"] = {"input_crest_db": round(_crest_in, 2), "target_reduced_db": -0.5}
             except Exception as _cpe:
                 report["crest_pre_check_error"] = str(_cpe)[:120]
+        # ---- master_bus: flag-gated; any failure falls through to the legacy gain/clip/limit below ----
+        _mb_done = False
+        _mb_tp = 0.0
+        if auto._NEW.get("master_bus", False) and mode != "passthrough":
+            try:
+                import master_bus as _mbus
+                _is_master = (mode == "master")
+                _y, _mrep = _mbus.master(
+                    mixed, sr, preset="afrobeats",
+                    lufs=float(tgt), ceil=float(auto.CEILING_DB),
+                    eq=0.0 if _is_master else 0.5,
+                    mb=0.6 if _is_master else 1.0,
+                    glue=0.8 if _is_master else 1.0,
+                    sat=0.15 if _is_master else 0.25,
+                    adapt_width=not _is_master,
+                    clip=2.0 if cfg.get("soft_clip") else 1.5)
+                _y = np.asarray(_y, dtype=np.float32)
+                if _y.ndim == 2 and mixed.ndim == 2 and mixed.shape[0] == 1 and _y.shape[0] == 2:
+                    _y = _y.mean(axis=0, keepdims=True).astype(np.float32)
+                _out = _mrep.get("output", {})
+                _chk = {"shape": bool(_y.shape == mixed.shape), "finite": bool(np.isfinite(_y).all()),
+                        "tp": bool(_out.get("true_peak_dbtp", 99.0) <= float(auto.CEILING_DB) + 0.3),
+                        "lufs": bool(abs(float(_out.get("lufs", -99.0)) - float(tgt)) <= 1.5)}
+                if all(_chk.values()):
+                    mixed = _y
+                    _mb_tp = float(_out["true_peak_dbtp"])
+                    _mb_done = True
+                    report["master_bus"] = json.loads(json.dumps(_mrep, default=float))
+                else:
+                    report["master_bus_rejected"] = _chk
+            except Exception as _mbe:
+                report["master_bus_error"] = str(_mbe)[:200]
+        report["master_bus_used"] = _mb_done
         setjob(jid, "clip+limit")
         # ORDER MATTERS FOR DYNAMICS (chasing the FOLA reference):
         # set the gain FIRST, then clip, then limit ONCE. The old order
         # clipped, limited, then re-limited after every gain step - each
         # re-limit shaved crest (LRA 2.8 vs FOLA 4.1 at the same true peak).
-        for _ in range(3):
+        for _ in range(0 if _mb_done else 3):
             f = lufs(mixed, sr)
             if f is None or abs(tgt - f) < 0.15:
                 break
@@ -507,13 +540,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         pass
         # Clipper OFF by default: shaving peaks costs kick transients and
         # adds edge. Only presets that explicitly ask for it keep it.
-        _clip_on = bool(cfg.get("clip")) and mode not in ("passthrough", "master")
+        _clip_on = bool(cfg.get("clip")) and mode not in ("passthrough", "master") and not _mb_done
         _thr = 10.0 ** (-1.0 / 20.0)
         _pre = peakdb(mixed)
         _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
         if _clip_on:
             mixed = auto.clip(mixed, sr)
-        elif cfg.get("soft_clip") and mode not in ("passthrough", "master"):
+        elif cfg.get("soft_clip") and mode not in ("passthrough", "master") and not _mb_done:
             # Master uses knee 0.75 (threshold -2.5 dBFS): shaves transients
             # only, leaves bass fundamentals (below -2.5 dBFS) untouched.
             mixed = auto.soft_clip(mixed, sr,
@@ -529,9 +562,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # ---- Iterative feedback loudness targeting ----
         _pre_limit_mix = mixed.copy()
         _current_gain = 1.0
-        mixed, tp, brick = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
+        mixed, tp, brick = (mixed, _mb_tp, True) if _mb_done else auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
         _iterations = 0
-        for _it in range(5):
+        for _it in range(0 if _mb_done else 5):
             _iterations = _it + 1
             _measured = lufs(mixed, sr)
             if _measured is None:

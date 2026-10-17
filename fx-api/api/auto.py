@@ -34,6 +34,7 @@ _NEW = {
     "adaptive_amb":  True,
     "parallel_ny":   False,
     "wrap3d":        False,
+    "master_bus":    False,
 }
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
