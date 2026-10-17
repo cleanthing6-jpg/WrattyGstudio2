@@ -82,6 +82,7 @@ def board_for(preset, bpm):
         PeakFilter(cutoff_frequency_hz=250, gain_db=1.5, q=0.9),
         PeakFilter(cutoff_frequency_hz=3000, gain_db=2.5, q=1.0),
         Compressor(threshold_db=-18, ratio=3.0, attack_ms=15, release_ms=60),
+        HighShelfFilter(cutoff_frequency_hz=11000, gain_db=2.5, q=0.7),
         Distortion(drive_db=2.0),
         Delay(delay_seconds=d1, feedback=0.22, mix=0.15),
         Delay(delay_seconds=d2, feedback=0.12, mix=0.10),

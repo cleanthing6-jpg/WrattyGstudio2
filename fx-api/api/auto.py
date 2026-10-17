@@ -82,7 +82,7 @@ PRESETS = {
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
-        "max_air": 2.0, "max_deess": 1.2,
+        "max_air": 3.5, "max_deess": 1.2,
         "max_mud_cut": 6.0, "max_box_cut": 4.0,
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 80.0, "hpf_max": 100.0,
@@ -1543,10 +1543,10 @@ def _role_chain(voc, sr, st, role):
     try:
         # Boost clean high fidelity air gracefully at the top of the chain
         out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
-                                          gain_db=min(1.5, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
+                                          gain_db=min(MAX_AIR, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
     except Exception:
         pass
-    moves.append(["air 11k", round(min(1.5, float(t["air"])), 2)])
+    moves.append(["air 11k", round(min(MAX_AIR, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
