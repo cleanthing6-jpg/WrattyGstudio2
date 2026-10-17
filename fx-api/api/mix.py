@@ -526,35 +526,24 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _dyn_pre = _dyn9010(mixed, sr)
         _lufs_before_limit = lufs(mixed, sr)
         _peak_before_limit = peakdb(mixed)
-        # ---- Limiter-aware loudness targeting ----
-        # The limiter's gain reduction always pulls output below target.
-        # Re-limiting after gain-up just re-applies the same reduction,
-        # so we do NOT iterate with the limiter in the loop. Instead:
-        #   1. Dry-run the limiter to predict how much it will pull
-        #   2. Raise the loudness target by that predicted cost
-        #   3. Loop the pre-limiter signal to that higher target
-        #   4. Apply the limiter exactly once
+        # ---- Iterative feedback loudness targeting ----
         _pre_limit_mix = mixed.copy()
-        _ceil = auto.CEILING_DB if mode == "master" else 0.0
-        _test_limited, _, _ = auto.limit(_pre_limit_mix, sr, _ceil)
-        _lufs_pre = lufs(_pre_limit_mix, sr)
-        _lufs_post = lufs(_test_limited, sr)
-        if _lufs_pre is not None and _lufs_post is not None:
-            _gr_pred = max(0.0, _lufs_pre - _lufs_post)
-        else:
-            _gr_pred = 0.0
-        _tgt_loop = tgt + _gr_pred * 1.56
-        report["limiter_predicted_gr_db"] = round(_gr_pred, 2)
-        report["loudness_target_adjusted_db"] = round(_tgt_loop, 2)
-        # Loop the pre-limiter signal to the raised target
-        for _ in range(4):
-            f = lufs(mixed, sr)
-            if f is None or abs(_tgt_loop - f) < 0.15:
+        _current_gain = 1.0
+        mixed, tp, brick = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
+        _iterations = 0
+        for _it in range(5):
+            _iterations = _it + 1
+            _measured = lufs(mixed, sr)
+            if _measured is None:
                 break
-            _step = max(-9.0, min(9.0, _tgt_loop - f))
-            mixed = mixed * (10.0 ** (_step / 20.0))
-        # Apply limiter exactly once
-        mixed, tp, brick = auto.limit(mixed, sr, _ceil)
+            _error = tgt - _measured
+            report["limiter_iter_%d_error" % _it] = round(_error, 3)
+            if abs(_error) < 0.08:
+                break
+            _current_gain *= 10.0 ** (_error / 20.0)
+            mixed, tp, brick = auto.limit(_pre_limit_mix * _current_gain, sr, auto.CEILING_DB)
+        report["limiter_iterations"] = _iterations
+        report["limiter_final_gain"] = round(_current_gain, 3)
         _fin = lufs(mixed, sr)
         _dyn_post = _dyn9010(mixed, sr)
         try:
