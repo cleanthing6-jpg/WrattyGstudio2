@@ -535,7 +535,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         #   3. Loop the pre-limiter signal to that higher target
         #   4. Apply the limiter exactly once
         _pre_limit_mix = mixed.copy()
-        _test_limited, _, _ = auto.limit(_pre_limit_mix, sr, auto.CEILING_DB)
+        _ceil = auto.CEILING_DB if mode == "master" else 0.0
+        _test_limited, _, _ = auto.limit(_pre_limit_mix, sr, _ceil)
         _lufs_pre = lufs(_pre_limit_mix, sr)
         _lufs_post = lufs(_test_limited, sr)
         if _lufs_pre is not None and _lufs_post is not None:
@@ -553,7 +554,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             _step = max(-9.0, min(9.0, _tgt_loop - f))
             mixed = mixed * (10.0 ** (_step / 20.0))
         # Apply limiter exactly once
-        mixed, tp, brick = auto.limit(mixed, sr, auto.CEILING_DB)
+        mixed, tp, brick = auto.limit(mixed, sr, _ceil)
         _fin = lufs(mixed, sr)
         _dyn_post = _dyn9010(mixed, sr)
         try:
