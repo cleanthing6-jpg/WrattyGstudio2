@@ -476,13 +476,14 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             mixed = mixed * (10.0 ** ((tgt - rmsdb(mixed)) / 20.0))
         else:
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
-        # Pre-limiter soft clip: rounds the peaks so the limiter sees
-        # a clean signal instead of hard clipped samples.
-        try:
-            mixed = auto.soft_clip(mixed, sr, knee=0.80)
-            report["pre_soft_clip"] = 0.80
-        except Exception:
-            pass
+        # Pre-limiter soft clip: only when NOT using the bass-preserving
+        # master limiter. The new auto.limit() handles peaks cleanly.
+        if mode != "master":
+            try:
+                mixed = auto.soft_clip(mixed, sr, knee=0.80)
+                report["pre_soft_clip"] = 0.80
+            except Exception:
+                pass
 
         # Pre-crest guard: if input is already dense (low crest), back
         # off the loudness target so the limiter doesn't crush dynamics.
@@ -517,10 +518,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
         if _clip_on:
             mixed = auto.clip(mixed, sr)
-        elif cfg.get("soft_clip") or mode == "master":
-            # Master clips a touch harder so loudness comes from peak
-            # rounding, not from the limiter - that is what keeps LRA up.
-            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.75)) if mode == "master" else 0.70)
+        elif cfg.get("soft_clip") and mode not in ("passthrough", "master"):
+            # Only fire when a preset explicitly opts in AND not in master
+            # mode. Master mode relies on auto.limit() (sidechain HPF).
+            mixed = auto.soft_clip(mixed, sr, knee=0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
