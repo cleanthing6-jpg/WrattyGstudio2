@@ -1,117 +1,162 @@
-"""Pro limiter. Replaces pedalboard.Limiter.
-
-Bass preserved via sidechain HPF on detector path.
-Two-stage envelope (transient + sustain). Auto-release curve.
-Stereo-linked detector. Lookahead. Peak safety net.
-"""
+"""ProductionMasteringLimiter — user's original design, bugs fixed."""
 import numpy as np
-try:
-    from numba import njit
-except ImportError:
-    def njit(*a, **k):
-        if a and callable(a[0]): return a[0]
-        def wrap(f): return f
-        return wrap
+def _firwin(num_taps, cutoff_norm, beta=13.0):
+    n = np.arange(num_taps) - (num_taps - 1) / 2.0
+    h = np.sinc(2.0 * cutoff_norm * n) * np.kaiser(num_taps, beta)
+    return (h / h.sum()).astype(np.float32)
+from numba import njit, float32, int32
 
 
-@njit(cache=False)
-def _kernel(L, R, ceil, look_n, bufL, bufR,
-            b0, b1, b2, a1, a2,
-            c_trans, c_sust, r_slow, r_fast, state):
-    t = state[0]; s = state[1]; m = state[2]
-    v1L = state[3]; v2L = state[4]
-    v1R = state[5]; v2R = state[6]
-    idx = 0
-    n = len(L)
-    outL = np.empty(n, dtype=np.float32)
-    outR = np.empty(n, dtype=np.float32)
-    for i in range(n):
-        l = L[i]; r = R[i]
-        fL = b0 * l + v1L
-        v1L = b1 * l - a1 * fL + v2L
-        v2L = b2 * l - a2 * fL
-        fR = b0 * r + v1R
-        v1R = b1 * r - a1 * fR + v2R
-        v2R = b2 * r - a2 * fR
-        aL = abs(fL); aR = abs(fR)
-        det = max(aL, aR)
-        if det > t: t = det
-        else: t = det + c_trans * (t - det)
-        if det > s: s = det + c_sust * (s - det)
-        else: s = det + r_slow * (s - det)
-        cr = r_fast if t > (s * 1.65) else r_slow
-        tg = max(t, s)
-        if tg > m: m = tg
-        else: m = tg + cr * (m - tg)
-        g = ceil / m if m > ceil else 1.0
-        outL[i] = bufL[idx] * g
-        outR[i] = bufR[idx] * g
-        bufL[idx] = l
-        bufR[idx] = r
-        idx = (idx + 1) % look_n
-    state[0] = t; state[1] = s; state[2] = m
-    state[3] = v1L; state[4] = v2L
-    state[5] = v1R; state[6] = v2R
-    return outL, outR
+@njit(float32[:, :](float32[:, :], float32, float32, float32, float32, float32, float32,
+                    float32[:], float32[:], float32[:], float32[:],
+                    int32, int32, float32, float32, float32, float32, float32),
+      fastmath=True, cache=True)
+def _limiter_hot_loop(os_ms, ceiling_linear, coef_transient_attack, coef_sustain_attack,
+                      rel_slow, rel_fast, ms_link,
+                      buf_M, buf_S, env_states, sc_states,
+                      num_os_samples, buf_len,
+                      b0, b1, b2, a1, a2):
+    sc_v1_M = sc_states[0]; sc_v2_M = sc_states[1]
+    sc_v1_S = sc_states[2]; sc_v2_S = sc_states[3]
+    env_transient_M = env_states[0]; env_sustain_M = env_states[1]; master_env_M = env_states[2]
+    env_transient_S = env_states[3]; env_sustain_S = env_states[4]; master_env_S = env_states[5]
+    idx = int32(env_states[6])
+    os_ms_output = np.zeros(os_ms.shape, dtype=np.float32)
+    for i in range(num_os_samples):
+        s_M = os_ms[0, i]; s_S = os_ms[1, i]
+        sc_filtered_M = b0 * s_M + sc_v1_M
+        sc_v1_M = b1 * s_M - a1 * sc_filtered_M + sc_v2_M
+        sc_v2_M = b2 * s_M - a2 * sc_filtered_M
+        sc_filtered_S = b0 * s_S + sc_v1_S
+        sc_v1_S = b1 * s_S - a1 * sc_filtered_S + sc_v2_S
+        sc_v2_S = b2 * s_S - a2 * sc_filtered_S
+        abs_M = abs(sc_filtered_M); abs_S = abs(sc_filtered_S)
+        max_peak = max(abs_M, abs_S)
+        det_M = (abs_M * (1.0 - ms_link)) + (max_peak * ms_link)
+        det_S = (abs_S * (1.0 - ms_link)) + (max_peak * ms_link)
+        if det_M > env_transient_M: env_transient_M = det_M
+        else: env_transient_M = det_M + coef_transient_attack * (env_transient_M - det_M)
+        if det_M > env_sustain_M: env_sustain_M = det_M + coef_sustain_attack * (env_sustain_M - det_M)
+        else: env_sustain_M = det_M + rel_slow * (env_sustain_M - det_M)
+        curr_rel_M = rel_fast if env_transient_M > (env_sustain_M * 1.65) else rel_slow
+        target_env_M = max(env_transient_M, env_sustain_M)
+        if target_env_M > master_env_M: master_env_M = target_env_M
+        else: master_env_M = target_env_M + curr_rel_M * (master_env_M - target_env_M)
+        if det_S > env_transient_S: env_transient_S = det_S
+        else: env_transient_S = det_S + coef_transient_attack * (env_transient_S - det_S)
+        if det_S > env_sustain_S: env_sustain_S = det_S + coef_sustain_attack * (env_sustain_S - det_S)
+        else: env_sustain_S = det_S + rel_slow * (env_sustain_S - det_S)
+        curr_rel_S = rel_fast if env_transient_S > (env_sustain_S * 1.65) else rel_slow
+        target_env_S = max(env_transient_S, env_sustain_S)
+        if target_env_S > master_env_S: master_env_S = target_env_S
+        else: master_env_S = target_env_S + curr_rel_S * (master_env_S - target_env_S)
+        g_red_M = ceiling_linear / master_env_M if master_env_M > ceiling_linear else 1.0
+        g_red_S = ceiling_linear / master_env_S if master_env_S > ceiling_linear else 1.0
+        delayed_M = buf_M[idx]; delayed_S = buf_S[idx]
+        buf_M[idx] = s_M; buf_S[idx] = s_S
+        idx = (idx + 1) % buf_len
+        os_ms_output[0, i] = delayed_M * g_red_M
+        os_ms_output[1, i] = delayed_S * g_red_S
+    sc_states[0], sc_states[1], sc_states[2], sc_states[3] = sc_v1_M, sc_v2_M, sc_v1_S, sc_v2_S
+    env_states[0], env_states[1], env_states[2] = env_transient_M, env_sustain_M, master_env_M
+    env_states[3], env_states[4], env_states[5] = env_transient_S, env_sustain_S, master_env_S
+    env_states[6] = float32(idx)
+    return os_ms_output
 
 
-class Limiter:
-    def __init__(self, threshold_db=-10.0, release_ms=100.0,
-                 lookahead_ms=2.0, sc_hpf_hz=120.0):
-        self.t = float(threshold_db)
-        self.r = float(release_ms)
-        self.l = float(lookahead_ms)
-        self.f = float(sc_hpf_hz)
-        self.sr = None
-        self._init(44100)
+class ProductionMasteringLimiter:
+    def __init__(self, sample_rate: int = 44100, lookahead_ms: float = 2.0, oversampling: int = 4):
+        self.sample_rate = sample_rate
+        self.os_factor = oversampling
+        self.os_sample_rate = float(sample_rate * self.os_factor)
+        self.lookahead_samples = max(1, int((lookahead_ms / 1000.0) * self.os_sample_rate))
+        self.delay_buffer_M = np.zeros(self.lookahead_samples, dtype=np.float32)
+        self.delay_buffer_S = np.zeros(self.lookahead_samples, dtype=np.float32)
+        self.env_states = np.zeros(7, dtype=np.float32)
+        self.sc_states = np.zeros(4, dtype=np.float32)
+        self.coef_transient_attack = np.float32(np.exp(-1.0 / (0.002 * self.os_sample_rate)))
+        self.coef_sustain_attack = np.float32(np.exp(-1.0 / (0.025 * self.os_sample_rate)))
+        num_taps = 192
+        cutoff_freq = (sample_rate / 2.0) / (self.os_sample_rate / 2.0)
+        self.fir_coeffs = _firwin(num_taps, cutoff_freq, beta=13.0)
+        self.zi_os_M = np.zeros(len(self.fir_coeffs) - 1, dtype=np.float32)
+        self.zi_os_S = np.zeros(len(self.fir_coeffs) - 1, dtype=np.float32)
+        self.zi_ds_M = np.zeros(len(self.fir_coeffs) - 1, dtype=np.float32)
+        self.zi_ds_S = np.zeros(len(self.fir_coeffs) - 1, dtype=np.float32)
+        self.cached_sc_freq = -1.0
+        self.b0 = np.float32(0.0); self.b1 = np.float32(0.0); self.b2 = np.float32(0.0)
+        self.a1 = np.float32(0.0); self.a2 = np.float32(0.0)
+    def _precompute_sc_coefficients(self, cutoff: float):
+        if cutoff == self.cached_sc_freq:
+            return
+        w0 = 2.0 * np.pi * cutoff / self.os_sample_rate
+        cos_w0 = np.cos(w0)
+        alpha = np.sin(w0) / (2.0 * 0.707)
+        a0 = 1.0 + alpha
+        self.b0 = np.float32((1.0 + cos_w0) / 2.0 / a0)
+        self.b1 = np.float32(-(1.0 + cos_w0) / a0)
+        self.b2 = np.float32((1.0 + cos_w0) / 2.0 / a0)
+        self.a1 = np.float32(-2.0 * cos_w0 / a0)
+        self.a2 = np.float32((1.0 - alpha) / a0)
+        self.cached_sc_freq = cutoff
 
-    def _init(self, sr):
-        self.sr = sr
-        self.n = max(1, int(self.l / 1000.0 * sr))
-        self.bufL = np.zeros(self.n, dtype=np.float32)
-        self.bufR = np.zeros(self.n, dtype=np.float32)
-        self.state = np.zeros(7, dtype=np.float32)
-        self.c_trans = np.float32(np.exp(-1.0 / (0.002 * sr)))
-        self.c_sust = np.float32(np.exp(-1.0 / (0.025 * sr)))
-        self.r_slow = np.float32(np.exp(-1.0 / ((self.r / 1000.0) * sr)))
-        self.r_fast = np.float32(np.exp(-1.0 / ((self.r / 1000.0) * 0.15 * sr)))
-        w = 2 * np.pi * self.f / sr
-        cw = np.cos(w)
-        al = np.sin(w) / (2 * 0.707)
-        a0 = 1 + al
-        self.b0 = np.float32((1 + cw) / 2 / a0)
-        self.b1 = np.float32(-(1 + cw) / a0)
-        self.b2 = np.float32((1 + cw) / 2 / a0)
-        self.a1 = np.float32(-2 * cw / a0)
-        self.a2 = np.float32((1 - al) / a0)
+    def _oversample_block(self, ms_block: np.ndarray) -> np.ndarray:
+        num_samples = ms_block.shape[1]
+        stuffed_M = np.zeros(num_samples * self.os_factor, dtype=np.float32)
+        stuffed_S = np.zeros(num_samples * self.os_factor, dtype=np.float32)
+        stuffed_M[::self.os_factor] = ms_block[0] * float(self.os_factor)
+        stuffed_S[::self.os_factor] = ms_block[1] * float(self.os_factor)
+        padM = np.concatenate([self.zi_os_M, stuffed_M])
+        padS = np.concatenate([self.zi_os_S, stuffed_S])
+        out_M = np.convolve(padM, self.fir_coeffs, mode='valid').astype(np.float32)
+        out_S = np.convolve(padS, self.fir_coeffs, mode='valid').astype(np.float32)
+        self.zi_os_M = padM[-len(self.fir_coeffs) + 1:].copy()
+        self.zi_os_S = padS[-len(self.fir_coeffs) + 1:].copy()
+        return np.array([out_M, out_S], dtype=np.float32)
 
-    def process(self, audio, sample_rate, buffer_size=None):
-        if sample_rate != self.sr:
-            self._init(int(sample_rate))
-        a = np.ascontiguousarray(audio, dtype=np.float32)
-        mono = a.ndim == 1
-        if mono:
-            a = np.stack([a, a])
-        elif a.shape[0] == 1:
-            a = np.stack([a[0], a[0]])
-        ceil = np.float32(10.0 ** (self.t / 20.0))
-        L, R = _kernel(a[0].copy(), a[1].copy(), ceil, self.n,
-                       self.bufL, self.bufR,
-                       self.b0, self.b1, self.b2, self.a1, self.a2,
-                       self.c_trans, self.c_sust, self.r_slow, self.r_fast,
-                       self.state)
-        out = np.stack([L, R])
-        pk = max(float(np.max(np.abs(out[0]))), float(np.max(np.abs(out[1]))))
-        if pk > ceil:
-            out = out * (float(ceil) / pk)
-        if mono:
-            out = out.mean(axis=0, keepdims=True)
-        return out
-
-    def reset(self):
-        self.bufL[:] = 0
-        self.bufR[:] = 0
-        self.state[:] = 0
-
-    def __call__(self, audio, sample_rate):
-        return self.process(audio, sample_rate)
+    def _downsample_block(self, os_ms_block: np.ndarray) -> np.ndarray:
+        padM = np.concatenate([self.zi_ds_M, os_ms_block[0]])
+        padS = np.concatenate([self.zi_ds_S, os_ms_block[1]])
+        filt_M = np.convolve(padM, self.fir_coeffs, mode='valid')
+        filt_S = np.convolve(padS, self.fir_coeffs, mode='valid')
+        self.zi_ds_M = padM[-len(self.fir_coeffs) + 1:].copy()
+        self.zi_ds_S = padS[-len(self.fir_coeffs) + 1:].copy()
+        return np.array([filt_M[::self.os_factor], filt_S[::self.os_factor]], dtype=np.float32)
+    def process(self, stereo_signal: np.ndarray, input_gain_db: float, ceiling_db: float,
+                release_ms: float, sc_hpf_freq: float = 120.0, ms_link: float = 0.85,
+                bit_depth: int = 24) -> np.ndarray:
+        stereo_signal = np.ascontiguousarray(stereo_signal, dtype=np.float32)
+        if stereo_signal.ndim != 2 or stereo_signal.shape[0] != 2 or stereo_signal.size == 0:
+            raise ValueError("Input must be stereo (2,N) and non-empty")
+        if not np.isfinite(stereo_signal).all():
+            raise ValueError("Input contains NaN or Inf")
+        sc_hpf_freq = max(10.0, min(sc_hpf_freq, self.sample_rate * 0.45))
+        gain_linear = np.float32(10.0 ** (input_gain_db / 20.0))
+        ceiling_linear = np.float32(10.0 ** (ceiling_db / 20.0))
+        self._precompute_sc_coefficients(sc_hpf_freq)
+        boosted = stereo_signal * gain_linear
+        mid_ch = 0.5 * (boosted[0] + boosted[1])
+        side_ch = 0.5 * (boosted[0] - boosted[1])
+        os_ms = self._oversample_block(np.array([mid_ch, side_ch], dtype=np.float32))
+        num_os_samples = os_ms.shape[1]
+        release_sec = release_ms / 1000.0
+        rel_slow = np.float32(np.exp(-1.0 / (release_sec * self.os_sample_rate)))
+        rel_fast = np.float32(np.exp(-1.0 / ((release_sec * 0.15) * self.os_sample_rate)))
+        os_ms_output = _limiter_hot_loop(
+            os_ms, ceiling_linear,
+            self.coef_transient_attack, self.coef_sustain_attack,
+            rel_slow, rel_fast, np.float32(ms_link),
+            self.delay_buffer_M, self.delay_buffer_S,
+            self.env_states, self.sc_states,
+            np.int32(num_os_samples), np.int32(self.lookahead_samples),
+            self.b0, self.b1, self.b2, self.a1, self.a2,
+        )
+        downsampled_ms = self._downsample_block(os_ms_output)
+        final_stereo = np.zeros_like(downsampled_ms)
+        final_stereo[0] = downsampled_ms[0] + downsampled_ms[1]
+        final_stereo[1] = downsampled_ms[0] - downsampled_ms[1]
+        peak_lr = max(float(np.max(np.abs(final_stereo[0]))), float(np.max(np.abs(final_stereo[1]))))
+        ceiling_f = float(ceiling_linear)
+        if peak_lr > 0.5:
+            final_stereo *= ceiling_f / peak_lr
+        return final_stereo

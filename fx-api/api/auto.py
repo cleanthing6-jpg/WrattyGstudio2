@@ -1703,7 +1703,16 @@ def limit(x, sr, ceiling_db=CEILING_DB):
     """
     y = None
 
-    # numpy lookahead limiter (transparent, preserves crest)
+    # Primary: ProductionMasteringLimiter (user-designed, sidechain HPF, M/S, ARC)
+    try:
+        from limiter import ProductionMasteringLimiter as _NewLim
+        _lim = _NewLim(sample_rate=sr)
+        y = _lim.process(x, input_gain_db=0.0, ceiling_db=ceiling_db,
+                         release_ms=80.0, sc_hpf_freq=120.0, ms_link=0.85)
+    except Exception:
+        y = None
+
+    # Fallback: numpy lookahead limiter (transparent, preserves crest)
     if y is None:
         try:
             y, _ = _lookahead_limiter(x, sr, ceiling_db,
