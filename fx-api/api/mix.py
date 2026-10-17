@@ -477,11 +477,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         else:
             mixed = mixed * (10.0 ** (max(-9.0, min(9.0, tgt - cur)) / 20.0))
         # Pre-limiter soft clip: rounds peaks so limiter does less work.
-        try:
-            mixed = auto.soft_clip(mixed, sr, knee=0.80)
-            report["pre_soft_clip"] = 0.80
-        except Exception:
-            pass
+        # pre-clip disabled: testing ProductionMasteringLimiter alone
 
         # Pre-crest guard: if input is already dense (low crest), back
         # off the loudness target so the limiter doesn't crush dynamics.
@@ -517,7 +513,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         _hits = int(np.count_nonzero(np.abs(mixed) > _thr))
         if _clip_on:
             mixed = auto.clip(mixed, sr)
-        elif cfg.get("soft_clip") or mode == "master":
+        elif cfg.get("soft_clip") and mode not in ("passthrough", "master"):
             # Master uses knee 0.75 (threshold -2.5 dBFS): shaves transients
             # only, leaves bass fundamentals (below -2.5 dBFS) untouched.
             mixed = auto.soft_clip(mixed, sr,
