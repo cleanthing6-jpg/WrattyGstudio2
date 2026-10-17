@@ -1697,11 +1697,20 @@ def _brick(ceiling_db):
 
 def limit(x, sr, ceiling_db=CEILING_DB):
     """Master limiter. Priority order:
-       1. Big Max Zero VST3 (transparent lookahead, preserves crest)
+       1. numpy sidechain-HPF limiter (bass-preserving, from limiter.py)
        2. numpy lookahead limiter (fallback, also preserves crest)
        3. pedalboard BrickwallLimiter (last resort, clips flat)
     """
     y = None
+
+    # Primary: bass-preserving limiter with sidechain HPF on detector
+    try:
+        from limiter import Limiter as _NewLimiter
+        _lim = _NewLimiter(threshold_db=ceiling_db, release_ms=80.0,
+                           lookahead_ms=5.0, sc_hpf_hz=120.0)
+        y = _lim.process(x, sr)
+    except Exception:
+        y = None
 
     # numpy lookahead limiter (transparent, preserves crest)
     if y is None:
