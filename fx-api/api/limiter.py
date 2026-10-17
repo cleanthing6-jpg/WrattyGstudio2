@@ -160,3 +160,7 @@ class ProductionMasteringLimiter:
         if peak_lr > 0.5:
             final_stereo *= ceiling_f / peak_lr
         return final_stereo
+
+
+# Alias for backward-compat imports (mix.py:9)
+Limiter = ProductionMasteringLimiter
