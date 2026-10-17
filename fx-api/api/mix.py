@@ -542,7 +542,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             _gr_pred = max(0.0, _lufs_pre - _lufs_post)
         else:
             _gr_pred = 0.0
-        _tgt_loop = tgt + _gr_pred * 1.39
+        _tgt_loop = tgt + _gr_pred * 1.56
         report["limiter_predicted_gr_db"] = round(_gr_pred, 2)
         report["loudness_target_adjusted_db"] = round(_tgt_loop, 2)
         # Loop the pre-limiter signal to the raised target
