@@ -82,7 +82,7 @@ PRESETS = {
     "afrobeats": {
         "target_lufs": -10.5, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
-        "max_air": 2.0, "max_deess": 2.5,
+        "max_air": 2.0, "max_deess": 1.2,
         "max_mud_cut": 6.0, "max_box_cut": 4.0,
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 80.0, "hpf_max": 100.0,
@@ -116,7 +116,7 @@ PRESETS = {
             "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
             "pres": 0.8, "pres_hz": 3200.0, "pres_q": 1.0,
             "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 2.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
+            "air": 3.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.15, "width": 1.0,
             "body_db": 0.0,
         },
