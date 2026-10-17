@@ -35,3 +35,7 @@ test_minihost.py
 test_tdr.py
 test_ubuntu24.py
 beats/
+*.bakv
+*.bak.*
+bench/reports/
+fx-api/api/__pycache__/
