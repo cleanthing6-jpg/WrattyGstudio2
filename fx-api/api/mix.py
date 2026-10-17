@@ -5,7 +5,8 @@ from urllib.parse import urlparse, parse_qs
 
 import numpy as np
 import requests
-from pedalboard import Pedalboard, HighpassFilter, PeakFilter, Compressor, Limiter
+from pedalboard import Pedalboard, HighpassFilter, PeakFilter, Compressor
+from limiter import Limiter
 try:
     from pedalboard import BrickwallLimiter
 except Exception:  # pedalboard < 0.9.25
@@ -519,7 +520,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         elif cfg.get("soft_clip") or mode == "master":
             # Master clips a touch harder so loudness comes from peak
             # rounding, not from the limiter - that is what keeps LRA up.
-            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.55)) if mode == "master" else 0.70)
+            mixed = auto.soft_clip(mixed, sr, knee=float(cfg.get("master_clip_knee", 0.75)) if mode == "master" else 0.70)
             report["soft_clip"] = True
         report["clip_diag"] = {"enabled": _clip_on,
                                "pre_peak_dbfs": round(_pre, 2),
