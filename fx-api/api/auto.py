@@ -1390,7 +1390,7 @@ def _role_chain(voc, sr, st, role):
             t["hpf"] = _h
     moves = [["role", role], ["highpass", t["hpf"]]]
     if _tone_plan is not None:
-        moves.append(["tone-hpf", _tone_plan["hpf_hz"]])
+
         if _tone_plan["low_shelf_db"] < -0.2:
             moves.append(["tone-low", round(_tone_plan["low_shelf_db"], 2)])
         if _tone_plan["dip_db"] < -0.2:
@@ -1403,17 +1403,16 @@ def _role_chain(voc, sr, st, role):
     # Only on the vocal path, so the ready-made beat is untouched.
     try:
         _body_db = float(t.get("body_db", 1.5))
-        if _body_db > 0.1:
-            _bf = float(t.get("body_hz", 300.0))
-            ch.append(LowShelfFilter(cutoff_frequency_hz=_bf, gain_db=_body_db))
-            moves.append(["body %g" % _bf, round(_body_db, 2)])
+        _mud_db = 0.0
+        if st["mud"] > 1.0:
+            _mud_db = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
+        _net = _body_db + _mud_db
+        if abs(_net) > 0.1:
+            ch.append(PeakFilter(320.0, _net, 1.0))
+            moves.append(["body-mud 320", round(_net, 2)])
     except Exception as _be:
         moves.append(["body-error", str(_be)[:80]])
-    if st["mud"] > 1.0:
-        g = -min(MAX_MUD_CUT, t["mud"], (st["mud"] - 1.0) * 1.1 * 2.0)
-        if g < -0.2:
-            _f = float(t.get("mud_hz", 380.0)); _q = float(t.get("mud_q", 1.5))
-            ch.append(PeakFilter(_f, g, _q)); moves.append(["mud %g" % _f, round(g, 2)])
+
     if st["box"] > 1.0:
         g = -min(MAX_BOX_CUT, t["box"], (st["box"] - 1.0) * 0.8 * 1.5)
         if g < -0.2:
@@ -1546,28 +1545,13 @@ def _role_chain(voc, sr, st, role):
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
 
-    # v1.1 Dynamic Air Shelf
-    from scipy.signal import welch
-    _f, _P = welch(out.mean(axis=0), sr, nperseg=8192)
-    _tot = _P.sum() + 1e-20
-    _p4_6 = 10 * np.log10(_P[(_f >= 4000) & (_f < 6000)].sum() / _tot + 1e-20)
-    _p6_9 = 10 * np.log10(_P[(_f >= 6000) & (_f < 9000)].sum() / _tot + 1e-20)
-    _p9_12 = 10 * np.log10(_P[(_f >= 9000) & (_f < 12000)].sum() / _tot + 1e-20)
-    
-    _b4_9 = 0.0
-    if _p4_6 < -23.0 or _p6_9 < -22.8:
-        _b4_9 = min(3.0, max(0.6 * (-19.6 - _p4_6), 0.6 * (-19.1 - _p6_9)))
-    _b9_12 = 0.0
-    if _p9_12 < -23.9:
-        _b9_12 = min(2.0, 0.6 * (-21.9 - _p9_12))
-        
-    if _b4_9 > 0.1 or _b9_12 > 0.1:
-        _eq = []
-        if _b4_9 > 0.1: _eq.append(HighShelfFilter(cutoff_frequency_hz=4500.0, gain_db=float(_b4_9), q=0.7))
-        if _b9_12 > 0.1: _eq.append(HighShelfFilter(cutoff_frequency_hz=10000.0, gain_db=float(_b9_12), q=0.7))
-        out = Pedalboard(_eq)(out, sr).astype(np.float32)
-        moves.append(["air v1.1 4-9k", round(float(_b4_9), 2)])
-        if _b9_12 > 0.1: moves.append(["air v1.1 9-12k", round(float(_b9_12), 2)])
+    try:
+        # Boost clean high fidelity air gracefully at the top of the chain
+        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
+                                          gain_db=min(MAX_AIR, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
+    except Exception:
+        pass
+    moves.append(["air 11k", round(min(MAX_AIR, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
@@ -1767,18 +1751,41 @@ def limit(x, sr, ceiling_db=CEILING_DB):
 # ---------- main ----------
 
 def _band_carve(beat, lead, sr):
-    """Band-limited sidechain carve: duck only the bands where the vocal
-    lives, only while the vocal is active. Flat when the vocal is silent.
-    Cheaper and more transparent than full-band STFT ducking."""
+    """Band-limited sidechain carve (v1.2 dynamic ratios)."""
     try:
         import numpy as _np
         from pedalboard import Pedalboard as _PB, HighpassFilter as _HPF, LowpassFilter as _LPF
         n = min(beat.shape[1], lead.shape[1])
         if n < 64:
             return beat
-        # Vocal activity envelope (15 ms attack, 120 ms release)
-        mono = _np.mean(lead[:, :n], axis=0)
-        env = _np.abs(mono)
+            
+        def _rms(x, lo, hi):
+            _f = _np.fft.rfftfreq(x.shape[0], 1.0/sr)
+            _P = _np.abs(_np.fft.rfft(x))**2
+            _b = (_f >= lo) & (_f < hi)
+            return _np.sqrt(_P[_b].sum() + 1e-20)
+        
+        _b_mono = _np.mean(beat[:, :n], axis=0)
+        _l_mono = _np.mean(lead[:, :n], axis=0)
+        
+        C_lowmid = 20 * _np.log10(_rms(_l_mono, 150, 350) / _rms(_b_mono, 150, 350) + 1e-20)
+        C_mid    = 20 * _np.log10(_rms(_l_mono, 500, 2000) / _rms(_b_mono, 500, 2000) + 1e-20)
+        C_pres   = 20 * _np.log10(_rms(_l_mono, 2000, 4500) / _rms(_b_mono, 2000, 4500) + 1e-20)
+        C_top    = 20 * _np.log10(_rms(_l_mono, 4500, 8000) / _rms(_b_mono, 4500, 8000) + 1e-20)
+        
+        duck_150 = min(3.0, 1.0 + 0.5*(2 - C_lowmid)) if C_lowmid < 2 else 0.0
+        duck_800 = min(1.5, 0.5*(10 - C_mid)) if C_mid < 10 else 0.0
+        duck_2k  = min(3.0, 0.6*(4 - C_pres)) if C_pres < 4 else 0.0
+        duck_3k  = min(2.0, 0.6*(2 - C_top)) if C_top < 2 else 0.0
+        
+        bands = [(150.0, 350.0, duck_150), (800.0, 2000.0, duck_800), 
+                 (2000.0, 3500.0, duck_2k), (3500.0, 5500.0, duck_3k)]
+        bands = [(lo, hi, db) for lo, hi, db in bands if db > 0.05]
+        if not bands:
+            return beat
+            
+        out = beat.copy()
+        env = _np.abs(_l_mono)
         a = float(_np.exp(-1.0 / max(1.0, sr * 0.015)))
         r = float(_np.exp(-1.0 / max(1.0, sr * 0.120)))
         e = _np.empty_like(env)
@@ -1789,15 +1796,14 @@ def _band_carve(beat, lead, sr):
             e[i] = cur
         ref = float(_np.percentile(e, 90)) + 1e-9
         d = _np.clip(e / ref, 0.0, 1.0).astype(_np.float32)
-        out = beat.copy()
-        for lo, hi, db in ((150.0, 350.0, 1.0), (250.0, 500.0, 1.0), (1500.0, 4500.0, 2.0), (4500.0, 8000.0, 1.0)):
+        
+        for lo, hi, db in bands:
             band = _PB([_HPF(cutoff_frequency_hz=lo), _LPF(cutoff_frequency_hz=hi)])(beat, sr)
             gain = (10.0 ** (-db * d / 20.0) - 1.0).astype(_np.float32)
             out[:, :n] = out[:, :n] + gain[None, :] * band[:, :n]
         return out.astype(_np.float32)
     except Exception:
         return beat
-
 
 def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])
