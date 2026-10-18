@@ -436,7 +436,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     # rough LUFS estimate from RMS (beat is premastered, ~3 dB RMS->LUFS offset)
                     _beat_lufs = float(_brms) - 3.0
             if _beat_lufs is not None and -16.0 < _beat_lufs < -4.0:
-                tgt = float(np.clip(_beat_lufs, -11.5, -8.5))
+                tgt = float(np.clip(_beat_lufs, -14.0, -9.9))
                 report["master_target_from_beat_lufs"] = round(tgt, 2)
             else:
                 tgt = TARGET.get(want)
@@ -466,8 +466,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         report["mid_cut_hz"] = 250.0
         if mode not in ("master", "passthrough"):
             try:
-                import mix_tone_guard
-                mixed, _tg = mix_tone_guard.guard(mixed, sr)
+                import wratty_fix_v2
+                mixed, _tg = wratty_fix_v2.master_tone_correct(mixed, sr)
                 report["tone_guard"] = _tg
             except Exception as _e:
                 report["tone_guard_error"] = str(_e)[:120]

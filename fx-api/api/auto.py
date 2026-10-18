@@ -1922,16 +1922,8 @@ def mix(groups, sr, loud="MEDIUM"):
         for _r in list(ro_map.keys()):
             try:
                 _v = ro_map[_r]
-                _h = (np.abs(_v) >= 0.999).any(axis=0) if _v.ndim == 2 else (np.abs(_v) >= 0.999)
-                if int(_h.sum()) < 200:
-                    continue
-                _dd = np.diff(np.concatenate([[0], _h.astype(np.int8), [0]]))
-                _ds = np.where(_dd == 1)[0]
-                _de = np.where(_dd == -1)[0]
-                _dr = (_de - _ds) if _ds.size else np.array([], dtype=int)
-                _dlong = int((_dr >= 3).sum()) if _dr.size else 0
-                _dmax = int(_dr.max()) if _dr.size else 0
-                if _dlong < 200 or _dmax < 15:
+                import wratty_fix_v2
+                if not wratty_fix_v2.needs_declip(_v.T):
                     continue
                 _fixed, _drep = _declip.declip(_v, sr)
                 if _drep.get("repaired", 0) > 0:
