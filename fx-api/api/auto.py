@@ -1769,60 +1769,9 @@ def limit(x, sr, ceiling_db=CEILING_DB):
 # ---------- main ----------
 
 def _band_carve(beat, lead, sr):
-    """Band-limited sidechain carve (v1.2 dynamic ratios)."""
-    try:
-        import numpy as _np
-        from pedalboard import Pedalboard as _PB, HighpassFilter as _HPF, LowpassFilter as _LPF
-        n = min(beat.shape[1], lead.shape[1])
-        if n < 64:
-            return beat
-            
-        def _rms(x, lo, hi):
-            _f = _np.fft.rfftfreq(x.shape[0], 1.0/sr)
-            _P = _np.abs(_np.fft.rfft(x))**2
-            _b = (_f >= lo) & (_f < hi)
-            return _np.sqrt(_P[_b].sum() + 1e-20)
-        
-        _b_mono = _np.mean(beat[:, :n], axis=0)
-        _l_mono = _np.mean(lead[:, :n], axis=0)
-        
-        C_lowmid = 20 * _np.log10(_rms(_l_mono, 150, 350) / _rms(_b_mono, 150, 350) + 1e-20)
-        C_mid    = 20 * _np.log10(_rms(_l_mono, 500, 2000) / _rms(_b_mono, 500, 2000) + 1e-20)
-        C_pres   = 20 * _np.log10(_rms(_l_mono, 2000, 4500) / _rms(_b_mono, 2000, 4500) + 1e-20)
-        C_top    = 20 * _np.log10(_rms(_l_mono, 4500, 8000) / _rms(_b_mono, 4500, 8000) + 1e-20)
-        
-        duck_150 = min(3.0, 1.0 + 0.5*(2 - C_lowmid)) if C_lowmid < 2 else 0.0
-        duck_800 = min(1.5, 0.5*(10 - C_mid)) if C_mid < 10 else 0.0
-        duck_2k  = min(3.0, 0.6*(4 - C_pres)) if C_pres < 4 else 0.0
-        duck_3k  = min(2.0, 0.6*(2 - C_top)) if C_top < 2 else 0.0
-        
-        bands = [(150.0, 350.0, duck_150), (800.0, 2000.0, duck_800), 
-                 (2000.0, 3500.0, duck_2k), (3500.0, 5500.0, duck_3k)]
-        bands = [(lo, hi, db) for lo, hi, db in bands if db > 0.05]
-        if not bands:
-            return beat
-            
-        out = beat.copy()
-        env = _np.abs(_l_mono)
-        a = float(_np.exp(-1.0 / max(1.0, sr * 0.015)))
-        r = float(_np.exp(-1.0 / max(1.0, sr * 0.120)))
-        e = _np.empty_like(env)
-        cur = 0.0
-        for i in range(env.shape[0]):
-            x = env[i]
-            cur = x + (a if x > cur else r) * (cur - x)
-            e[i] = cur
-        ref = float(_np.percentile(e, 90)) + 1e-9
-        d = _np.clip(e / ref, 0.0, 1.0).astype(_np.float32)
-        
-        for lo, hi, db in bands:
-            band = _PB([_HPF(cutoff_frequency_hz=lo), _LPF(cutoff_frequency_hz=hi)])(beat, sr)
-            gain = (10.0 ** (-db * d / 20.0) - 1.0).astype(_np.float32)
-            out[:, :n] = out[:, :n] + gain[None, :] * band[:, :n]
-        return out.astype(_np.float32)
-    except Exception as _e:
-        print(f"[band_carve ERROR] {_e}")
-        return beat
+    import wratty_fix_v2
+    ducked, _ = wratty_fix_v2.carve_beat(beat.T, lead.T, sr, fallback=False)
+    return ducked.T
 
 def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])

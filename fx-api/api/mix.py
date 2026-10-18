@@ -668,12 +668,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         report["format"] = ",".join(sorted(urls.keys()))
         if enc_err:
             report["encode_error"] = enc_err
-        return {"url": url, "files": urls,
+        def _sanitize(o):
+            import numpy as _np
+            if isinstance(o, dict): return {k: _sanitize(v) for k, v in o.items()}
+            if isinstance(o, list): return [_sanitize(v) for v in o]
+            if isinstance(o, (_np.floating, _np.integer)): return o.item()
+            if isinstance(o, _np.ndarray): return o.tolist()
+            return o
+
+        return _sanitize({"url": url, "files": urls,
                 "seconds": round(rel.shape[1] / float(rel_sr), 2),
                 "peak_dbfs": round(peakdb(rel), 2),
                 "lufs": (None if got is None else round(got, 2)),
                 "sample_rate": int(rel_sr),
-                "mode": mode, "report": report, "preset": preset}
+                "mode": mode, "report": report, "preset": preset})
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -693,7 +701,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def json_out(self, code, payload):
-        b = json.dumps(payload).encode()
+        b = json.dumps(payload, default=str).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(b)))
@@ -708,7 +716,7 @@ class Handler(BaseHTTPRequestHandler):
         if not jid:
             return self.json_out(200, {"ok": True, "lufs": pyln is not None})
         with LK:
-            j = dict(JOBS.get(jid) or {"status": "none"})
+            j = dict(JOBS.get(jid) or {"status": "failed", "error": "Job not found (container restarted)"})
         return self.json_out(200, j)
 
     def do_POST(self):
