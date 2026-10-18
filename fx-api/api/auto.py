@@ -35,6 +35,7 @@ _NEW = {
     "parallel_ny":   False,
     "wrap3d":        False,
     "master_bus":    True,
+    "pro_space":     True,
 }
 from pedalboard import (
     Pedalboard, HighpassFilter, LowpassFilter, PeakFilter, HighShelfFilter, LowShelfFilter,
@@ -1165,7 +1166,7 @@ def _role_space(voc, sr, scale):
         return voc
 
 
-def _role_buses(pre, sr, bpm, raised):
+def _role_buses(pre, sr, bpm, raised, use_pro_space=False):
     """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
     No cross-role compression: the lead is never glued to backing or adlib.
     Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
@@ -1192,7 +1193,7 @@ def _role_buses(pre, sr, bpm, raised):
         _pl = float(cfg.get("plate", cfg.get("space", 1.0)))
         _dl = float(cfg.get("delay", _pl))
         _pfd = bool(cfg.get("plate_from_delay", False))
-        if _pl or _dl or _pfd:
+        if not use_pro_space and (_pl or _dl or _pfd):
             _nt = float(cfg.get("note", 0.75))
             y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
                                       plate_scale=_pl, delay_scale=_dl,
@@ -1934,7 +1935,23 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["level_passes"] = level_passes
 
     _dry_voc = core.copy()
-    core, _info = _role_buses(_pre, sr, bpm, raised)
+    _ps_flag = bool(_NEW.get("pro_space", False))
+    core, _info = _role_buses(_pre, sr, bpm, raised, use_pro_space=_ps_flag)
+    if _ps_flag:
+        try:
+            import pro_space as _ps
+            _psr = _ps.build(_dry_voc, beat, sr, bpm)
+            beat = _psr["beat_out"]
+            core = (core + _psr["parallel"][None, :]).astype(np.float32)
+            for _wn, _w in _psr["returns"].items():
+                core = (core + _w).astype(np.float32)
+            _info = (_psr["params"].get("predelay_ms", 0), "pro_space")
+            rep["pro_space"] = {"params": _psr["params"], "guard": _psr["guard"]}
+        except Exception as _pse:
+            rep["pro_space_error"] = str(_pse)[:300]
+            import traceback as _tb
+            rep["pro_space_trace"] = _tb.format_exc()[-1200:]
+            core, _info = _role_buses(_pre, sr, bpm, raised, use_pro_space=False)
 
     # Parallel compression on the summed vocal bus (two-track path)
     if _NEW.get("parallel_ny", False):
@@ -1970,6 +1987,13 @@ def mix(groups, sr, loud="MEDIUM"):
     side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
+        if dbl is not None:
+            try:
+                import pro_touch as _pt_dbl
+                dbl = _pt_dbl.filter_double(dbl, sr)
+                rep["filter_double"] = True
+            except Exception as _fde:
+                rep["filter_double_error"] = str(_fde)[:120]
         if dbl is not None:
             n = max(core.shape[1], dbl.shape[1])
             core = (_pad(core, n) + _pad(dbl, n)).astype(np.float32)
