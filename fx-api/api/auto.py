@@ -117,7 +117,7 @@ PRESETS = {
             "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
             "pres": 0.0, "pres_hz": 3200.0, "pres_q": 1.0,
             "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 1.5, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
+            "air": 3.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.15, "width": 1.0,
             "body_db": 0.0,
         },
