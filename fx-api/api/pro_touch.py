@@ -103,7 +103,7 @@ def plan(p, bpm):
     bpm = float(np.clip(bpm or 100.0, 60.0, 200.0))
     beat = 60.0 / bpm
     act, space = p["active_ratio"], p["space"]
-    ir_s = min(_interp(space, [0.05, 0.55], [0.9, 1.6]), 4.0 * beat)
+    ir_s = min(_interp(space, [0.05, 0.30], [1.0, 2.2]), 4.0 * beat)
     note = _pick_delay_note(bpm)
     f0 = p.get("f0")
     return {
@@ -115,18 +115,18 @@ def plan(p, bpm):
         "tail_duck_db": round(_interp(act, [0.35, 0.75], [9.0, 12.0]), 1),
         "delay_note": round(note, 3),
         "delay_ms": round(beat * note * 1000.0, 1),
-        "delay_fb": round(_interp(space, [0.05, 0.55], [0.18, 0.26]), 3),
+        "delay_fb": round(_interp(space, [0.05, 0.30], [0.20, 0.32]), 3),
         "delay_target_db": round(_interp(act, [0.35, 0.75], [-16.0, -21.0]), 1),
         "delay_duck_db": round(_interp(act, [0.35, 0.75], [7.0, 11.0]), 1),
         "delay_hpf": 400.0,
         "delay_lpf": round(min(5000.0, _interp(p["bright_db"], [-24.0, -10.0], [5500.0, 4200.0])), 0),
         "double_db": round(_interp(act, [0.35, 0.75], [-8.0, -10.5]), 1),
-        "side_db": round(_interp(space, [0.05, 0.55], [1.2, 2.2]), 1),
+        "side_db": round(_interp(space, [0.05, 0.30], [1.5, 3.0]), 1),
         "ride_strength": round(float(np.clip((p["spread_db"] - 6.0) / 20.0, 0.2, 0.65)), 2),
         "ride_max_db": round(float(np.clip(p["spread_db"] / 5.0, 2.0, 4.0)), 1),
     }
 
-def long_tail(voc, sr, ir_s, predelay_ms, hpf, lpf, duck_db, target_db, seed=7, ref=None):
+def long_tail(voc, sr, ir_s, predelay_ms, hpf, lpf, duck_db, target_db, seed=7):
     v = _mono(voc); n = len(v); L = int(ir_s * sr)
     t = np.arange(L) / sr
     env = np.exp(-t / (ir_s / 6.9)) * np.minimum(1.0, t / 0.02)
@@ -145,7 +145,7 @@ def long_tail(voc, sr, ir_s, predelay_ms, hpf, lpf, duck_db, target_db, seed=7, 
         chans.append(sg.oaconvolve(v, ir, mode="full")[:n].astype(np.float32))
     return _finish(np.stack(chans), v, sr, duck_db, target_db)
 
-def pingpong_delay(voc, sr, delay_ms, fb, hpf, lpf, duck_db, target_db, ref=None):
+def pingpong_delay(voc, sr, delay_ms, fb, hpf, lpf, duck_db, target_db):
     v = _mono(voc); n = len(v); d = int(sr * delay_ms / 1000.0)
     src = sg.sosfilt(np.vstack([sg.butter(2, hpf, "highpass", fs=sr, output="sos"),
                                 sg.butter(2, lpf, "lowpass", fs=sr, output="sos")]), v).astype(np.float32)
@@ -205,60 +205,3 @@ def ride(x, sr, max_db=3.0, strength=0.5, smooth_s=0.35):
     g = sg.lfilter(*sg.butter(1, 1.0 / smooth_s, fs=100.0), g)
     gi = np.interp(np.arange(a.shape[-1]), (np.arange(k) + 0.5) * hop, g)
     return (a * (10.0 ** (gi / 20.0)).astype(np.float32)).astype(np.float32)
-
-# ==== pro_space bridge ====
-_render_orig = render
-
-def render(voc, sr, bpm, send=None):
-    if send is None:
-        return _render_orig(voc, sr, bpm)
-    prof = analyze(voc, sr)
-    P = plan(prof, bpm)
-    plate = long_tail(send, sr, P["ir_s"], P["predelay_ms"], P["tail_hpf"], P["tail_lpf"],
-                      P["tail_duck_db"], P["tail_target_db"], ref=voc)
-    dly = pingpong_delay(send, sr, P["delay_ms"], P["delay_fb"], P["delay_hpf"], P["delay_lpf"],
-                         P["delay_duck_db"], P["delay_target_db"], ref=voc)
-    plate = widen_return(plate, sr, P["side_db"])
-    dly = widen_return(dly, sr, P["side_db"] * 0.8)
-    P["profile"] = {k: (round(v, 3) if isinstance(v, float) else v) for k, v in prof.items()}
-    return plate, dly, P
-
-
-def _tail(send, sr, ir_s, pre_ms, hpf, lpf, seed=7):
-    v = _mono(send)
-    n = len(v)
-    L = max(1, int(ir_s * sr))
-    t = np.arange(L) / sr
-    env = np.exp(-t / (ir_s / 6.9)) * np.minimum(1.0, t / 0.02)
-    pre = int(pre_ms / 1000.0 * sr)
-    hp = sg.butter(2, hpf, "highpass", fs=sr, output="sos")
-    lp = sg.butter(2, lpf, "lowpass", fs=sr, output="sos")
-    lp2 = sg.butter(2, lpf * 0.55, "lowpass", fs=sr, output="sos")
-    mixk = np.clip(t / max(ir_s, 1e-6), 0.0, 1.0)
-    chans = []
-    for ch in range(2):
-        noise = np.random.default_rng(seed + ch * 101).standard_normal(L).astype(np.float32)
-        h = sg.sosfilt(hp, noise)
-        ir = (sg.sosfilt(lp, h) * (1 - mixk) + sg.sosfilt(lp2, h) * mixk) * env
-        ir = np.concatenate([np.zeros(pre, np.float32), ir]).astype(np.float32)
-        ir /= (np.sqrt((ir ** 2).sum()) + 1e-9)
-        chans.append(sg.oaconvolve(v, ir, mode="full")[:n].astype(np.float32))
-    return np.stack(chans).astype(np.float32)
-
-
-def _fast_duck(v, sr, depth_db, smooth_s=0.12):
-    a = np.abs(_mono(v))
-    fast = _smooth(a, sr, 0.02)
-    slow = _smooth(a, sr, float(smooth_s))
-    d = np.maximum(fast, slow)
-    env = np.clip(d / (np.percentile(d, 95) + 1e-9), 0.0, 1.0)
-    depth_lin = 10 ** (-float(depth_db) / 20)
-    return (1.0 - env * (1.0 - depth_lin)).astype(np.float32)
-
-
-def _env10(v, sr):
-    return _frame_db(_mono(v), sr, hop_s=0.01)
-
-
-def _phrases(db, hs):
-    return _active_mask(db), np.zeros_like(db, dtype=bool)
