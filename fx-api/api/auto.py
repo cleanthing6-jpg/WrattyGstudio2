@@ -2042,8 +2042,8 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["double"] = False
         rep["double_error"] = "side_ids empty"
 
-    ducked_stft, plan, vpres, post = _duck(beat, _dry_voc, freq, st)
-    ducked = _band_carve(ducked_stft, _dry_voc, sr)
+    ducked = _band_carve(beat, _dry_voc, sr)
+    plan, vpres, post = {}, None, None
     tries = 1
 
     rep["duck_db"] = {("%d-%d" % b): round(v, 2) for b, v in plan.items()}
