@@ -465,13 +465,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 report["tone_guard"] = _tg
             except Exception as _e:
                 report["tone_guard_error"] = str(_e)[:120]
-        if mode not in ("master", "passthrough"):
-            try:
-                import mix_tone_guard
-                mixed, _tg = mix_tone_guard.guard(mixed, sr)
-                report["tone_guard"] = _tg
-            except Exception as _e:
-                report["tone_guard_error"] = str(_e)[:120]
+
         try:
             _in_peak = peakdb(mixed)
             _in_clip = int(np.count_nonzero(np.abs(mixed) >= 0.999))
