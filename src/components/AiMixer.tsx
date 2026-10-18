@@ -352,6 +352,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           const vs = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
           if (vsd.error) throw new Error(vsd.error);
+          if (vsd.status === "none" || vsd.status === "failed") throw new Error(vsd.error || "Mixing failed or container restarted.");
           if (vsd.status === "preview" && vsd.url) roexVocalUrl = vsd.url;
         }
         if (!roexVocalUrl) throw new Error("Vocal mix timed out - try again in a minute");
