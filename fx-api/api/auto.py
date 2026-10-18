@@ -1502,6 +1502,11 @@ def _role_chain(voc, sr, st, role):
         # 8 dB headroom means compression only hits peaks, not every sample.
         _vocal_rms = _rms_db(out)
         _opto_thr_cal = float(_comp["opto_thr"]) if _comp else float(max(-14.0, _vocal_rms + 8.0))
+        _spread = 12.0
+        if _spread < 11:
+            t["ratio"] = 2.0
+        elif _spread > 16:
+            t["ratio"] = 3.0
         moves.append(["opto-thr", round(_opto_thr_cal, 1)])
         _la2a_fn = dsp_pro.la2a_compress if _NEW["la2a_pro"] else opto_comp.opto_compress
         out, _opto_info = _la2a_fn(

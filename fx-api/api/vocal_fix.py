@@ -13,9 +13,7 @@ import scipy.signal as sg
 from adaptive_tone import _peak
 
 BANDS = {
-    "500-1k": (500, 1000, 6.0),
-    "1-2k":   (1000, 2000, 6.8),
-    "2-4k":   (2000, 4000, 2.5),
+    "500-2k": (500, 2000, 10.0),
 }
 
 def _band_pow(x, sr, N=8192):
@@ -37,7 +35,7 @@ def measure(voc, rest, sr):
         act = np.ones(k, bool)
     return {b: float(10 * np.log10((pv[b][:k][act].sum() + 1e-20) / (pr[b][:k][act].sum() + 1e-20))) for b in BANDS}
 
-def plan(voc, rest, sr, margin_db=0.5, gain=0.85, cap_db=3.0):
+def plan(voc, rest, sr, margin_db=0.5, gain=0.85, cap_db=1.5):
     m = measure(voc, rest, sr)
     cuts = {}
     for b, (lo, hi, lim) in BANDS.items():

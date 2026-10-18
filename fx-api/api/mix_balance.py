@@ -12,8 +12,8 @@ REF_MEDIAN = np.array([-26.1, -15.5, -8.6, -8.8, -11.1, -11.7, -11.6, -13.9, -14
                        -12.9, -14.3, -14.9, -16.6, -19.3, -18.5, -18.4, -21.8, -24.7, -24.5, -24.9,
                        -26.2, -25.7, -26.5, -26.6, -30.4, -36.0])
 
-MAX_SHELF_DB, MIN_SHELF_DB = 7.0, -3.0
-MAX_BELL_DB, MIN_BELL_DB = 3.0, -2.0
+MAX_SHELF_DB, MIN_SHELF_DB = 4.0, -3.0
+MAX_BELL_DB, MIN_BELL_DB = 2.0, -2.0
 MAX_CUT_DB, MAX_BOOST_DB = -3.0, 1.0
 
 def _mono(x):

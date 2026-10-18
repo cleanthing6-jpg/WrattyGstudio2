@@ -22,7 +22,7 @@ def measure(x, sr):
     return {b: 10 * np.log10(PM[(f >= b[0]) & (f < b[1])].sum() / tot + 1e-12) for b in BANDS}
 
 
-def guard(x, sr, pad=1.0, gain=0.8, cap=2.0):
+def guard(x, sr, pad=1.0, gain=0.8, cap=1.5):
     a = np.asarray(x, dtype=np.float32)
     m = measure(a, sr)
     sos, moves = [], {}
