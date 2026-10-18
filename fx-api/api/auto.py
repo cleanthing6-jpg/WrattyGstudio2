@@ -1890,7 +1890,7 @@ def mix(groups, sr, loud="MEDIUM"):
                     continue
                 _fixed, _drep = _declip.declip(_v, sr)
                 if _drep.get("repaired", 0) > 0:
-                    ro_map[_r] = _fixed * 0.7079
+                    ro_map[_r] = _fixed
                     rep.setdefault("declip", {})[_r] = _drep
             except Exception as _e:
                 rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
