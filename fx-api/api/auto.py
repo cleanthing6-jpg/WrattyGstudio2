@@ -1570,7 +1570,6 @@ def _role_chain(voc, sr, st, role):
             if _b9_12 > 0.1: moves.append(["air v1.1 9-12k", round(float(_b9_12), 2)])
     except Exception as _e:
         moves.append(["air-error", str(_e)[:80]])
-    moves.append(["air 11k", round(min(MAX_AIR, float(t["air"])), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
