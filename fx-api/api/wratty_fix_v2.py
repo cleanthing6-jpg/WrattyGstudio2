@@ -23,7 +23,11 @@ SIB_TOLERANCE_DB = 1.5
 
 def _mono(x):
     x = np.asarray(x, np.float32)
-    return x if x.ndim == 1 else x.mean(axis=1)
+    if x.ndim == 1:
+        return x
+    if x.shape[0] <= 2 and x.shape[1] > 2:
+        return x.mean(axis=0)  # (channels, samples)
+    return x.mean(axis=1)      # (samples, channels)
 
 def rel_profile(x, sr):
     fr, p = signal.welch(_mono(x), sr, nperseg=8192)
@@ -75,6 +79,11 @@ def _apply_fir(x, h):
     x = np.asarray(x, np.float32)
     if x.ndim == 1:
         return signal.fftconvolve(x, h, mode="same").astype(np.float32)
+    if x.shape[0] <= 2 and x.shape[1] > 2:
+        # (channels, samples)
+        return np.stack([signal.fftconvolve(x[c, :], h, mode="same")
+                         for c in range(x.shape[0])], axis=0).astype(np.float32)
+    # (samples, channels)
     return np.stack([signal.fftconvolve(x[:, c], h, mode="same")
                      for c in range(x.shape[1])], axis=1).astype(np.float32)
 
