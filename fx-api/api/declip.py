@@ -91,8 +91,12 @@ def declip(x, sr, threshold=0.998, context=8, max_run=16):
         for ch in range(a.shape[0]):
             fp = np.concatenate([a[ch, lo:s], a[ch, e:hi]])
             xi = np.arange(s, e)
-            yi = _lanczos_interp(xp, fp, xi, a=4)
-            out[ch, s:e] = yi.astype(np.float32)
+            # Claude's Proper Fix: CubicSpline
+            yi = CubicSpline(xp, fp)(xi)
+            lvl = np.abs(a[ch, s:e])
+            yi = sgn * np.maximum(sgn * yi, lvl)
+            yi = np.clip(yi, -1.6, 1.6)
+            out[ch, s:e] = yi.astype(np.float32).astype(np.float32)
         report["repaired"] += 1
         report["max_run_repaired"] = max(report["max_run_repaired"], run)
     if single:
