@@ -1273,14 +1273,6 @@ def _double(voc, sr):
             out += y
         out *= 10.0 ** (DOUBLE_DB / 20.0)
         _DBL["kind"] = "adt (detune+delay+pan)" if PitchShift is not None else "delays+pan only (no PitchShift)"
-        try:
-            import pro_touch
-            _pt = _REVERB_LAST.get("pro_touch", {})
-            if _pt and "double_db" in _pt:
-                out = out * (10.0 ** ((_pt["double_db"] - DOUBLE_DB) / 20.0))
-                out = pro_touch.filter_double(out, sr)
-        except Exception:
-            pass
         return out
     except Exception as _e:
         _DBL["error"] = repr(_e)
@@ -1292,15 +1284,6 @@ def _noise_gate(x, sr, reduction_db=8.0, hold_ms=30.0):
     quiet passages by up to `reduction_db`. Not a hard gate — smooth
     ramp, hold time keeps it from chattering between syllables."""
     import numpy as np
-    if role == "lead":
-        try:
-            import pro_touch
-            plate, dly_wet, _pt = pro_touch.render(voc, sr, bpm)
-            _REVERB_LAST["pro_touch"] = _pt
-            return (voc + plate + dly_wet).astype(np.float32), 0, "pro_touch"
-        except Exception as _e:
-            _REVERB_LAST["pro_touch_error"] = str(_e)[:200]
-
     try:
         a = np.asarray(x, dtype=np.float32)
         if a.ndim != 2 or a.shape[1] < 512:
@@ -1482,16 +1465,6 @@ def _role_chain(voc, sr, st, role):
             moves.append(["clip-gain-error", str(_cge)[:80]])
 
     out = Pedalboard(ch)(voc, sr).astype(np.float32)
-    if role == "lead":
-        try:
-            import pro_touch
-            _pt = _REVERB_LAST.get("pro_touch", {})
-            if _pt:
-                out = pro_touch.ride(out, sr, max_db=_pt.get("ride_max_db", 3.0), strength=_pt.get("ride_strength", 0.5))
-                moves.append(["pro_touch ride", "max +/-3dB"])
-        except Exception:
-            pass
-
 
     # --- 1176-style FET stage (UREI Rev D topology, feedback, near-instant attack).
     #     Runs BEFORE the LA-2A: FET catches peaks, LA-2A glues the body.
