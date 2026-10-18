@@ -14,6 +14,7 @@ except Exception:  # pedalboard < 0.9.25
 from pedalboard.io import AudioFile
 
 import auto
+import mix_balance
 
 def _dyn9010(x, sr, win=0.4):
     x = np.asarray(x)
@@ -363,11 +364,13 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _side[None, :], sr)[0]
             try:
                 from pedalboard import LowShelfFilter as _LSF
-                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=float(cfg.get("low_mid_shelf_db", 7.0))),
-                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=float(cfg.get("body_125_db", 3.0)), q=0.9)])(
+                _bal = mix_balance.plan(mixed, sr)
+                report["mix_balance"] = _bal
+                _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=_bal["shelf80_db"]),
+                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=_bal["bell125_db"], q=0.9)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
-                report["low_mid_shelf_db"] = float(cfg.get("low_mid_shelf_db", 7.0))
-                report["body_125_db"] = float(cfg.get("body_125_db", 3.0))
+                report["low_mid_shelf_db"] = _bal["shelf80_db"]
+                report["body_125_db"] = _bal["bell125_db"]
             except Exception as _e:
                 report["low_mid_mid_shelf_error"] = str(_e)[:120]
             _side = (_hi + 0.63 * (_side - _hi)).astype(np.float32)
@@ -449,12 +452,15 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 tgt = float(cfg.get("target_lufs", -14.0))
         # 250-500 Hz sits forward on every render. Cut it whether
         # we're in mix mode or master mode.
-        _mcs = 0.0 if mode == "master" else float(cfg.get("mid_cut_scale", 1.0))
-        _mc = -2.5 * _mcs
+        _mcs = 0.0 if mode == "master" else 1.0
+        if mode != "master" and "_bal" not in locals():
+            _bal = mix_balance.plan(mixed, sr)
+            report["mix_balance"] = _bal
+        _mc = _bal["cut250_db"] * _mcs if mode != "master" else 0.0
         mixed = Pedalboard([
             PeakFilter(cutoff_frequency_hz=250.0, gain_db=_mc, q=0.9),
-            PeakFilter(cutoff_frequency_hz=420.0, gain_db=-2.0 * _mcs, q=1.0),
-            PeakFilter(cutoff_frequency_hz=550.0, gain_db=-1.0 * _mcs, q=1.0),
+            PeakFilter(cutoff_frequency_hz=420.0, gain_db=_bal["cut420_db"] * _mcs if mode != "master" else 0.0, q=1.0),
+            PeakFilter(cutoff_frequency_hz=550.0, gain_db=_bal["cut550_db"] * _mcs if mode != "master" else 0.0, q=1.0),
         ])(mixed, sr).astype(np.float32)
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
