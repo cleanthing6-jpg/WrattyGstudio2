@@ -1546,13 +1546,28 @@ def _role_chain(voc, sr, st, role):
     out = _saturate(out, sr, drive)
     moves.append(["saturate", round(drive, 2)])
 
-    try:
-        # Boost clean high fidelity air gracefully at the top of the chain
-        out = Pedalboard([HighShelfFilter(cutoff_frequency_hz=10000.0,
-                                          gain_db=min(MAX_AIR, float(t["air"])), q=0.7)])(out, sr).astype(np.float32)
-    except Exception:
-        pass
-    moves.append(["air 11k", round(min(MAX_AIR, float(t["air"])), 2)])
+    # v1.1 Dynamic Air Shelf
+    from scipy.signal import welch
+    _f, _P = welch(out.mean(axis=0), sr, nperseg=8192)
+    _tot = _P.sum() + 1e-20
+    _p4_6 = 10 * np.log10(_P[(_f >= 4000) & (_f < 6000)].sum() / _tot + 1e-20)
+    _p6_9 = 10 * np.log10(_P[(_f >= 6000) & (_f < 9000)].sum() / _tot + 1e-20)
+    _p9_12 = 10 * np.log10(_P[(_f >= 9000) & (_f < 12000)].sum() / _tot + 1e-20)
+    
+    _b4_9 = 0.0
+    if _p4_6 < -23.0 or _p6_9 < -22.8:
+        _b4_9 = min(3.0, max(0.6 * (-19.6 - _p4_6), 0.6 * (-19.1 - _p6_9)))
+    _b9_12 = 0.0
+    if _p9_12 < -23.9:
+        _b9_12 = min(2.0, 0.6 * (-21.9 - _p9_12))
+        
+    if _b4_9 > 0.1 or _b9_12 > 0.1:
+        _eq = []
+        if _b4_9 > 0.1: _eq.append(HighShelfFilter(cutoff_frequency_hz=4500.0, gain_db=float(_b4_9), q=0.7))
+        if _b9_12 > 0.1: _eq.append(HighShelfFilter(cutoff_frequency_hz=10000.0, gain_db=float(_b9_12), q=0.7))
+        out = Pedalboard(_eq)(out, sr).astype(np.float32)
+        moves.append(["air v1.1 4-9k", round(float(_b4_9), 2)])
+        if _b9_12 > 0.1: moves.append(["air v1.1 9-12k", round(float(_b9_12), 2)])
     out = (out * (10.0 ** (t["gain"] / 20.0))).astype(np.float32)
     moves.append(["role gain", t["gain"]])
 
@@ -1775,7 +1790,7 @@ def _band_carve(beat, lead, sr):
         ref = float(_np.percentile(e, 90)) + 1e-9
         d = _np.clip(e / ref, 0.0, 1.0).astype(_np.float32)
         out = beat.copy()
-        for lo, hi, db in ((250.0, 500.0, 1.0), (1500.0, 4500.0, 2.5), (4500.0, 8000.0, 1.2)):
+        for lo, hi, db in ((150.0, 350.0, 1.0), (250.0, 500.0, 1.0), (1500.0, 4500.0, 2.0), (4500.0, 8000.0, 1.0)):
             band = _PB([_HPF(cutoff_frequency_hz=lo), _LPF(cutoff_frequency_hz=hi)])(beat, sr)
             gain = (10.0 ** (-db * d / 20.0) - 1.0).astype(_np.float32)
             out[:, :n] = out[:, :n] + gain[None, :] * band[:, :n]

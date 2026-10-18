@@ -367,7 +367,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _bal = mix_balance.plan(mixed, sr)
                 report["mix_balance"] = _bal
                 _mid = np.asarray(Pedalboard([_LSF(cutoff_frequency_hz=80.0, gain_db=_bal["shelf80_db"]),
-                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=_bal["bell125_db"], q=0.9)])(
+                                              PeakFilter(cutoff_frequency_hz=125.0, gain_db=_bal["bell125_db"], q=1.2)])(
                     _mid[None, :], sr)[0], dtype=np.float32)
                 report["low_mid_shelf_db"] = _bal["shelf80_db"]
                 report["body_125_db"] = _bal["bell125_db"]
