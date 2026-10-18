@@ -13,7 +13,7 @@ import scipy.signal as sg
 from adaptive_tone import _peak
 
 BANDS = {
-    "500-2k": (500, 2000, 10.0),
+    "500-2k": (500, 2000, 10.3),
 }
 
 def _band_pow(x, sr, N=8192):

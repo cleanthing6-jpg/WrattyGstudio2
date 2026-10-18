@@ -103,8 +103,8 @@ def master_tone_correct(x, sr):
     names = [n for n, _, _ in BANDS]
     prof = rel_profile(x, sr)
     g = plan_tone(prof)
-    rep = {"before_rel_db": dict(zip(names, np.round(prof, 1))),
-           "gain_db": dict(zip(names, np.round(g, 2))),
+    rep = {"before_rel_db": {n: float(v) for n, v in zip(names, np.round(prof, 1))},
+           "gain_db": {n: float(v) for n, v in zip(names, np.round(g, 2))},
            "applied": False, "sib_guard": False, "at_cap": []}
     for i, n in enumerate(names):
         if n in CAPS and (abs(g[i] - CAPS[n][1]) < 1e-6 or abs(g[i] - CAPS[n][0]) < 1e-6):
@@ -122,9 +122,9 @@ def master_tone_correct(x, sr):
         y = _apply_fir(x, _fir(g2, sr))
         rep["sib_guard"] = True
         rep["gain_db"] = dict(zip(names, np.round(g2, 2)))
-        rep["sib_after"] = round(sib_index(y, sr), 1)
+        rep["sib_after"] = round(float(sib_index(y, sr)), 1)
     rep["applied"] = True
-    rep["after_rel_db"] = dict(zip(names, np.round(rel_profile(y, sr), 1)))
+    rep["after_rel_db"] = {n: float(v) for n, v in zip(names, np.round(rel_profile(y, sr), 1))}
     return y, rep
 
 CARVE = [("lowmid", 150, 350, -8.0, 3.0, 1.0),
@@ -168,7 +168,7 @@ def carve_beat(beat, vocal, sr, fallback=False):
         depth = min(cap, 0.6 * (floor - C)) if C < floor else 0.0
         if fallback:
             depth = max(depth, fb)
-        rep[name] = {"C_db": round(float(C), 1), "floor_db": floor,
+        rep[name] = {"C_db": round(float(C), 1), "floor_db": float(floor),
                      "depth_db": round(float(depth), 2), "at_cap": bool(depth >= cap - 1e-6)}
         if depth < 0.1:
             continue
@@ -192,9 +192,9 @@ def qa(x, sr):
     fr, p = signal.welch(_mono(x), sr, nperseg=8192)
     bp = lambda lo, hi: 10 * np.log10(p[(fr >= lo) & (fr < hi)].sum() + EPS)
     top_minus_pres = bp(5500, 10000) - bp(2000, 5500)
-    res = {"rel_db": dict(zip(names, np.round(prof, 1))),
+    res = {"rel_db": {n: float(v) for n, v in zip(names, np.round(prof, 1))},
            "top_minus_presence_db": round(float(top_minus_pres), 1),
-           "sib_index": round(sib_index(x, sr), 1)}
+           "sib_index": round(float(sib_index(x, sr)), 1)}
     if x.ndim == 2:
         L, R = x[:, 0], x[:, 1]
         M, S = (L + R) / 2, (L - R) / 2
