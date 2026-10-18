@@ -1,3 +1,4 @@
+from scipy.interpolate import CubicSpline
 """
 declip.py - conservative de-clipper. numpy only.
 
