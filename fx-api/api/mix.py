@@ -517,11 +517,11 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     mixed, sr, preset="afrobeats",
                     lufs=float(tgt), ceil=float(auto.CEILING_DB),
                     eq=0.0 if _is_master else 0.5,
-                    mb=0.6 if _is_master else 1.0,
-                    glue=0.8 if _is_master else 1.0,
+                    mb=0.4 if _is_master else 1.0,
+                    glue=0.5 if _is_master else 1.0,
                     sat=0.0 if _is_master else 0.25,
                     adapt_width=not _is_master,
-                    clip=2.0 if cfg.get("soft_clip") else 1.5)
+                    clip=1.0 if _is_master else (2.0 if cfg.get("soft_clip") else 1.5))
                 _y = np.asarray(_y, dtype=np.float32)
                 if _y.ndim == 2 and mixed.ndim == 2 and mixed.shape[0] == 1 and _y.shape[0] == 2:
                     _y = _y.mean(axis=0, keepdims=True).astype(np.float32)

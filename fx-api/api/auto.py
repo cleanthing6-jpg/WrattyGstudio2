@@ -88,8 +88,8 @@ PRESETS = {
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 80.0, "hpf_max": 100.0,
         "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
-        "duck_cap": {BODY: 2.5, PRES: 5.5, HARSH: 3.0},
-        "duck_target": {BODY: 2.0, PRES: 4.8, HARSH: 2.0},
+        "duck_cap": {BODY: 1.5, PRES: 3.5, HARSH: 3.0},
+        "duck_target": {BODY: 1.2, PRES: 3.0, HARSH: 2.0},
         "low_mono_hz": 80.0,
         "role_treat_adlib": {
             "gain": -5.0, "hpf": 150.0,
@@ -115,7 +115,7 @@ PRESETS = {
             "gain": 0.0, "hpf": 95.0, "body_db": 2.0,
             "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
             "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
-            "pres": 0.8, "pres_hz": 3200.0, "pres_q": 1.0,
+            "pres": 0.0, "pres_hz": 3200.0, "pres_q": 1.0,
             "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
             "air": 3.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
             "sat": 0.15, "width": 1.0,
@@ -236,7 +236,7 @@ def _treat_for(role):
 ROLE_VOCALS = ("lead", "adlib", "backing")
 CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
-RAISE_CAP = 2.5
+RAISE_CAP = 1.0
 SEND_WET = 0.11
 DOUBLE_DB = -18.0
 WIDEN = 1.0
@@ -1878,7 +1878,7 @@ def mix(groups, sr, loud="MEDIUM"):
             try:
                 _v = ro_map[_r]
                 _h = (np.abs(_v) >= 0.999).any(axis=0) if _v.ndim == 2 else (np.abs(_v) >= 0.999)
-                if int(_h.sum()) < 200:
+                if int(_h.sum()) < 50:
                     continue
                 _dd = np.diff(np.concatenate([[0], _h.astype(np.int8), [0]]))
                 _ds = np.where(_dd == 1)[0]
@@ -1886,7 +1886,7 @@ def mix(groups, sr, loud="MEDIUM"):
                 _dr = (_de - _ds) if _ds.size else np.array([], dtype=int)
                 _dlong = int((_dr >= 3).sum()) if _dr.size else 0
                 _dmax = int(_dr.max()) if _dr.size else 0
-                if _dlong < 200 or _dmax < 15:
+                if _dlong < 20 and _dmax < 15:
                     continue
                 _fixed, _drep = _declip.declip(_v, sr)
                 if _drep.get("repaired", 0) > 0:
@@ -2009,6 +2009,12 @@ def mix(groups, sr, loud="MEDIUM"):
     n = max(ducked.shape[1], core.shape[1])
     ducked = _pad(ducked, n)
     core = _pad(core, n)
+    try:
+        import vocal_fix
+        core, _vg = vocal_fix.forward_guard(core, ducked, sr)
+        rep["vocal_forward_guard"] = _vg
+    except Exception as _e:
+        rep["vocal_forward_guard_error"] = str(_e)[:120]
     mixed = (ducked + core).astype(np.float32)
     if others:
         ex = _sum(others)
