@@ -87,7 +87,7 @@ PRESETS = {
         "max_mud_cut": 6.0, "max_box_cut": 4.0,
         "max_presence": 3.0, "max_harsh_cut": 5.0,
         "hpf_min": 80.0, "hpf_max": 100.0,
-        "deess_offset_db": 2.5, "deess_atk": 0.5, "deess_rel": 2.0,
+        "deess_offset_db": 2.5, "deess_atk": 5.0, "deess_rel": 40.0,
         "duck_cap": {BODY: 1.5, PRES: 3.5, HARSH: 3.0},
         "duck_target": {BODY: 1.2, PRES: 3.0, HARSH: 2.0},
         "low_mono_hz": 80.0,
