@@ -575,7 +575,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # ---- Iterative feedback loudness targeting ----
         # Mix stage: no limiter, LUFS normalize only. Kick preserved.
         # Master stage: limiter with iterative feedback for -1 dBTP.
-        if False:
+        if mode != "master" or _mb_done:
             for _it in range(0 if _mb_done else 6):
                 _measured = lufs(mixed, sr)
                 if _measured is None or abs(tgt - _measured) < 0.08:
