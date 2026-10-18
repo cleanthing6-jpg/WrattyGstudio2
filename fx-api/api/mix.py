@@ -95,13 +95,15 @@ def save16(p, a, sr):
         f.write(a)
 
 
+from math import gcd
+from scipy.signal import resample_poly
+
 def to_sr(a, si, so):
     if si == so:
         return a
-    n = int(round(a.shape[1] * so / float(si)))
-    x = np.linspace(0.0, a.shape[1] - 1.0, n)
-    i = np.arange(a.shape[1], dtype=np.float64)
-    return np.stack([np.interp(x, i, c.astype(np.float64)).astype(np.float32) for c in a])
+    g = gcd(int(si), int(so))
+    y = resample_poly(a.astype(np.float32), int(so) // g, int(si) // g, axis=1, window=("kaiser", 8.6))
+    return np.ascontiguousarray(y, dtype=np.float32)
 
 
 def _fx_ticket(scope="read", ttl=600):
@@ -456,6 +458,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         ])(mixed, sr).astype(np.float32)
         report["mid_cut_db"] = _mc
         report["mid_cut_hz"] = 250.0
+        if mode not in ("master", "passthrough"):
+            try:
+                import mix_tone_guard
+                mixed, _tg = mix_tone_guard.guard(mixed, sr)
+                report["tone_guard"] = _tg
+            except Exception as _e:
+                report["tone_guard_error"] = str(_e)[:120]
+        if mode not in ("master", "passthrough"):
+            try:
+                import mix_tone_guard
+                mixed, _tg = mix_tone_guard.guard(mixed, sr)
+                report["tone_guard"] = _tg
+            except Exception as _e:
+                report["tone_guard_error"] = str(_e)[:120]
         try:
             _in_peak = peakdb(mixed)
             _in_clip = int(np.count_nonzero(np.abs(mixed) >= 0.999))
@@ -507,8 +523,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     mixed, sr, preset="afrobeats",
                     lufs=float(tgt), ceil=float(auto.CEILING_DB),
                     eq=0.0 if _is_master else 0.5,
-                    mb=0.0 if _is_master else 1.0,
-                    glue=0.0 if _is_master else 1.0,
+                    mb=0.6 if _is_master else 1.0,
+                    glue=0.8 if _is_master else 1.0,
                     sat=0.0 if _is_master else 0.25,
                     adapt_width=not _is_master,
                     clip=2.0 if cfg.get("soft_clip") else 1.5)
@@ -612,6 +628,10 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         report["true_peak_dbfs"] = round(tp, 2)
         report["limiter"] = "brickwall" if brick else "fallback"
 
+        _tp0 = auto._true_peak_db(mixed)
+        if _tp0 > auto.CEILING_DB:
+            mixed = (mixed * 10.0 ** ((auto.CEILING_DB - _tp0) / 20.0)).astype(np.float32)
+            report["safety_trim_db"] = round(auto.CEILING_DB - _tp0, 2)
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
         del mixed
@@ -715,7 +735,7 @@ class Handler(BaseHTTPRequestHandler):
                 JOBS[jid] = {"status": "queued"}
         if busy:
             return self.json_out(429, {"error": "engine busy - try again in a minute"})
-        t = threading.Thread(target=worker, args=(jid, stems, str(data.get("loudness") or "MEDIUM"), str(data.get("preset") or "neutral"), float(data.get("maxSeconds") or 0)))
+        t = threading.Thread(target=worker, kwargs=dict(jid=jid, stems=stems, loud=str(data.get("loudness") or "MEDIUM"), max_sec=float(data.get("maxSeconds") or 0), preset=str(data.get("preset") or "neutral")))
         t.daemon = True
         t.start()
         return self.json_out(202, {"job": jid})
