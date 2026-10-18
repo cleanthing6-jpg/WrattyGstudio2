@@ -200,7 +200,7 @@ def stage_multiband(x, sr, amount, rep):
     if amount <= 0:
         return x
     bands = split3(x, sr)
-    cfg = [("low",  2.5, 2.0, 6.0, 0.030, 0.150, 30.0, 95),
+    cfg = [("low",  2.5, 2.0, 6.0, 0.010, 0.150, 30.0, 95),
            ("mid",  2.0, 1.8, 6.0, 0.020, 0.120, 15.0, 95),
            ("high", 2.5, 2.5, 6.0, 0.005, 0.080, 8.0, 97)]
     out, st = np.zeros_like(x), {}
@@ -215,8 +215,8 @@ def stage_multiband(x, sr, amount, rep):
 def stage_glue(x, sr, amount, rep):
     if amount <= 0:
         return x
-    det = sg.sosfilt(sg.butter(2, 120.0, btype="high", fs=sr, output="sos"), x, axis=-1)
-    gain, g = _compress(x, det, sr, 1.5 * amount, 2.0, 6.0, 0.030, 0.150, 20.0, 90, dual_release=True)
+    det = sg.sosfilt(sg.butter(2, 200.0, btype="high", fs=sr, output="sos"), x, axis=-1)
+    gain, g = _compress(x, det, sr, 1.0 * amount, 2.0, 6.0, 0.030, 0.150, 20.0, 90, dual_release=True)
     rep["glue"] = {"avg_gr_db": round(float(g.mean()), 2), "max_gr_db": round(float(g.max()), 2)}
     return x if gain is None else x * gain
 
