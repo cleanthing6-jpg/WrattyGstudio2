@@ -435,6 +435,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 report["master_target_from_beat_lufs"] = round(tgt, 2)
             else:
                 tgt = TARGET.get(want)
+                if want == "HIGH" and mode == "master" and cfg.get("target_lufs") is not None:
+                    tgt = max(tgt, float(cfg["target_lufs"]))   # a preset may make HIGH louder, never quieter
+                    report["target_from_preset"] = tgt
                 if tgt is None:
                     tgt = float(cfg.get("target_lufs", -14.0))
         except Exception as _te:
@@ -496,7 +499,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # ---- master_bus: flag-gated; any failure falls through to the legacy gain/clip/limit below ----
         _mb_done = False
         _mb_tp = 0.0
-        if auto._NEW.get("master_bus", False) and mode != "passthrough":
+        if auto._NEW.get("master_bus", False) and mode == "master":
             try:
                 import master_bus as _mbus
                 _is_master = (mode == "master")
@@ -504,9 +507,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                     mixed, sr, preset="afrobeats",
                     lufs=float(tgt), ceil=float(auto.CEILING_DB),
                     eq=0.0 if _is_master else 0.5,
-                    mb=0.6 if _is_master else 1.0,
-                    glue=0.8 if _is_master else 1.0,
-                    sat=0.15 if _is_master else 0.25,
+                    mb=0.0 if _is_master else 1.0,
+                    glue=0.0 if _is_master else 1.0,
+                    sat=0.0 if _is_master else 0.25,
                     adapt_width=not _is_master,
                     clip=2.0 if cfg.get("soft_clip") else 1.5)
                 _y = np.asarray(_y, dtype=np.float32)
@@ -562,8 +565,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         # ---- Iterative feedback loudness targeting ----
         # Mix stage: no limiter, LUFS normalize only. Kick preserved.
         # Master stage: limiter with iterative feedback for -1 dBTP.
-        if mode != "master":
-            for _it in range(6):
+        if mode != "master" or _mb_done:
+            for _it in range(0 if _mb_done else 6):
                 _measured = lufs(mixed, sr)
                 if _measured is None or abs(tgt - _measured) < 0.08:
                     break
@@ -572,8 +575,9 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 tp = float(20 * np.log10(np.max(np.abs(mixed)) + 1e-12))
             except Exception:
                 tp = 0.0
-            brick = False
-            report["mode_note"] = "mix stage: no limiter, LUFS only"
+            brick = bool(_mb_done)
+            report["mode_note"] = ("master_bus did loudness + limiting" if _mb_done
+                                   else "mix stage: no limiter, LUFS only")
         else:
             _pre_limit_mix = mixed.copy()
             _current_gain = 1.0

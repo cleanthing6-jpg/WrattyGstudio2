@@ -81,7 +81,7 @@ ROLE_TREAT = {
 PRESETS = {
     "neutral": {"width": 1.0},
     "afrobeats": {
-        "target_lufs": -10.0, "master_lift_db": 0.0, "crest_pre_check": False, "glue_ratio": 1.5, "glue_gr_db": 0.5,
+        "target_lufs": -10.5, "master_lift_db": 0.0, "crest_pre_check": False, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
         "max_air": 3.5, "max_deess": 1.2,
         "max_mud_cut": 6.0, "max_box_cut": 4.0,
