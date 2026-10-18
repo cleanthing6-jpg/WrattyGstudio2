@@ -1872,7 +1872,7 @@ def mix(groups, sr, loud="MEDIUM"):
             try:
                 _v = ro_map[_r]
                 import wratty_fix_v2
-                if not wratty_fix_v2.needs_declip(_v.T):
+                if True:
                     continue
                 _fixed, _drep = _declip.declip(_v, sr)
                 if _drep.get("repaired", 0) > 0:
