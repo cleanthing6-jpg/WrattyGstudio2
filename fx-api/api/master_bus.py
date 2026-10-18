@@ -326,19 +326,8 @@ def qc(x, sr, target, ceil_db, in_rep):
 
 def master(x, sr, preset="afrobeats", **over):
     p = dict(PRESETS.get(preset, PRESETS["afrobeats"])); p.update(over)
-    
-    # PLR Guard (Claude)
-    _cap = float(p["ceil"]) - float(p.get("plr_floor", 9.2))
-    _guard = None
-    if p["lufs"] > _cap:
-        _guard = {"requested_lufs": round(float(p["lufs"]), 2), "applied_lufs": round(_cap, 2),
-                  "plr_floor": float(p.get("plr_floor", 9.2))}
-        p["lufs"] = _cap
-        
     xc, kind = _to_cn(x)
     rep = {"preset": preset, "params": p}
-    if _guard:
-        rep["plr_guard"] = _guard
     if not np.isfinite(xc).all():
         xc = np.nan_to_num(xc)
     xc = xc - xc.mean(axis=1, keepdims=True)
