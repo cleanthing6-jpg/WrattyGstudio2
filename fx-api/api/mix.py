@@ -432,7 +432,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 if _brms is not None:
                     # rough LUFS estimate from RMS (beat is premastered, ~3 dB RMS->LUFS offset)
                     _beat_lufs = float(_brms) - 3.0
-            if _beat_lufs is not None and -16.0 < _beat_lufs < -4.0:
+            if _beat_lufs is not None and -20.0 < _beat_lufs < -4.0:
                 tgt = float(np.clip(_beat_lufs, -11.5, -8.5))
                 report["master_target_from_beat_lufs"] = round(tgt, 2)
             else:
