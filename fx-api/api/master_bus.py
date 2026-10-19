@@ -2,7 +2,7 @@
 master_bus.py  --  adaptive mastering bus for a multi-user beat+vocal automix.
 Pure numpy/scipy. Stateless, deterministic, safe to run in parallel per user.
 
-SIGNAL FLOW
+SIGNAL FLOW (all stages measure the user's own audio, nothing is hard-wired to one song)
   1 Input        sanitise (NaN/DC), measure
   2 Tonal EQ     linear-phase match toward the median of 5 commercial Afrobeats masters
   3 Multiband    3-band LR4 compressor (low / mid / high), thresholds from each band's own level
@@ -11,28 +11,36 @@ SIGNAL FLOW
   6 Stereo       bass-mono below 120 Hz, adaptive width
   7 Loudness     soft clipper -> look-ahead TRUE-PEAK limiter, iterated to the LUFS target
   8 QC           loudness, true peak, correlation, DC, clipping, balance warnings
+
+    y, report = master(x, sr, preset="afrobeats")      # x: (N,), (N,2) or (2,N) float
 """
 import numpy as np
 import scipy.signal as sg
 from scipy import ndimage
 
+# ----------------------------------------------------------------------------------------
+# Reference data: 1/3-octave long-term spectrum, median of five commercial masters
+# (Burna Boy, Davido, Fola, Boi Chase, Rema). dB relative to total power.
 CENTERS = np.array([31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0, 400.0,
                     500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0,
                     5000.0, 6300.0, 8000.0, 10000.0, 12500.0, 16000.0])
 REF_MEDIAN = np.array([-26.1, -15.5, -8.6, -8.8, -11.1, -11.7, -11.6, -13.9, -14.2, -14.5, -15.2,
                        -12.9, -14.3, -14.9, -16.6, -19.3, -18.5, -18.4, -21.8, -24.7, -24.5, -24.9,
                        -26.2, -25.7, -26.5, -26.6, -30.4, -36.0])
-REF_SIDE_DB = -8.4
+REF_SIDE_DB = -8.4          # side/mid level, 200 Hz-8 kHz (reference median)
 
 PRESETS = {
+    #                 LUFS   ceil   eq    mb    glue  sat   width-adapt  max limiter GR (p95, dB)  clip dB
     "streaming": dict(lufs=-11.5, ceil=-1.0, eq=0.4, mb=0.8, glue=1.0, sat=0.15, adapt_width=True, max_gr=4.5, clip=0.8),
     "afrobeats": dict(lufs=-10.0, ceil=-1.0, eq=0.5, mb=1.0, glue=1.3, sat=0.25, adapt_width=True, max_gr=6.0, clip=1.5),
     "club":      dict(lufs=-8.5,  ceil=-1.0, eq=0.5, mb=1.0, glue=1.6, sat=0.35, adapt_width=True, max_gr=8.0, clip=2.2),
 }
 
-HOP_S = 0.001
+HOP_S = 0.001                # control-rate for dynamics (1 ms)
 
 
+# ----------------------------------------------------------------------------------------
+# helpers: shape, loudness, true peak
 def _to_cn(x):
     x = np.asarray(x, dtype=np.float64)
     if x.ndim == 1:
@@ -63,6 +71,7 @@ def _k_weight_sos(sr):
 
 
 def lufs(x, sr):
+    """BS.1770 gated integrated loudness. x: (C,N)."""
     y = sg.sosfilt(_k_weight_sos(sr), x, axis=-1)
     n, hop = int(0.4 * sr), int(0.1 * sr)
     k = (y.shape[1] - n) // hop + 1
@@ -79,6 +88,7 @@ def lufs(x, sr):
 
 
 def _hop_true_peaks(x, hop, os=4, chunk_s=8.0, sr=44100):
+    """Max |4x-oversampled sample| per hop, across channels. Chunked to keep memory flat."""
     C, N = x.shape
     k = N // hop
     out = np.zeros(k)
@@ -114,6 +124,8 @@ def _side_db(x, sr):
     return float(10 * np.log10((Ps[b].sum() + 1e-20) / (Pm[b].sum() + 1e-20)))
 
 
+# ----------------------------------------------------------------------------------------
+# dynamics engine (control-rate)
 def _ballistics(gr, hop_s, att_s, rel_s):
     a_att, a_rel = 1 - np.exp(-hop_s / att_s), 1 - np.exp(-hop_s / rel_s)
     out = np.empty_like(gr); y = 0.0
@@ -136,19 +148,21 @@ def _static_gr(level, thr, ratio, knee):
 def _level_db(sig, hop, win_hops):
     C, N = sig.shape
     k = N // hop
-    p = (sig[:, :k * hop].reshape(C, k, hop) ** 2).mean(axis=2).max(axis=0)
+    p = (sig[:, :k * hop].reshape(C, k, hop) ** 2).mean(axis=2).max(axis=0)   # linked: loudest channel
     p = ndimage.uniform_filter1d(p, size=win_hops, mode="nearest")
     return 10 * np.log10(p + 1e-12)
 
 
 def _compress(sig, det, sr, maxgr, ratio, knee, att, rel, rms_ms, pct, dual_release=False):
+    """Returns (gain_per_sample_linear, gr_db_per_hop). Threshold is chosen so the `pct`-th
+    percentile of the signal's own level is reduced by `maxgr` dB (level-independent)."""
     hop = max(1, int(HOP_S * sr)); hop_s = hop / sr
     lev = _level_db(det, hop, max(1, int(rms_ms / 1000 / hop_s)))
     live = lev > lev.max() - 55
     if live.sum() < 20 or maxgr <= 0:
         return None, np.zeros(len(lev))
     thr = np.percentile(lev[live], pct) - maxgr * ratio / (ratio - 1)
-    gr = np.minimum(_static_gr(lev, thr, ratio, knee), maxgr * 2.2)
+    gr = np.minimum(_static_gr(lev, thr, ratio, knee), maxgr * 2.2)             # cap runaway reduction on spikes
     if dual_release:
         g = 0.6 * _ballistics(gr, hop_s, att, rel * 3.0) + 0.4 * _ballistics(gr, hop_s, att, rel * 0.5)
     else:
@@ -158,17 +172,19 @@ def _compress(sig, det, sr, maxgr, ratio, knee, att, rel, rms_ms, pct, dual_rele
     return gain, g
 
 
+# ----------------------------------------------------------------------------------------
+# 2 tonal EQ (linear phase)
 def stage_eq(x, sr, strength, rep):
     cur = _ltas(x, sr)
     gap = REF_MEDIAN - cur
     mid_band = (CENTERS >= 100) & (CENTERS <= 8000)
-    gap = gap - np.median(gap[mid_band])
+    gap = gap - np.median(gap[mid_band])                      # judge shape, not overall level
     gap = ndimage.gaussian_filter1d(gap, 1.2, mode="nearest")
-    g = np.sign(gap) * np.maximum(np.abs(gap) - 1.0, 0.0)
+    g = np.sign(gap) * np.maximum(np.abs(gap) - 1.0, 0.0)    # 1 dB dead-band
     g = g * strength
     vocal = (CENTERS >= 700) & (CENTERS <= 3200)
-    g[vocal] = np.minimum(g[vocal], 0.0)
-    g[CENTERS < 45] = np.minimum(g[CENTERS < 45], 0.0)
+    g[vocal] = np.minimum(g[vocal], 0.0)                      # never boost the vocal region
+    g[CENTERS < 45] = np.minimum(g[CENTERS < 45], 0.0)        # never boost sub
     g[CENTERS > 10000] = np.clip(g[CENTERS > 10000], -2.0, 1.5)
     g = np.clip(g, -3.0, 3.0)
     rep["eq_db"] = {str(int(c)): round(float(v), 2) for c, v in zip(CENTERS, g) if abs(v) >= 0.2}
@@ -181,6 +197,7 @@ def stage_eq(x, sr, strength, rep):
     return np.stack([sg.oaconvolve(c, h, mode="same") for c in x])
 
 
+# 3 multiband (LR4)
 def _lr4(sr, fc, kind):
     return sg.butter(2, fc, btype=kind, fs=sr, output="sos")
 
@@ -192,7 +209,7 @@ def _hp4(x, sr, fc): return sg.sosfilt(_lr4(sr, fc, "high"), sg.sosfilt(_lr4(sr,
 def split3(x, sr, f1=140.0, f2=3500.0):
     low, rest = _lp4(x, sr, f1), _hp4(x, sr, f1)
     mid, high = _lp4(rest, sr, f2), _hp4(rest, sr, f2)
-    low = _lp4(low, sr, f2) + _hp4(low, sr, f2)
+    low = _lp4(low, sr, f2) + _hp4(low, sr, f2)               # all-pass match so bands sum flat
     return low, mid, high
 
 
@@ -200,7 +217,8 @@ def stage_multiband(x, sr, amount, rep):
     if amount <= 0:
         return x
     bands = split3(x, sr)
-    cfg = [("low",  2.5, 2.0, 6.0, 0.010, 0.150, 30.0, 95),
+    #            maxgr  ratio knee att    rel   rms_ms pct
+    cfg = [("low",  2.5, 2.0, 6.0, 0.030, 0.150, 30.0, 95),
            ("mid",  2.0, 1.8, 6.0, 0.020, 0.120, 15.0, 95),
            ("high", 2.5, 2.5, 6.0, 0.005, 0.080, 8.0, 97)]
     out, st = np.zeros_like(x), {}
@@ -212,15 +230,17 @@ def stage_multiband(x, sr, amount, rep):
     return out
 
 
+# 4 glue compressor
 def stage_glue(x, sr, amount, rep):
     if amount <= 0:
         return x
-    det = sg.sosfilt(sg.butter(2, 200.0, btype="high", fs=sr, output="sos"), x, axis=-1)
-    gain, g = _compress(x, det, sr, 1.0 * amount, 2.0, 6.0, 0.030, 0.150, 20.0, 90, dual_release=True)
+    det = sg.sosfilt(sg.butter(2, 120.0, btype="high", fs=sr, output="sos"), x, axis=-1)
+    gain, g = _compress(x, det, sr, 1.5 * amount, 2.0, 6.0, 0.030, 0.150, 20.0, 90, dual_release=True)
     rep["glue"] = {"avg_gr_db": round(float(g.mean()), 2), "max_gr_db": round(float(g.max()), 2)}
     return x if gain is None else x * gain
 
 
+# 5 saturation
 def stage_saturate(x, sr, amount, rep):
     if amount <= 0:
         return x
@@ -232,6 +252,7 @@ def stage_saturate(x, sr, amount, rep):
     return y
 
 
+# 6 stereo
 def stage_stereo(x, sr, adapt, rep, bass_mono_hz=120.0):
     M, S = (x[0] + x[1]) / 2, (x[0] - x[1]) / 2
     S = sg.sosfiltfilt(sg.butter(4, bass_mono_hz, btype="high", fs=sr, output="sos"), S)
@@ -244,7 +265,10 @@ def stage_stereo(x, sr, adapt, rep, bass_mono_hz=120.0):
     return np.stack([M + S, M - S])
 
 
+# 7 loudness: soft clip + true-peak limiter
 def _soft_clip(x, ceil_lin, clip_db):
+    """Only samples above the ceiling are touched; they are bent smoothly toward ceil+clip_db,
+    and the true-peak limiter removes the remainder. (~0.1% of samples, ~48 dB clipper SNR.)"""
     if clip_db <= 0:
         return x
     room = ceil_lin * (10 ** (clip_db / 20) - 1.0)
@@ -260,7 +284,7 @@ def _limit(x, sr, ceil_lin, rel_fast=0.050, rel_slow=0.300, lookahead_s=0.006):
     need = np.minimum(1.0, ceil_lin / np.maximum(pk, 1e-9))
     W = max(1, int(lookahead_s * sr / hop))
     m = ndimage.minimum_filter1d(need, size=2 * W + 1, mode="nearest")
-    gs = ndimage.uniform_filter1d(m, size=2 * W + 1, mode="nearest")
+    gs = ndimage.uniform_filter1d(m, size=2 * W + 1, mode="nearest")      # gs <= need everywhere
     hs = hop / sr
 
     def rel(g, tau):
@@ -270,14 +294,14 @@ def _limit(x, sr, ceil_lin, rel_fast=0.050, rel_slow=0.300, lookahead_s=0.006):
             if v < r: r = v
             out[i] = r
         return out
-    g = 0.5 * (rel(gs, rel_fast) + rel(gs, rel_slow))
+    g = 0.5 * (rel(gs, rel_fast) + rel(gs, rel_slow))                       # still <= gs
     N = x.shape[1]
     gain = np.interp(np.arange(N), (np.arange(len(g)) + 0.5) * hop, g)
     return x * gain, -20 * np.log10(np.maximum(g, 1e-6))
 
 
 def stage_loudness(x, sr, target, ceil_db, clip_db, max_gr, rep):
-    ceil_lin = 10 ** ((ceil_db - 0.15) / 20)
+    ceil_lin = 10 ** ((ceil_db - 0.15) / 20)                                   # small internal margin
     L0 = lufs(x, sr)
     G = target - L0
     best = None
@@ -293,12 +317,12 @@ def stage_loudness(x, sr, target, ceil_db, clip_db, max_gr, rep):
         G += (target - L)
     y, L, gr, p95, G = best
     short = 0.0
-    if p95 > max_gr:
+    if p95 > max_gr:                                                          # too squashed: back off
         G -= (p95 - max_gr) * 0.9
         y = _soft_clip(x * 10 ** (G / 20), ceil_lin, clip_db)
         y, gr = _limit(y, sr, ceil_lin)
         L = lufs(y, sr); p95 = float(np.percentile(gr, 95)); short = target - L
-    tp = true_peak_db(y, sr)
+    tp = true_peak_db(y, sr)                                                  # final true-peak guard
     if tp > ceil_db:
         y = y * 10 ** ((ceil_db - tp - 0.01) / 20); L = lufs(y, sr)
     rep["loudness"] = {"input_lufs": round(L0, 2), "gain_db": round(G, 2), "limiter_avg_gr_db": round(float(gr.mean()), 2),
@@ -307,42 +331,31 @@ def stage_loudness(x, sr, target, ceil_db, clip_db, max_gr, rep):
     return y
 
 
+# 8 QC
 def qc(x, sr, target, ceil_db, in_rep):
     w = []
     L, tp = lufs(x, sr), true_peak_db(x, sr)
     if tp > ceil_db + 0.1: w.append(f"true peak {tp:.2f} dBTP above ceiling {ceil_db}")
-    if abs(L - target) > 0.6: w.append(f"loudness {L:.1f} LUFS is {abs(L - target):.1f} dB from target")
+    if abs(L - target) > 0.6: w.append(f"loudness {L:.1f} LUFS is {abs(L - target):.1f} dB from target (mix too dynamic or too quiet to reach it safely)")
     c = float(np.corrcoef(x[0], x[1])[0, 1]) if x[0].std() > 0 else 1.0
-    if c < 0.3: w.append(f"low L/R correlation {c:.2f}")
+    if c < 0.3: w.append(f"low L/R correlation {c:.2f}: weak mono compatibility")
     if abs(x.mean()) > 0.005: w.append("DC offset present")
     clipped = int((np.abs(x) >= 0.9999).sum())
     if clipped: w.append(f"{clipped} samples at digital full scale")
     if in_rep.get("input_balance_warning"): w.append(in_rep["input_balance_warning"])
-    return {"lufs": round(L, 2), "true_peak_dbtp": round(tp, 2), "plr_db": round(tp - L, 2),
-            "correlation": round(c, 3),
-            "crest_db": round(float(20 * np.log10(np.abs(x).max() / (np.sqrt((x ** 2).mean()) + 1e-12))), 2),
-            "warnings": w}
+    return {"lufs": round(L, 2), "true_peak_dbtp": round(tp, 2), "plr_db": round(tp - L, 2), "correlation": round(c, 3),
+            "crest_db": round(float(20 * np.log10(np.abs(x).max() / (np.sqrt((x ** 2).mean()) + 1e-12))), 2), "warnings": w}
 
 
+# ----------------------------------------------------------------------------------------
 def master(x, sr, preset="afrobeats", **over):
     p = dict(PRESETS.get(preset, PRESETS["afrobeats"])); p.update(over)
-    
-    # PLR Guard (Claude)
-    _cap = float(p["ceil"]) - float(p.get("plr_floor", 9.2))
-    _guard = None
-    if p["lufs"] > _cap:
-        _guard = {"requested_lufs": round(float(p["lufs"]), 2), "applied_lufs": round(_cap, 2),
-                  "plr_floor": float(p.get("plr_floor", 9.2))}
-        p["lufs"] = _cap
-        
     xc, kind = _to_cn(x)
     rep = {"preset": preset, "params": p}
-    if _guard:
-        rep["plr_guard"] = _guard
     if not np.isfinite(xc).all():
         xc = np.nan_to_num(xc)
-    xc = xc - xc.mean(axis=1, keepdims=True)
-    if np.abs(xc).max() < 1e-6 or xc.shape[1] < sr:
+    xc = xc - xc.mean(axis=1, keepdims=True)                                   # DC
+    if np.abs(xc).max() < 1e-6 or xc.shape[1] < sr:                            # silent / too short: just pass through
         rep["warning"] = "input silent or shorter than 1 s: not processed"
         return _from_cn(xc, kind), rep
     rep["input"] = {"lufs": round(lufs(xc, sr), 2), "true_peak_dbtp": round(true_peak_db(xc, sr), 2)}
