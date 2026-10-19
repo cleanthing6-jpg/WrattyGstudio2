@@ -75,6 +75,15 @@ ROLE_TREAT = {
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
+    "response": {"gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.0,
+                 "harsh": 2.5, "air": 1.0, "ratio": 3.0, "atk": 10.0, "rel": 80.0,
+                 "sat": 0.4, "width": 1.50},
+    "intro":    {"gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.5,
+                 "harsh": 2.0, "air": 2.0, "ratio": 2.5, "atk": 15.0, "rel": 100.0,
+                 "sat": 0.3, "width": 1.40},
+    "outro":    {"gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.5,
+                 "harsh": 2.0, "air": 2.0, "ratio": 2.5, "atk": 15.0, "rel": 100.0,
+                 "sat": 0.3, "width": 1.40},
 }
 
 # ---------- genre presets (Deploy 1: neutral + afrobeats) ----------
@@ -1412,7 +1421,7 @@ def _role_chain(voc, sr, st, role):
                 t["mud"] = _vt["mud_cap"]
         except Exception:
             pass
-    if role == "lead":
+    if role in ("lead", "response", "intro", "outro"):
         _h = _adaptive_hpf(voc, sr, float(t["hpf"]))
         if _h > 0:
             t["hpf"] = _h
