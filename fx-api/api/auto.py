@@ -88,64 +88,75 @@ ROLE_TREAT = {
 
 # ---------- genre presets (Deploy 1: neutral + afrobeats) ----------
 PRESETS = {
-    "neutral": {"width": 1.0},
+    "afrobeats_street": {
+        "target_lufs": -10.0, "glue_ratio": 2.0, "glue_gr_db": 1.2,
+        "width": 1.10, "plate_db": -22.0, "slap_db": -20.0, 
+        "soft_clip": True,
+        "max_air": 1.5, "max_deess": 2.5, "max_mud_cut": 4.0, "max_box_cut": 3.0, "max_presence": 3.0, "max_harsh_cut": 4.0,
+        "hpf_min": 80.0, "hpf_max": 115.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 100.0, "mud": 3.5, "box": 2.5, "pres": 3.0, "harsh": 2.0, "air": 1.5,
+            "ratio": 4.5, "atk": 2.0, "rel": 60.0, "sat": 0.35, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -4.0, "hpf": 130.0, "mud": 2.0, "box": 1.5, "pres": 3.0, "harsh": 2.5, "air": 1.0,
+            "ratio": 3.0, "atk": 10.0, "rel": 80.0, "sat": 0.5, "width": 1.5
+        },
+        "role_treat_backing": {
+            "gain": -6.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 0.5,
+            "ratio": 3.0, "atk": 15.0, "rel": 100.0, "sat": 0.4, "width": 1.3
+        },
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.5, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.5, "atk": 10.0, "rel": 80.0, "sat": 0.4, "width": 1.5
+        },
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.5, "atk": 15.0, "rel": 100.0, "sat": 0.2, "width": 1.4
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.5, "atk": 15.0, "rel": 100.0, "sat": 0.2, "width": 1.4
+        },
+        "intro_plate": 1.8, "intro_delay": 1.5, "outro_plate": 1.8, "outro_delay": 1.5,
+    },
     "afrobeats": {
         "target_lufs": -9.9, "master_lift_db": 0.0, "crest_pre_check": False, "glue_ratio": 1.5, "glue_gr_db": 0.5,
         "width": 1.20, "plate_db": -21.0, "slap_db": -8.0,
-        "max_air": 3.5, "max_deess": 1.2,
-        "max_mud_cut": 6.0, "max_box_cut": 4.0,
-        "max_presence": 3.0, "max_harsh_cut": 5.0,
-        "hpf_min": 80.0, "hpf_max": 100.0,
-        "deess_offset_db": 2.5, "deess_atk": 5.0, "deess_rel": 40.0,
-        "duck_cap": {BODY: 1.5, PRES: 3.5, HARSH: 3.0},
-        "duck_target": {BODY: 1.2, PRES: 3.0, HARSH: 2.0},
-        "low_mono_hz": 80.0,
+        "max_air": 3.5, "max_deess": 1.2, "max_mud_cut": 6.0, "max_box_cut": 4.0, "max_presence": 3.0, "max_harsh_cut": 5.0,
+        "hpf_min": 80.0, "hpf_max": 100.0, "deess_offset_db": 2.5, "deess_atk": 5.0, "deess_rel": 40.0,
+        "duck_cap": {BODY: 1.5, PRES: 3.5, HARSH: 3.0}, "duck_target": {BODY: 1.2, PRES: 3.0, HARSH: 2.0}, "low_mono_hz": 80.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 95.0, "body_db": 2.0, "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5, "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 0.0, "pres_hz": 3200.0, "pres_q": 1.0, "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
+            "air": 3.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0, "sat": 0.15, "width": 1.0, "body_db": 0.0,
+        },
         "role_treat_adlib": {
-            "gain": -5.0, "hpf": 150.0,
-            "mud": 2.0, "mud_hz": 330.0, "mud_q": 2.5,
-            "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
-            "pres": 0.5, "pres_hz": 3000.0, "pres_q": 1.0,
-            "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 0.4, "ratio": 2.5, "atk": 15.0, "rel": 120.0,
-            "sat": 0.2, "width": 1.3,
-            "body_db": 0.0,
+            "gain": -5.0, "hpf": 150.0, "mud": 2.0, "mud_hz": 330.0, "mud_q": 2.5, "box": 1.5, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 0.5, "pres_hz": 3000.0, "pres_q": 1.0, "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
+            "air": 0.4, "ratio": 2.5, "atk": 15.0, "rel": 120.0, "sat": 0.2, "width": 1.3, "body_db": 0.0,
         },
         "role_treat_backing": {
-            "gain": -3.0, "hpf": 140.0,
-            "mud": 3.0, "mud_hz": 330.0, "mud_q": 2.5,
-            "box": 2.0, "box_hz": 600.0, "box_q": 1.0,
-            "pres": 0.0, "pres_hz": 3000.0, "pres_q": 1.0,
-            "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 0.4, "ratio": 2.5, "atk": 20.0, "rel": 160.0,
-            "sat": 0.2, "width": 1.2,
-            "body_db": 0.0,
+            "gain": -3.0, "hpf": 140.0, "mud": 3.0, "mud_hz": 330.0, "mud_q": 2.5, "box": 2.0, "box_hz": 600.0, "box_q": 1.0,
+            "pres": 0.0, "pres_hz": 3000.0, "pres_q": 1.0, "harsh": 2.0, "harsh_hz": 4800.0, "harsh_q": 3.0,
+            "air": 0.4, "ratio": 2.5, "atk": 20.0, "rel": 160.0, "sat": 0.2, "width": 1.2, "body_db": 0.0,
         },
-        "role_treat_lead": {
-            "gain": 0.0, "hpf": 95.0, "body_db": 2.0,
-            "mud": 2.5, "mud_hz": 330.0, "mud_q": 2.5,
-            "box": 2.5, "box_hz": 600.0, "box_q": 1.0,
-            "pres": 0.0, "pres_hz": 3200.0, "pres_q": 1.0,
-            "harsh": 1.4, "harsh_hz": 4800.0, "harsh_q": 3.0,
-            "air": 3.0, "ratio": 2.5, "atk": 5.0, "rel": 100.0,
-            "sat": 0.15, "width": 1.0,
-            "body_db": 0.0,
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.5, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.5, "atk": 10.0, "rel": 80.0, "sat": 0.4, "width": 1.4
         },
-    },
-    "amapiano": {
-        "target_lufs": -11.5, "glue_ratio": 1.5, "glue_gr_db": 0.8,
-        "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
-    },
-    "pop": {
-        "target_lufs": -11.5, "glue_ratio": 1.6, "glue_gr_db": 1.0,
-        "width": 1.10, "plate_db": -16.0, "slap_db": -20.0,
-    },
-    "rnb": {
-        "target_lufs": -14.0, "glue_ratio": 1.4, "glue_gr_db": 0.5,
-        "width": 1.08, "plate_db": -13.0, "slap_db": -16.0,
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 80.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 2.0, "atk": 20.0, "rel": 150.0, "sat": 0.3, "width": 1.4
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 80.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 2.0, "atk": 20.0, "rel": 150.0, "sat": 0.3, "width": 1.4
+        },
+        "intro_plate": 2.5, "intro_delay": 2.0, "outro_plate": 2.5, "outro_delay": 2.0,
     },
     "rap": {
-        "target_lufs": -11.0, "glue_ratio": 1.8, "glue_gr_db": 1.2,
-        "width": 1.06, "plate_db": -22.0, "slap_db": -24.0, 
+        "target_lufs": -11.0, "glue_ratio": 1.8, "glue_gr_db": 1.2, "width": 1.06, "plate_db": -22.0, "slap_db": -24.0, 
         "soft_clip": True,
         "max_air": 1.5, "max_deess": 2.5, "max_mud_cut": 4.0, "max_box_cut": 3.5, "max_presence": 2.5, "max_harsh_cut": 4.0,
         "hpf_min": 70.0, "hpf_max": 105.0, "deess_offset_db": 3.0, "deess_atk": 3.0, "deess_rel": 30.0,
@@ -167,8 +178,158 @@ PRESETS = {
             "gain": -3.0, "hpf": 130.0, "mud": 2.0, "box": 1.5, "pres": 4.0, "harsh": 2.5, "air": 0.5, 
             "ratio": 3.0, "atk": 10.0, "rel": 60.0, "sat": 0.5, "width": 1.5
         },
+        "role_treat_intro": {
+            "gain": -1.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 3.0, "harsh": 2.0, "air": 1.0,
+            "ratio": 4.0, "atk": 5.0, "rel": 50.0, "sat": 0.5, "width": 1.2
+        },
+        "role_treat_outro": {
+            "gain": -1.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 3.0, "harsh": 2.0, "air": 1.0,
+            "ratio": 4.0, "atk": 5.0, "rel": 50.0, "sat": 0.5, "width": 1.2
+        },
+        "intro_plate": 1.0, "intro_delay": 1.2, "outro_plate": 1.0, "outro_delay": 1.2,
+    },
+    "amapiano": {
+        "target_lufs": -12.0, "glue_ratio": 1.5, "glue_gr_db": 0.8, "width": 1.08, "plate_db": -16.0, "slap_db": -20.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 90.0, "mud": 3.5, "box": 2.0, "pres": 1.5, "harsh": 2.0, "air": 2.5, 
+            "ratio": 3.0, "atk": 15.0, "rel": 120.0, "sat": 0.2, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -7.0, "hpf": 120.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.0, "air": 1.0, 
+            "ratio": 2.5, "atk": 15.0, "rel": 100.0, "sat": 0.3, "width": 1.4
+        },
+        "role_treat_backing": {
+            "gain": -9.0, "hpf": 130.0, "mud": 2.5, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 0.5, 
+            "ratio": 2.5, "atk": 20.0, "rel": 120.0, "sat": 0.2, "width": 1.2
+        },
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 110.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 1.5,
+            "ratio": 2.5, "atk": 10.0, "rel": 80.0, "sat": 0.3, "width": 1.6
+        },
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 70.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.0, "atk": 15.0, "rel": 120.0, "sat": 0.2, "width": 1.5
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 70.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.0, "atk": 15.0, "rel": 120.0, "sat": 0.2, "width": 1.5
+        },
+        "intro_plate": 2.0, "intro_delay": 1.8, "outro_plate": 2.0, "outro_delay": 1.8,
+    },
+    "rnb": {
+        "target_lufs": -14.0, "glue_ratio": 1.4, "glue_gr_db": 0.5, "width": 1.08, "plate_db": -13.0, "slap_db": -16.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 75.0, "mud": 2.5, "box": 1.0, "pres": 1.5, "harsh": 1.5, "air": 4.0,
+            "ratio": 2.5, "atk": 25.0, "rel": 150.0, "sat": 0.1, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -5.0, "hpf": 120.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.0, "air": 2.0,
+            "ratio": 2.0, "atk": 20.0, "rel": 100.0, "sat": 0.2, "width": 1.45
+        },
+        "role_treat_backing": {
+            "gain": -6.0, "hpf": 130.0, "mud": 2.5, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 1.0,
+            "ratio": 2.0, "atk": 25.0, "rel": 120.0, "sat": 0.1, "width": 1.3
+        },
+        "role_treat_response": {
+            "gain": -2.5, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 1.5, "harsh": 2.0, "air": 2.5,
+            "ratio": 2.0, "atk": 20.0, "rel": 100.0, "sat": 0.2, "width": 1.4
+        },
+        "role_treat_intro": {
+            "gain": -2.0, "hpf": 90.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 3.5,
+            "ratio": 1.5, "atk": 30.0, "rel": 200.0, "sat": 0.1, "width": 1.4
+        },
+        "role_treat_outro": {
+            "gain": -2.0, "hpf": 90.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 3.5,
+            "ratio": 1.5, "atk": 30.0, "rel": 200.0, "sat": 0.1, "width": 1.4
+        },
+        "intro_plate": 2.2, "intro_delay": 1.5, "outro_plate": 2.2, "outro_delay": 1.5,
+    },
+    "dancehall": {
+        "target_lufs": -13.0, "glue_ratio": 1.8, "glue_gr_db": 1.0, "width": 1.10, "plate_db": -19.0, "slap_db": -20.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 90.0, "mud": 3.0, "box": 1.5, "pres": 2.5, "harsh": 2.0, "air": 1.0,
+            "ratio": 4.0, "atk": 8.0, "rel": 80.0, "sat": 0.4, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -6.0, "hpf": 140.0, "mud": 2.0, "box": 1.5, "pres": 3.0, "harsh": 2.5, "air": 0.5,
+            "ratio": 3.0, "atk": 10.0, "rel": 60.0, "sat": 0.5, "width": 1.4
+        },
+        "role_treat_backing": {
+            "gain": -9.0, "hpf": 150.0, "mud": 3.0, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 0.0,
+            "ratio": 3.0, "atk": 15.0, "rel": 80.0, "sat": 0.4, "width": 1.2
+        },
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 120.0, "mud": 2.0, "box": 1.0, "pres": 3.0, "harsh": 2.0, "air": 0.5,
+            "ratio": 3.0, "atk": 10.0, "rel": 60.0, "sat": 0.5, "width": 1.4
+        },
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 90.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 1.0,
+            "ratio": 3.5, "atk": 10.0, "rel": 80.0, "sat": 0.4, "width": 1.3
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 90.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 1.0,
+            "ratio": 3.5, "atk": 10.0, "rel": 80.0, "sat": 0.4, "width": 1.3
+        },
+        "intro_plate": 1.0, "intro_delay": 1.2, "outro_plate": 1.0, "outro_delay": 1.2,
+    },
+    "gospel": {
+        "target_lufs": -14.0, "glue_ratio": 1.4, "glue_gr_db": 0.5, "width": 1.12, "plate_db": -13.0, "slap_db": -24.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 70.0, "mud": 3.5, "box": 2.0, "pres": 1.5, "harsh": 2.0, "air": 4.5,
+            "ratio": 2.0, "atk": 20.0, "rel": 150.0, "sat": 0.1, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -6.0, "hpf": 120.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.0, "air": 2.5,
+            "ratio": 2.0, "atk": 20.0, "rel": 120.0, "sat": 0.1, "width": 1.3
+        },
+        "role_treat_backing": {
+            "gain": -5.0, "hpf": 130.0, "mud": 2.5, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 1.5,
+            "ratio": 2.0, "atk": 25.0, "rel": 150.0, "sat": 0.1, "width": 1.5
+        },
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 2.0, "atk": 20.0, "rel": 120.0, "sat": 0.1, "width": 1.5
+        },
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 80.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 1.5, "atk": 30.0, "rel": 200.0, "sat": 0.1, "width": 1.5
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 80.0, "mud": 2.0, "box": 1.0, "pres": 1.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 1.5, "atk": 30.0, "rel": 200.0, "sat": 0.1, "width": 1.5
+        },
+        "intro_plate": 2.5, "intro_delay": 1.5, "outro_plate": 2.5, "outro_delay": 1.5,
+    },
+    "pop": {
+        "target_lufs": -11.0, "glue_ratio": 1.6, "glue_gr_db": 1.0, "width": 1.10, "plate_db": -19.0, "slap_db": -22.0,
+        "role_treat_lead": {
+            "gain": 0.0, "hpf": 85.0, "mud": 3.0, "box": 1.5, "pres": 2.5, "harsh": 2.0, "air": 5.0,
+            "ratio": 3.5, "atk": 10.0, "rel": 100.0, "sat": 0.2, "width": 1.0
+        },
+        "role_treat_adlib": {
+            "gain": -6.0, "hpf": 130.0, "mud": 2.0, "box": 1.5, "pres": 2.5, "harsh": 2.0, "air": 2.5,
+            "ratio": 3.0, "atk": 10.0, "rel": 80.0, "sat": 0.3, "width": 1.4
+        },
+        "role_treat_backing": {
+            "gain": -7.0, "hpf": 140.0, "mud": 3.0, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 1.5,
+            "ratio": 3.0, "atk": 15.0, "rel": 100.0, "sat": 0.2, "width": 1.3
+        },
+        "role_treat_response": {
+            "gain": -2.0, "hpf": 105.0, "mud": 2.0, "box": 1.0, "pres": 2.5, "harsh": 2.0, "air": 2.0,
+            "ratio": 3.0, "atk": 10.0, "rel": 80.0, "sat": 0.3, "width": 1.5
+        },
+        "role_treat_intro": {
+            "gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 2.5, "atk": 15.0, "rel": 100.0, "sat": 0.2, "width": 1.4
+        },
+        "role_treat_outro": {
+            "gain": -1.5, "hpf": 95.0, "mud": 2.0, "box": 1.0, "pres": 2.0, "harsh": 2.0, "air": 3.0,
+            "ratio": 2.5, "atk": 15.0, "rel": 100.0, "sat": 0.2, "width": 1.4
+        },
+        "intro_plate": 1.8, "intro_delay": 1.5, "outro_plate": 1.8, "outro_delay": 1.5,
     },
 }
+
 ROLE_DELTAS = {
     "afrobeats": {
         "lead": {"air": 0.0, "sat": 0.15},
