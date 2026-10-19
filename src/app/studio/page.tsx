@@ -120,7 +120,7 @@ type StudioTab = "mix";
 type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
 type MixMode = "split" | "mix";
 type SplitResult = { name: string; stems: { type: string; url: string }[] };
-type StemRole = "lead" | "backup" | "adlib" | "beat";
+type StemRole = "lead" | "backing" | "backup" | "adlib" | "response" | "intro" | "outro" | "beat";
 // Browser playback only. Stems/ masters live in R2 behind a presigned
 // url that dies after 7 days; the cards route through /api/file, which
 // re-signs on every load. DO NOT use this for the urls handed to the
@@ -452,8 +452,11 @@ function StudioInner() {
                             className="mt-1 text-xs border border-slate-200 rounded-lg px-2 py-1 w-full bg-white"
                           >
                             <option value="lead">Lead vocal</option>
-                            <option value="backup">Backing vocal</option>
+                            <option value="backing">Backing vocal</option>
                             <option value="adlib">Ad-lib</option>
+                            <option value="response">Punch-In (Response)</option>
+                            <option value="intro">Intro</option>
+                            <option value="outro">Outro</option>
                             <option value="beat">Beat / instrumental</option>
                           </select>
                           <audio controls src={playSrc(f.url)} className="w-full mt-1" preload="none" />
