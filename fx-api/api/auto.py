@@ -136,7 +136,28 @@ PRESETS = {
     },
     "rap": {
         "target_lufs": -11.0, "glue_ratio": 1.8, "glue_gr_db": 1.2,
-        "width": 1.06, "plate_db": -18.0, "slap_db": -22.0, "soft_clip": True,
+        "width": 1.06, "plate_db": -22.0, "slap_db": -24.0, 
+        "soft_clip": True,
+        "max_air": 1.5, "max_deess": 2.5, "max_mud_cut": 4.0, "max_box_cut": 3.5, "max_presence": 2.5, "max_harsh_cut": 4.0,
+        "hpf_min": 70.0, "hpf_max": 105.0, "deess_offset_db": 3.0, "deess_atk": 3.0, "deess_rel": 30.0,
+        "duck_cap": {BODY: 1.5, PRES: 3.5, HARSH: 3.0}, "duck_target": {BODY: 1.2, PRES: 3.0, HARSH: 2.0}, "low_mono_hz": 100.0,
+        "role_treat_lead": {
+            "gain": 0.0, "mud": 3.5, "box": 3.0, "pres": 2.0, "harsh": 2.5, "air": 1.5, 
+            "ratio": 4.0, "atk": 5.0, "rel": 50.0, "sat": 0.45, "width": 1.0,
+            "comp_peak": True, "comp_multiband": True
+        },
+        "role_treat_adlib": {
+            "gain": -5.0, "hpf": 140.0, "mud": 2.0, "box": 1.5, "pres": 3.0, "harsh": 2.5, "air": 1.0, 
+            "ratio": 3.0, "atk": 10.0, "rel": 80.0, "sat": 0.6, "width": 1.4
+        },
+        "role_treat_backing": {
+            "gain": -4.0, "hpf": 130.0, "mud": 3.0, "box": 2.0, "pres": 1.0, "harsh": 2.0, "air": 0.5, 
+            "ratio": 3.0, "atk": 15.0, "rel": 100.0, "sat": 0.4, "width": 1.3
+        },
+        "role_treat_response": {
+            "gain": -3.0, "hpf": 130.0, "mud": 2.0, "box": 1.5, "pres": 4.0, "harsh": 2.5, "air": 0.5, 
+            "ratio": 3.0, "atk": 10.0, "rel": 60.0, "sat": 0.5, "width": 1.5
+        },
     },
 }
 ROLE_DELTAS = {
@@ -223,6 +244,9 @@ def _treat_for(role):
     elif role == "adlib":
         for _k, _v in (_PRESET.get("role_treat_adlib") or {}).items():
             t[_k] = _v
+    elif role in ("response", "intro", "outro"):
+        for _k, _v in (_PRESET.get(f"role_treat_{role}") or {}).items():
+            t[_k] = _v
     d = _PRESET.get("_deltas", {}).get(role)
     if d:
         for _k, _v in d.items():
@@ -233,7 +257,7 @@ def _treat_for(role):
 
 # Lead vocal shift earlier in ms (aligns vocal to beat).
 
-ROLE_VOCALS = ("lead", "adlib", "backing")
+ROLE_VOCALS = ("lead", "adlib", "backing", "response", "intro", "outro")
 CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
 RAISE_CAP = 1.0
@@ -270,12 +294,12 @@ def role_of(role):
 
 def bucket(role):
     r = role_of(role)
-    return r if r in ("beat", "lead", "adlib", "backing") else "other"
+    return r if r in ("beat", "lead", "adlib", "backing", "response", "intro", "outro") else "other"
 
 
 def kind_of(role):
     r = role_of(role)
-    return "vocal" if r in ("lead", "adlib", "backing") else r
+    return "vocal" if r in ("lead", "adlib", "backing", "response", "intro", "outro") else r
 
 
 def _opt(chain, cls, **kw):
@@ -1184,6 +1208,10 @@ def _role_buses(pre, sr, bpm, raised):
         if raised:
             y = (y * (10.0 ** (raised / 20.0))).astype(np.float32)
         cfg = ROLE_BUS.get(r) or {"glue": None, "plate": 1.0, "delay": 1.0}
+        if r == "response":
+            cfg = {"glue": None, "plate": 0.0, "delay": 0.0}  # NO reverb/delay for punch-ins
+        elif r in ("intro", "outro"):
+            cfg = {"glue": None, "plate": 1.5, "delay": 1.5}  # Heavy reverb/delay for intro/outro
         if cfg.get("glue"):
             _thr, _rat = cfg["glue"]
             y = _glue(y, sr, thr=_thr, ratio=_rat)
@@ -1488,6 +1516,42 @@ def _role_chain(voc, sr, st, role):
             moves.append(["fet-model", _fet_info.get("model", "")])
         except Exception as _fe:
             moves.append(["fet-error", str(_fe)[:80]])
+
+    # --- INDUSTRY SPEC: Auto-Leveler / AGC ---
+    try:
+        _pre_rms = _rms_db(out)
+        if _pre_rms < -24.0:
+            _agc_gain = min(6.0, -18.0 - _pre_rms)
+            out = (out * (10.0 ** (_agc_gain / 20.0))).astype(np.float32)
+            moves.append(["agc-leveler", round(_agc_gain, 1)])
+    except Exception: pass
+
+    # --- INDUSTRY SPEC: Multi-band Compressor (Proximity & Harshness) ---
+    if t.get("comp_multiband", False):
+        try:
+            import scipy.signal as sg
+            _lp = sg.sosfilt(sg.butter(2, [80, 250], btype="band", fs=sr, output="sos"), out, axis=-1)
+            _hp = out - _lp
+            from pedalboard import Pedalboard, Compressor
+            _lp_c = Pedalboard([Compressor(threshold_db=-20.0, ratio=2.0, attack_ms=15.0, release_ms=80.0)])(_lp, sr).astype(np.float32)
+            
+            _mid = sg.sosfilt(sg.butter(2, [2500, 5000], btype="band", fs=sr, output="sos"), _hp, axis=-1)
+            _rest = _hp - _mid
+            _mid_c = Pedalboard([Compressor(threshold_db=-22.0, ratio=2.5, attack_ms=10.0, release_ms=100.0)])(_mid, sr).astype(np.float32)
+            
+            out = (_lp_c + _mid_c + _rest).astype(np.float32)
+            moves.append(["comp-multiband", "80-250Hz & 2.5-5kHz"])
+        except Exception as _mbe:
+            moves.append(["comp-mb-error", str(_mbe)[:80]])
+
+    # --- JS SPEC: VCA Peak Catcher ---
+    if t.get("comp_peak", False):
+        try:
+            from pedalboard import Pedalboard, Compressor
+            out = Pedalboard([Compressor(threshold_db=-18.0, ratio=4.0, attack_ms=5.0, release_ms=50.0)])(out, sr).astype(np.float32)
+            moves.append(["comp-peak", "4:1 @ -18 (fast)"])
+        except Exception as _ce:
+            moves.append(["comp-peak-error", str(_ce)[:80]])
 
     # LA-2A style opto compression — program-dependent, two-stage release.
     # Runs on the chain output so EQ/de-ess shape the signal before
