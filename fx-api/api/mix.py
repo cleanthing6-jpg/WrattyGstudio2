@@ -389,7 +389,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 _m = (_f >= 5500.0) & (_f < 16000.0)
                 _F[_m] *= _SIDE_TRIM
                 _m2 = (_f >= 2500.0) & (_f < 5500.0)
-                _F[_m2] *= 0.70
+                _F[_m2] *= 1.0
                 _side = np.fft.irfft(_F, _n).astype(np.float32)
                 report["top_side_trim_db"] = round(20.0 * np.log10(_SIDE_TRIM), 2)
                 report["top_side_band_hz"] = [5500.0, 16000.0]
