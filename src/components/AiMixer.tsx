@@ -24,13 +24,14 @@ type Stem = { url: string; name: string; role: string };
 
 const STYLES = [
   { value: "afrobeats", label: "Afrobeats — recommended" },
+  { value: "afrobeats_street", label: "Afrobeats Street (Lamba)" },
   { value: "rap", label: "Hip-Hop / Rap" },
-  { value: "rnb", label: "Reggae / Dancehall" },
+  { value: "rnb", label: "R&B" },
+  { value: "dancehall", label: "Reggae / Dancehall" },
   { value: "pop", label: "Pop" },
   { value: "amapiano", label: "Electronic / Amapiano" },
-  { value: "neutral", label: "Acoustic" },
-  { value: "neutral", label: "Rock / Indie" },
-  { value: "neutral", label: "Other" },
+  { value: "gospel", label: "Gospel" },
+  { value: "other", label: "Other / Acoustic / Rock" },
 ];
 
 const RATE = 44100;

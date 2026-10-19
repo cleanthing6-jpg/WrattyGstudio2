@@ -135,7 +135,7 @@ export default function MasterPage() {
               <label className="block text-sm text-slate-500 mb-2">Genre (Master Target)</label>
               <select value={preset} onChange={(e) => setPreset(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
-                {PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PRESETS.map((p) => <option key={p} value={p}>{p === "afrobeats_street" ? "Afrobeats Street (Lamba)" : p}</option>)}
               </select>
             </div>
           </div>
