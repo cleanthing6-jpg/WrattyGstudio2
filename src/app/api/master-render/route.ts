@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
 
   const want = String(body?.loudness || "").toUpperCase();
   const loudness = LOUDNESS.includes(want) ? want : "HIGH";
+  const preset = String(body?.preset || "afrobeats").toLowerCase();
   // OWNERSHIP IS DECIDED HERE - never in the browser. The client's isOwner
   // state comes from a /api/me fetch; when that failed or was stale the owner
   // was silently downgraded to a 30s preview. Ignoring the client flag also
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       stems: [{ url, role: "mix" }],
       loudness,
+      preset: preset,
       preview: preview,
       artist: String(body?.artist || ""),
       title: String(body?.title || ""),
