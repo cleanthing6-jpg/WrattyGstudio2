@@ -1556,6 +1556,7 @@ def _adaptive_hpf(voc, sr, fallback_hz):
 
 
 def _role_chain(voc, sr, st, role):
+    from pedalboard import Pedalboard  # MUST be before first use (fixes UnboundLocalError)
     t = _treat_for(role)
     _tone_plan = None
     if role == "lead":
