@@ -1398,7 +1398,10 @@ def _role_buses(pre, sr, bpm, raised, beat=None):
                 _bus, _vs_rep = vocal_space.build(y, sr, bpm=bpm, genre=_PRESET.get("_name", "afrobeats"), role=r, beat=beat, space=_pl)
                 y = y + _bus  # Additive bus: dry vocal + wet space
                 _ms, _kind = 0, "vocal_space"
+                _PRESET["_vocal_space_used"] = True
             except Exception as _vs_err:
+                import traceback
+                _PRESET["_vocal_space_error"] = traceback.format_exc()[-300:]
                 # Fallback to old _ambience if vocal_space crashes
                 y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
                                       plate_scale=_pl, delay_scale=_dl,
