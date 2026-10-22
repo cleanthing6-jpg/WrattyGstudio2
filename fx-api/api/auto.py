@@ -2240,7 +2240,17 @@ def mix(groups, sr, loud="MEDIUM"):
         rep["double"] = False
         rep["double_error"] = "side_ids empty"
 
-    ducked = _band_carve(beat, _dry_voc, sr)
+    # ── CLAUDE'S VOCAL POLISH (rider + gap cleaner + 4-band adaptive carve) ──
+    try:
+        import vocal_polish
+        core, beat, rep["vocal_polish"] = vocal_polish.polish(
+            core, beat, sr, genre=_PRESET.get("_name", "afrobeats")
+        )
+        ducked = beat  # The beat is now already carved
+    except Exception as _pol_err:
+        rep["vocal_polish_error"] = str(_pol_err)[:120]
+        ducked = _band_carve(beat, _dry_voc, sr)  # Fallback to old carve
+    # ──────────────────────────────────────────────────────────────────────
     plan, vpres, post = {}, None, None
     tries = 1
 
