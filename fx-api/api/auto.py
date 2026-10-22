@@ -1359,7 +1359,7 @@ def _role_space(voc, sr, scale):
         return voc
 
 
-def _role_buses(pre, sr, bpm, raised):
+def _role_buses(pre, sr, bpm, raised, beat=None):
     """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
     No cross-role compression: the lead is never glued to backing or adlib.
     Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
@@ -1392,7 +1392,15 @@ def _role_buses(pre, sr, bpm, raised):
         _pfd = bool(cfg.get("plate_from_delay", False))
         if _pl or _dl or _pfd:
             _nt = float(cfg.get("note", 0.75))
-            y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
+            # TRY NEW vocal_space PATCH
+            try:
+                import vocal_space
+                _bus, _vs_rep = vocal_space.build(y, sr, bpm=bpm, genre=_PRESET.get("_name", "afrobeats"), role=r, beat=beat, space=_pl)
+                y = y + _bus  # Additive bus: dry vocal + wet space
+                _ms, _kind = 0, "vocal_space"
+            except Exception as _vs_err:
+                # Fallback to old _ambience if vocal_space crashes
+                y, _ms, _kind = _ambience(y, sr, bpm, scale=_pl,
                                       plate_scale=_pl, delay_scale=_dl,
                                       plate_from_delay=_pfd, headroom=False,
                                       note_mult=_nt, role=r)
@@ -2169,7 +2177,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["level_passes"] = level_passes
 
     _dry_voc = core.copy()
-    core, _info = _role_buses(_pre, sr, bpm, raised)
+    core, _info = _role_buses(_pre, sr, bpm, raised, beat=beat)
 
     # Parallel compression on the summed vocal bus (two-track path)
     if _NEW.get("parallel_ny", False):
