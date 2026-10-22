@@ -2270,6 +2270,10 @@ def mix(groups, sr, loud="MEDIUM"):
     mixed = _widen(mixed, sr, _w)   # AUDIO PATH UNCHANGED
     mixed = _headroom(mixed)
     rep["check"] = verify(mixed, sr, core, ducked)
+    if "_vocal_space_used" in _PRESET:
+        rep["vocal_space_used"] = True
+    if "vocal_space_rep" in _PRESET:
+        rep["vocal_space_rep"] = _PRESET["vocal_space_rep"]
     return mixed, rep
 
 
