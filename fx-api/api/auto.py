@@ -1790,7 +1790,16 @@ def _role_chain(voc, sr, st, role):
         except Exception:
             pass
         
-    out = _saturate(out, sr, drive)
+    # INDUSTRY-GRADE VOCAL SATURATOR (Claude's patch)
+    try:
+        import vocal_sat
+        _sat_out, _sat_rep = vocal_sat.process(out, sr, role=role, amount=drive)
+        out = _sat_out
+        moves.append(["saturate", _sat_rep.get("drive_db", 0.0)])
+        moves.append(["saturate-mix", _sat_rep.get("mix", 0.0)])
+    except Exception as _se:
+        moves.append(["saturate-error", str(_se)[:80]])
+        out = _saturate(out, sr, drive)  # Fallback to old if it crashes
     moves.append(["saturate", round(drive, 2)])
 
     try:
