@@ -2191,8 +2191,9 @@ def mix(groups, sr, loud="MEDIUM"):
         except Exception as _pe:
             _PAR_LAST["error"] = str(_pe)[:200]
     try:
-        beat = _kick_punch(beat, sr)
-        rep["kick_punch_db"] = KICK_PUNCH_DB
+        import beat_punch
+        beat, _kp_rep = beat_punch.process(beat, sr, preset=_PRESET.get("_name", "afrobeats"))
+        rep["kick_punch"] = _kp_rep
     except Exception as _e:
         rep["kick_punch_error"] = str(_e)[:120]
     ms, pk = _info if _info else (0, "none")
