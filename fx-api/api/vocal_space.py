@@ -1,31 +1,5 @@
-
 """
 vocal_space.py  -  adaptive "pro touch" space for vocals: reverb + delay + early reflections + tiny room (+ optional beat room)
-
-WHAT IT DOES (and why it sounds dry, clear and close)
-  * Returns an ADDITIVE wet bus. The dry vocal and the beat are never modified:   mix = beat + vocal + bus
-  * Sends are cleaned first: high-passed (no boom / plosives into the reverb) and de-essed (no sibilance smeared into the tail).
-  * Pre-delay locked to the song tempo keeps the dry consonant in front of the reverb onset.
-  * The wet bus is DUCKED by the dry vocal (sidechain): the space is quiet while words are sung and blooms in the gaps.
-    That is the "dry, clear, no smearing, afloat in the mix" sound. Distance is controlled by the direct-to-reverb ratio,
-    so the vocal stays close to the ear.
-  * Delay is tempo-synced, filtered darker on every repeat, ping-pong wide, ducked, and by default only "thrown" off the
-    ends of phrases, so repeats never land on top of the next word.
-  * Early reflections (5 taps per side, 7-35 ms) + a 0.22 s room give the "in the room with the music" feel.
-  * Optional beat room: a very quiet short room fed by the beat's top end puts vocal and beat in the same space.
-    It is added on its own bus; the beat itself is untouched (report shows the measured change).
-
-ADAPTIVE (per song, per user - nothing fixed):
-  vocal density, phrase gaps, brightness, sibilance, tempo and genre set: reverb decay, pre-delay, send filters, wet level,
-  duck depth/release, delay note value, feedback, throw-vs-full mode, de-ess amount.
-
-USAGE
-    bus, rep = vocal_space.build(lead_dry, sr, bpm=99.4, genre="afrobeats", role="lead", beat=beat_stereo, space=0.5)
-    mix = beat + lead_dry + bus
-    # backing vocals: duck their space from the LEAD so it never competes with it
-    bus_b, rep_b = vocal_space.build(backing_dry, sr, bpm=99.4, role="backing", duck_from=lead_dry)
-
-  space: 0..1 user slider (0.5 = neutral, +-4 dB of wet level). Genre values are engineering starting points, not measured.
 """
 import time
 import numpy as np
@@ -35,36 +9,30 @@ from scipy.ndimage import uniform_filter1d
 __all__ = ["build", "GENRE_SPACE"]
 
 GENRE_SPACE = {
-    "afrobeats": dict(rt60=0.95, wet=-19.0, dly=-20.0, duck=8.0, early=-24.0, room=-27.0, fb=0.30, style="note"),
-    "amapiano":  dict(rt60=1.20, wet=-18.0, dly=-21.0, duck=8.0, early=-24.0, room=-26.0, fb=0.32, style="note"),
-    "hiphop":    dict(rt60=0.70, wet=-21.0, dly=-19.0, duck=10.0, early=-24.0, room=-28.0, fb=0.18, style="slap"),
-    "rnb":       dict(rt60=1.30, wet=-17.0, dly=-20.0, duck=8.0, early=-23.0, room=-26.0, fb=0.34, style="note"),
-    "pop":       dict(rt60=1.00, wet=-19.0, dly=-20.0, duck=8.0, early=-24.0, room=-27.0, fb=0.28, style="note"),
-    "dancehall": dict(rt60=0.85, wet=-20.0, dly=-17.0, duck=9.0, early=-25.0, room=-28.0, fb=0.36, style="note"),
-    "gospel":    dict(rt60=1.50, wet=-17.0, dly=-23.0, duck=7.0, early=-23.0, room=-25.0, fb=0.26, style="note"),
-    "other":     dict(rt60=0.95, wet=-19.5, dly=-20.5, duck=8.0, early=-24.0, room=-27.0, fb=0.28, style="note"),
+    "afrobeats": dict(rt60=0.95, wet=-8.0, dly=-17.0, duck=8.0, early=-24.0, room=-27.0, fb=0.30, style="note"),
+    "amapiano":  dict(rt60=1.20, wet=-7.0, dly=-18.0, duck=8.0, early=-24.0, room=-26.0, fb=0.32, style="note"),
+    "hiphop":    dict(rt60=0.70, wet=-11.0, dly=-16.0, duck=10.0, early=-24.0, room=-28.0, fb=0.18, style="slap"),
+    "rnb":       dict(rt60=1.30, wet=-6.0, dly=-17.0, duck=8.0, early=-23.0, room=-26.0, fb=0.34, style="note"),
+    "pop":       dict(rt60=1.00, wet=-8.5, dly=-17.0, duck=8.0, early=-24.0, room=-27.0, fb=0.28, style="note"),
+    "dancehall": dict(rt60=0.85, wet=-9.0, dly=-14.0, duck=9.0, early=-25.0, room=-28.0, fb=0.36, style="note"),
+    "gospel":    dict(rt60=1.50, wet=-6.0, dly=-20.0, duck=7.0, early=-23.0, room=-25.0, fb=0.26, style="note"),
+    "other":     dict(rt60=0.95, wet=-8.5, dly=-17.5, duck=8.0, early=-24.0, room=-27.0, fb=0.28, style="note"),
 }
-_ALIAS = {"afro": "afrobeats", "afrobeat": "afrobeats", "afropop": "afrobeats", "rap": "hiphop", "trap": "hiphop",
-          "drill": "hiphop", "rb": "rnb", "randb": "rnb", "piano": "amapiano"}
-
+_ALIAS = {"afro": "afrobeats", "afrobeat": "afrobeats", "afropop": "afrobeats", "rap": "hiphop", "trap": "hiphop", "drill": "hiphop", "rb": "rnb", "randb": "rnb", "piano": "amapiano"}
 
 def _genre(g):
     k = "".join(c for c in str(g or "other").lower() if c.isalnum())
     k = _ALIAS.get(k, k)
     return k if k in GENRE_SPACE else "other"
 
-
 def _bp(lo, hi, sr, order=2):
     return sg.butter(order, [lo, min(hi, sr / 2 * 0.95)], btype="band", fs=sr, output="sos")
-
 
 def _rms(x):
     return float(np.sqrt(np.mean(np.square(x, dtype=np.float64))) + 1e-12)
 
-
 def _db(v):
     return 20.0 * np.log10(max(float(v), 1e-12))
-
 
 def _analyse(m, sr):
     hop = int(0.010 * sr)
@@ -91,16 +59,13 @@ def _analyse(m, sr):
     mid = _rms(sg.sosfilt(_bp(1000, 4000, sr), m)[: n * hop].reshape(n, hop)[act])
     top = _rms(sg.sosfilt(_bp(4000, 10000, sr), m)[: n * hop].reshape(n, hop)[act])
     body = _rms(sg.sosfilt(_bp(300, 4000, sr), m)[: n * hop].reshape(n, hop)[act])
-    return {"active_ratio": float(act.mean()), "phrases": phr, "median_gap_s": float(np.median(gaps)) if gaps else 0.8,
-            "sib_db": _db(sib / mid), "bright_db": _db(top / body), "thr_db": float(thr)}
-
+    return {"active_ratio": float(act.mean()), "phrases": phr, "median_gap_s": float(np.median(gaps)) if gaps else 0.8, "sib_db": _db(sib / mid), "bright_db": _db(top / body), "thr_db": float(thr)}
 
 def _activity(m, sr, thr_db, hop_s=0.002):
     hop = max(1, int(hop_s * sr))
     p = uniform_filter1d(m.astype(np.float64) ** 2, size=int(0.008 * sr), mode="nearest")[::hop]
     lvl = 10 * np.log10(p + 1e-12)
     return np.clip((lvl - (thr_db - 3.0)) / 6.0, 0.0, 1.0), hop
-
 
 def _smooth(x, hop_s, atk_s, rel_s):
     ka, kr = np.exp(-hop_s / atk_s), np.exp(-hop_s / rel_s)
@@ -112,12 +77,10 @@ def _smooth(x, hop_s, atk_s, rel_s):
         y[i] = s
     return y
 
-
 def _duck_curve(act, hop, n, hop_s, duck_db, atk_ms, rel_ms):
     a = _smooth(act, hop_s, atk_ms / 1000.0, rel_ms / 1000.0)
     g = 10 ** (-duck_db * a / 20.0)
     return np.interp(np.arange(n), (np.arange(len(g)) + 0.5) * hop, g).astype(np.float32)
-
 
 def _clean_send(m, sr, hpf, deess_db):
     x = sg.sosfilt(sg.butter(2, hpf, "high", fs=sr, output="sos"), m)
@@ -127,7 +90,6 @@ def _clean_send(m, sr, hpf, deess_db):
     g = np.clip((1.5 * ref) / (env + 1e-12), 10 ** (-deess_db / 20.0), 1.0)
     g = uniform_filter1d(g, size=max(1, int(0.002 * sr)), mode="nearest")
     return x - (1.0 - g) * sb
-
 
 def _plate_ir(sr, rt60, pre_ms, hpf, lpf, seed):
     n = int(sr * (rt60 * 1.1 + pre_ms / 1000.0))
@@ -146,10 +108,8 @@ def _plate_ir(sr, rt60, pre_ms, hpf, lpf, seed):
     ir = sg.sosfilt(sg.butter(2, lpf, "low", fs=sr, output="sos"), ir, axis=-1)
     return ir / (np.sqrt((ir ** 2).sum(axis=1, keepdims=True)) + 1e-12)
 
-
 def _early_ir(sr):
-    taps = {0: [(7.0, .9), (11.5, -.7), (17.0, .6), (23.5, -.45), (31.0, .35)],
-            1: [(9.0, .85), (14.0, -.65), (20.5, .55), (27.0, -.4), (35.0, .3)]}
+    taps = {0: [(7.0, .9), (11.5, -.7), (17.0, .6), (23.5, -.45), (31.0, .35)], 1: [(9.0, .85), (14.0, -.65), (20.5, .55), (27.0, -.4), (35.0, .3)]}
     ir = np.zeros((2, int(0.045 * sr)))
     for ch, ts in taps.items():
         for ms, a in ts:
@@ -158,10 +118,8 @@ def _early_ir(sr):
     ir = sg.sosfilt(sg.butter(2, 7000, "low", fs=sr, output="sos"), ir, axis=-1)
     return ir / (np.sqrt((ir ** 2).sum(axis=1, keepdims=True)) + 1e-12)
 
-
 def _conv(send, ir):
     return sg.oaconvolve(send.astype(np.float32)[None, :], ir.astype(np.float32), axes=-1)[:, : len(send)]
-
 
 def _delay(send, sr, d_s, fb, hpf, lpf, width):
     n, d = len(send), int(d_s * sr)
@@ -179,7 +137,6 @@ def _delay(send, sr, d_s, fb, hpf, lpf, width):
         k += 1
     return out
 
-
 def _throw_gate(phr, n, sr, tail_s):
     g = np.zeros(n, np.float32)
     for i, (s, e) in enumerate(phr):
@@ -189,9 +146,87 @@ def _throw_gate(phr, n, sr, tail_s):
             g[a:b] = 1.0
     return uniform_filter1d(g, size=max(1, int(0.015 * sr)), mode="nearest")
 
+def _syl_env(m, sr):
+    hop = int(0.004 * sr)
+    x = sg.sosfiltfilt(_bp(250, 3000, sr), m)
+    p = uniform_filter1d(x ** 2, size=int(0.015 * sr), mode="nearest")[::hop]
+    e = 10 * np.log10(p + 1e-12)
+    return uniform_filter1d(e, size=5, mode="nearest"), hop / sr
 
-def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=0.5, duck_from=None,
-          delay=True, glue_db=-30.0, seed=7):
+def _fragments(m, sr, phrases, n_syl=None, words=None, min_len=0.25, max_len=1.1):
+    force = n_syl is not None
+    if force:
+        min_len = 0.12
+    n_pref = 2 if n_syl is None else int(n_syl)
+    env, hs = _syl_env(m, sr)
+    pk, _ = sg.find_peaks(env, prominence=5.0, distance=max(1, int(0.11 / hs)))
+    out = []
+    for i, (s0, e0) in enumerate(phrases):
+        nxt = phrases[i + 1][0] if i + 1 < len(phrases) else None
+        if nxt is not None and nxt - e0 < 0.30:
+            continue
+        start, how = None, "syllables"
+        if words:
+            ws = [w for w in words if s0 - 0.05 <= w[0] < e0]
+            if ws:
+                start, how = max(ws[-1][0], e0 - max_len), "word timestamps"
+        if start is None:
+            p = pk[(pk * hs >= s0) & (pk * hs <= e0)]
+            best = None
+            for k in range(1, min(4, len(p)) + 1):
+                if force and k != n_pref:
+                    continue
+                if k < len(p):
+                    a, b = p[-k - 1], p[-k]
+                    v = a + int(np.argmin(env[a:b + 1]))
+                    rise = np.flatnonzero(env[v:b + 1] >= env[v] + 6.0)
+                    cut = max(v * hs, (v + (int(rise[0]) if len(rise) else 0)) * hs - 0.02)
+                    depth = min(env[a], env[b]) - env[v]
+                else:
+                    cut, depth = s0, 0.0
+                if not (min_len <= e0 - cut <= max_len):
+                    continue
+                score = depth - 1.5 * abs(k - n_pref)
+                if best is None or score > best[0]:
+                    best = (score, cut, k)
+            start, how = (best[1], f"last {best[2]} syllables") if best else (max(s0, e0 - 0.5), "fallback 0.5 s")
+        out.append({"start": float(start), "end": float(e0), "next": nxt, "how": how})
+    return out
+
+def _fragment_echoes(send, sr, frags, grid_s, repeats, decay_db, lpf0, width):
+    n = len(send)
+    out = np.zeros((2, n), np.float32)
+    sched = []
+    for f in frags:
+        a, b = int(f["start"] * sr), min(n, int((f["end"] + 0.03) * sr))
+        seg = send[a:b].copy()
+        if len(seg) < int(0.05 * sr):
+            continue
+        fi, fo = min(int(0.006 * sr), len(seg) // 4), min(int(0.025 * sr), len(seg) // 3)
+        seg[:fi] *= np.linspace(0.0, 1.0, fi)
+        seg[-fo:] *= np.linspace(1.0, 0.0, fo)
+        L = len(seg) / sr
+        step = max(1, int(np.ceil((L + 0.03) / grid_s))) * grid_s
+        for k in range(1, repeats + 1):
+            st = f["start"] + k * step
+            if f["next"] is not None and st >= f["next"] - 0.02:
+                break
+            e = sg.sosfilt(sg.butter(1, max(2200.0, lpf0 - (k - 1) * 900.0), "low", fs=sr, output="sos"), seg) * 10 ** (-decay_db * (k - 1) / 20.0)
+            if f["next"] is not None and st + len(e) / sr > f["next"] - 0.02:
+                e = e[: max(0, int((f["next"] - 0.02 - st) * sr))]
+                if len(e) > 64:
+                    e[-int(0.015 * sr):] *= np.linspace(1.0, 0.0, min(len(e), int(0.015 * sr)))
+            i0 = int(st * sr)
+            i1 = min(n, i0 + len(e))
+            if i1 <= i0:
+                continue
+            side = (k - 1) % 2
+            out[side, i0:i1] += e[: i1 - i0].astype(np.float32)
+            out[1 - side, i0:i1] += (e[: i1 - i0] * (1.0 - width)).astype(np.float32)
+            sched.append((round(f["start"], 2), k, round(st, 2)))
+    return out, sched
+
+def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=0.5, duck_from=None, delay=True, glue_db=-30.0, seed=7, return_parts=False, delay_mode=None, tail_syllables=None, words=None, echo_repeats=3):
     t0 = time.time()
     v = np.asarray(vocal, dtype=np.float64)
     m = v if v.ndim == 1 else v.mean(axis=0)
@@ -215,7 +250,7 @@ def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=
     wet_db = gcfg["wet"] + 2.0 * (1.0 - dens) - 2.5 * dens + user + (3.0 if not lead else 0.0)
     duck_db = gcfg["duck"] + 4.0 * dens
     rel_ms = float(np.clip(60000.0 / bpm / 4.0, 80.0, 260.0))
-
+    
     key = m if duck_from is None else (np.asarray(duck_from, np.float64).mean(axis=0) if np.ndim(duck_from) == 2 else np.asarray(duck_from, np.float64))
     key = key[:n] if len(key) >= n else np.pad(key, (0, n - len(key)))
     kan = an if duck_from is None else (_analyse(key, sr) or an)
@@ -227,16 +262,18 @@ def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=
     d_rms = _rms(m)
     bus = np.zeros((2, n), np.float32)
     lv, parts = {}, {}
+    lv_avg = {}
 
-    def add(name, wet, rel_db, duck=None):
-        if duck is not None:
-            wet = wet * duck[None, :]
-        r = _rms(wet)
+    def add(name, wet, rel_db, duck=None, ref=None):
+        r = _rms(ref if ref is not None else wet)
         if r < 1e-9:
             return
         wet = wet * (d_rms * 10 ** (rel_db / 20.0) / r)
+        if duck is not None:
+            wet = wet * duck[None, :]
         parts[name] = wet
-        lv[name] = round(_db(_rms(wet) / d_rms), 1)
+        lv[name] = float(round(rel_db, 1))
+        lv_avg[name] = float(round(_db(_rms(wet) / d_rms), 1))
 
     add("plate", _conv(send, _plate_ir(sr, rt60, pre_ms, hpf, lpf, seed)), wet_db, duck_r)
     add("early", _conv(send, _early_ir(sr)), gcfg["early"] + user * 0.5)
@@ -252,11 +289,23 @@ def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=
             pick = next(((f, nm) for f, nm in opts if 0.18 <= beat_s * f <= min(0.75, lim)), (0.5, "1/8"))
             d_s, note = float(np.clip(beat_s * pick[0], 0.18, 0.75)), pick[1]
         fb = float(np.clip(gcfg["fb"] + 0.10 * (1.0 - dens), 0.12, 0.45))
-        mode = "throw" if dens > 0.35 else "full"
-        dsend = send * (_throw_gate(an["phrases"], n, sr, float(np.clip(beat_s * 0.75, 0.25, 0.5))) if mode == "throw" else 1.0)
+        mode = delay_mode or ("throw" if gcfg["style"] == "slap" and dens > 0.35 else "full" if gcfg["style"] == "slap" else "fragment")
         d_duck = _duck_curve(act, hop, n, hop_s, 6.0 + 3.0 * dens, 4.0, rel_ms)
-        add("delay", _delay(dsend, sr, d_s, fb, 420.0, 4800.0, 0.8), gcfg["dly"] + user + (2.0 if mode == "throw" else 0.0), d_duck)
-        dly_info = {"ms": round(d_s * 1000, 1), "note": note, "feedback": round(fb, 2), "mode": mode}
+        
+        if mode == "fragment":
+            frags = _fragments(m, sr, an["phrases"], tail_syllables, words, max_len=float(min(1.1, beat_s * 2.0)))
+            grid = float(np.clip(beat_s * 0.5, 0.18, 0.5))
+            reps = int(echo_repeats if dens < 0.8 else min(echo_repeats, 2))
+            wet, sched = _fragment_echoes(send, sr, frags, grid, reps, 6.0, 4800.0, 0.8)
+            echo_db = gcfg["dly"] + 6.0 + user
+            wet = wet * (10 ** (echo_db / 20.0)) * d_duck[None, :]
+            parts["delay"] = wet
+            lv["delay"] = float(round(echo_db, 1)); lv_avg["delay"] = float(round(_db(_rms(wet) / d_rms), 1))
+            dly_info = {"mode": "fragment (last word, answered on the 1/8 grid)", "grid_ms": round(grid * 1000, 1), "repeats": reps, "decay_db_per_repeat": 6.0, "fragments": [{"from_s": round(f["start"], 2), "to_s": round(f["end"], 2), "found_by": f["how"]} for f in frags[:6]], "echo_schedule_first": sched[:6]}
+        else:
+            dsend = send * (_throw_gate(an["phrases"], n, sr, float(np.clip(beat_s * 0.75, 0.25, 0.5))) if mode == "throw" else 1.0)
+            add("delay", _delay(dsend, sr, d_s, fb, 420.0, 4800.0, 0.8), gcfg["dly"] + user, d_duck, ref=_delay(send, sr, d_s, fb, 420.0, 4800.0, 0.8))
+            dly_info = {"ms": round(d_s * 1000, 1), "note": note, "feedback": round(fb, 2), "mode": mode}
 
     for p in parts.values():
         bus += p.astype(np.float32)
@@ -273,13 +322,13 @@ def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=
         glue = {"level_db_vs_beat_top": glue_db, "beat_top_change_db": round(_db(_rms(top + w.mean(axis=0)) / _rms(top)), 2)}
 
     act_mask = np.interp(np.arange(n), (np.arange(len(act)) + 0.5) * hop, act) > 0.5
-    plate = parts.get("plate")
     duck_meas = None
-    if plate is not None and act_mask.any() and (~act_mask).any():
-        duck_meas = round(_db(_rms(plate[:, act_mask]) / _rms(plate[:, ~act_mask])), 1)
-    return bus, {
-        "analysis": {k: (round(v, 2) if isinstance(v, float) else v) for k, v in an.items() if k != "phrases"} | {"phrases": len(an["phrases"]), "density": round(dens, 2)},
+    if act_mask.any() and (~act_mask).any():
+        duck_meas = {"while_singing_db": round(-_db(float(duck_r[act_mask].mean())), 1), "in_gaps_db": round(-_db(float(duck_r[~act_mask].mean())), 1)}
+    
+    rep = {
+        "analysis": dict({k: (round(v, 2) if isinstance(v, float) else v) for k, v in an.items() if k != "phrases"}, phrases=len(an["phrases"]), density=round(dens, 2)),
         "genre": _genre(genre), "role": role, "bpm": bpm, "space": space,
-        "plate": {"rt60_s": round(rt60, 2), "predelay_ms": round(pre_ms, 1), "hpf": hpf, "lpf": round(lpf), "deess_db": round(deess, 1),
-                  "duck_db": round(duck_db, 1), "duck_release_ms": round(rel_ms), "duck_ducked_vs_open_db": duck_meas},
-        "delay": dly_info, "beat_glue": glue, "levels_vs_dry_db": lv, "seconds": round(time.time() - t0, 1)}
+        "plate": {"rt60_s": round(rt60, 2), "predelay_ms": round(pre_ms, 1), "hpf": hpf, "lpf": round(lpf), "deess_db": round(deess, 1), "duck_db": round(duck_db, 1), "duck_release_ms": round(rel_ms), "duck_applied": duck_meas},
+        "delay": dly_info, "beat_glue": glue, "open_levels_vs_dry_db": lv, "average_after_duck_db": lv_avg, "seconds": round(time.time() - t0, 1)}
+    return (bus, rep, parts) if return_parts else (bus, rep)
