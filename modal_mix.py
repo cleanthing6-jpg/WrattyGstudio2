@@ -195,3 +195,4 @@ def engine_probe():
 # vocal_space integration
 # capture vocal_space error
 # log claude report
+# restore vocal_sat and beat_punch
