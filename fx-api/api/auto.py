@@ -1399,6 +1399,8 @@ def _role_buses(pre, sr, bpm, raised, beat=None):
                 y = y + _bus  # Additive bus: dry vocal + wet space
                 _ms, _kind = 0, "vocal_space"
                 _PRESET["_vocal_space_used"] = True
+                if "vocal_space_rep" not in _PRESET: _PRESET["vocal_space_rep"] = {}
+                _PRESET["vocal_space_rep"][r] = _vs_rep
             except Exception as _vs_err:
                 import traceback
                 _PRESET["_vocal_space_error"] = traceback.format_exc()[-300:]
