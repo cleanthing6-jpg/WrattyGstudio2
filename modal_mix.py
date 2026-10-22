@@ -197,3 +197,4 @@ def engine_probe():
 # log claude report
 # restore vocal_sat and beat_punch
 # inject vocal space rep into report
+# surgical echo fix
