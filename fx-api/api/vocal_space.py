@@ -368,8 +368,8 @@ def build(vocal, sr, bpm=None, genre="afrobeats", role="lead", beat=None, space=
             grid = float(np.clip(beat_s * 0.5, 0.18, 0.5))                         # 1/8-note grid
             reps = int(echo_repeats if dens < 0.8 else min(echo_repeats, 2))
             wet, sched = _fragment_echoes(send, sr, frags, grid, reps, 6.0, 4800.0, 0.8)
-            echo_db = gcfg["dly"] + 12.0 + user                                      # first echo vs the sung word itself
-            wet = wet * (10 ** (echo_db / 20.0))  # surgical: removed redundant ducking
+            echo_db = gcfg["dly"] + 9.0 + user                                      # first echo vs the sung word itself
+            wet = wet * (10 ** (echo_db / 20.0)) * d_duck[None, :]
             parts["delay"] = wet
             lv["delay"] = float(round(echo_db, 1)); lv_avg["delay"] = float(round(_db(_rms(wet) / d_rms), 1))
             dly_info = {"mode": "fragment (last word, answered on the 1/8 grid)", "grid_ms": round(grid * 1000, 1), "repeats": reps,
