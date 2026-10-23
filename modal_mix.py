@@ -206,3 +206,4 @@ def engine_probe():
 # adjust delay volume and restore ducking
 # fix r2 ssl handshake
 # fix r2 endpoint check
+# safe r2 ipv4 retry fix
