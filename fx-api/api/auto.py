@@ -2096,15 +2096,7 @@ def mix(groups, sr, loud="MEDIUM"):
         st, _f = analyze(voc, voc, sr)
         parts, moves = [], {}
         for r in list(ro_map.keys()):
-            # ── CLAUDE'S V2 NOISE CLEANER (rumble, hum, continuous tracking) ──
-        try:
-            import noise_clean
-            ro_map[r], _nc_rep = noise_clean.clean(ro_map[r], sr, role=r)
-            rep.setdefault("noise_clean", {})[r] = _nc_rep
-        except Exception as _e:
-            rep.setdefault("noise_clean", {})[r] = "failed: " + str(_e)[:80]
-        # ──────────────────────────────────────────────────────────────────
-        y, mv = _role_chain(ro_map[r], sr, st, r)
+            y, mv = _role_chain(ro_map[r], sr, st, r)
             parts.append(y); moves[r] = mv
         core = _sum(parts)
         if others:
@@ -2161,14 +2153,6 @@ def mix(groups, sr, loud="MEDIUM"):
 
     parts, moves, _pre = [], {}, {}
     for r in list(ro_map.keys()):
-        # ── CLAUDE'S V2 NOISE CLEANER (rumble, hum, continuous tracking) ──
-        try:
-            import noise_clean
-            ro_map[r], _nc_rep = noise_clean.clean(ro_map[r], sr, role=r)
-            rep.setdefault("noise_clean", {})[r] = _nc_rep
-        except Exception as _e:
-            rep.setdefault("noise_clean", {})[r] = "failed: " + str(_e)[:80]
-        # ──────────────────────────────────────────────────────────────────
         y, mv = _role_chain(ro_map[r], sr, st, r)
         if r == "lead":
             pass  # dry lead stays mono/centered. Width lives on the wet return.
