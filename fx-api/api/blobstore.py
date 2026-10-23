@@ -21,12 +21,19 @@ def _r2():
     if _r2_client is None:
         import boto3
         from botocore.config import Config
+        import certifi
+        if not R2_ACCOUNT:
+            raise RuntimeError("CLOUDFLARE_ACCOUNT_ID is missing from the Modal secret")
+        endpoint = "https://%s.r2.cloudflarestorage.com" % R2_ACCOUNT
+        print("Connecting to R2 endpoint: %s" % endpoint, flush=True)
         _r2_client = boto3.client(
             "s3",
-            endpoint_url="https://%s.r2.cloudflarestorage.com" % R2_ACCOUNT,
+            endpoint_url=endpoint,
             aws_access_key_id=R2_KEY,
             aws_secret_access_key=R2_SECRET,
             region_name="auto",
+            use_ssl=True,
+            verify=certifi.where(),
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},

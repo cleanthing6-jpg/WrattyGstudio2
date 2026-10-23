@@ -205,3 +205,4 @@ def engine_probe():
 # wire vocal_polish
 # adjust delay volume and restore ducking
 # fix r2 ssl handshake
+# fix r2 endpoint check
