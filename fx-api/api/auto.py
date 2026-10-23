@@ -2096,6 +2096,14 @@ def mix(groups, sr, loud="MEDIUM"):
         st, _f = analyze(voc, voc, sr)
         parts, moves = [], {}
         for r in list(ro_map.keys()):
+            # ── V2 NOISE CLEANER ──
+            try:
+                import noise_clean
+                ro_map[r], _nc_rep = noise_clean.clean(ro_map[r], sr, role=r)
+                rep.setdefault('noise_clean', {})[r] = _nc_rep
+            except Exception as _e:
+                rep.setdefault('noise_clean', {})[r] = 'failed: ' + str(_e)[:80]
+            # ──────────────────────
             y, mv = _role_chain(ro_map[r], sr, st, r)
             parts.append(y); moves[r] = mv
         core = _sum(parts)
