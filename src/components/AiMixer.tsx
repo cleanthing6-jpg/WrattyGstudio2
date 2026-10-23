@@ -436,6 +436,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           if (!s) continue; // Network drop (phone sleep) - retry silently
           const sd = await s.json().catch(() => ({}));
           if (sd.error) throw new Error(sd.error);
+          if (sd.status === "failed") throw new Error(sd.error || "Mix failed on the server");
           if (sd.status === "preview" && sd.url) {
             setToast("🎧 Preview ready — 30 seconds.");
             setPreviewUrl(sd.url);
@@ -476,6 +477,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!g) continue; // Network drop (phone sleep) - retry silently
         const gd = await g.json().catch(() => ({}));
         if (gd.error) throw new Error(gd.error);
+        if (gd.status === "failed") throw new Error(gd.error || "Mix failed on the server");
         if (gd.status === "done" && gd.url) {
           finalR = gd.url;
           localStorage.removeItem("activeJob");

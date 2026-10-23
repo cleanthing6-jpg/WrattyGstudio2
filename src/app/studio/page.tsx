@@ -240,6 +240,7 @@ function StudioInner() {
             continue; // Retry the while loop
           }
           const st = sdata.status || (sdata.data && sdata.data.status);
+          if (st === "failed") { alert(f.name + " — split failed on server"); finished = true; break; }
           const fl = (sdata.data && sdata.data.files) ? sdata.data.files : sdata.files;
           if (st === "done" && Array.isArray(fl)) {
             // Keep ONLY vocals + instrumental: the UI promises two stems and
