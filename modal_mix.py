@@ -7,8 +7,8 @@ app = modal.App("wratty-mix")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("libsndfile1")
-    .pip_install("numpy", "scipy", "numba", "pedalboard>=0.9.25", "requests", "fastapi", "soundfile", "boto3")
+    .apt_install("libsndfile1", "ca-certificates")
+    .pip_install("numpy", "scipy", "numba", "pedalboard>=0.9.25", "requests", "fastapi", "soundfile", "boto3", "urllib3", "certifi")
     .add_local_dir("fx-api/api", remote_path="/root/api")
 )
 
@@ -204,3 +204,4 @@ def engine_probe():
 # wire vocal_sat
 # wire vocal_polish
 # adjust delay volume and restore ducking
+# fix r2 ssl handshake
