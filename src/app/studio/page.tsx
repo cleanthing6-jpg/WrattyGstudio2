@@ -229,8 +229,16 @@ function StudioInner() {
         let finished = false;
         for (let k = 0; k < 60; k++) {
           await new Promise((r) => setTimeout(r, 10000));
-          const sres = await fetch("/api/mix-status?hash=" + encodeURIComponent(data.taskId));
-          const sdata = await sres.json();
+          let sres, sdata;
+          try {
+            sres = await fetch("/api/mix-status?hash=" + encodeURIComponent(data.taskId));
+            if (!sres.ok) throw new Error("HTTP " + sres.status);
+            sdata = await sres.json();
+          } catch (err) {
+            // Phone slept or network dropped. Wait 3 seconds and retry silently.
+            await new Promise(r => setTimeout(r, 3000));
+            continue; // Retry the while loop
+          }
           const st = sdata.status || (sdata.data && sdata.data.status);
           const fl = (sdata.data && sdata.data.files) ? sdata.data.files : sdata.files;
           if (st === "done" && Array.isArray(fl)) {

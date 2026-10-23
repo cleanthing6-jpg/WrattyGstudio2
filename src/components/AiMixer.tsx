@@ -432,7 +432,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         for (let i = 0; i < 120; i++) {
           setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
-          const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000);
+          const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
+          if (!s) continue; // Network drop (phone sleep) - retry silently
           const sd = await s.json().catch(() => ({}));
           if (sd.error) throw new Error(sd.error);
           if (sd.status === "preview" && sd.url) {
@@ -471,7 +472,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       let dashboardName = "";
       for (let i = 0; i < 120 && !finalR; i++) {
         await new Promise((res) => setTimeout(res, 5000));
-        const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000);
+        const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000).catch(() => null);
+        if (!g) continue; // Network drop (phone sleep) - retry silently
         const gd = await g.json().catch(() => ({}));
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "done" && gd.url) {
