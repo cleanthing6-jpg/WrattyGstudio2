@@ -21,30 +21,16 @@ def _r2():
     if _r2_client is None:
         import boto3
         from botocore.config import Config
-        import certifi
-        if not R2_ACCOUNT:
-            raise RuntimeError("CLOUDFLARE_ACCOUNT_ID is missing from the Modal secret")
-        endpoint = "https://%s.r2.cloudflarestorage.com" % R2_ACCOUNT
-        print("Connecting to R2 endpoint: %s" % endpoint, flush=True)
-        # Force IPv4 to avoid known R2 IPv6 TLS handshake issues
-        import socket
-        _orig_getaddrinfo = socket.getaddrinfo
-        def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
-            return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-        socket.getaddrinfo = _force_ipv4
-
         _r2_client = boto3.client(
             "s3",
-            endpoint_url=endpoint,
+            endpoint_url="https://%s.r2.cloudflarestorage.com" % R2_ACCOUNT,
             aws_access_key_id=R2_KEY,
             aws_secret_access_key=R2_SECRET,
             region_name="auto",
-            use_ssl=True,
-            verify=certifi.where(),
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},
-                retries={"max_attempts": 5, "mode": "standard"}, # Increased retries
+                retries={"max_attempts": 3, "mode": "standard"},
             ),
         )
     return _r2_client
