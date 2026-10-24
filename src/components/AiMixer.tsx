@@ -492,7 +492,18 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
         }
         if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
-        else setMsg("Mixing… (" + ((i + 1) * 5) + "s since start)");
+        else {
+            const stageText = [
+              "🔍 Analysing stems & fixing phase...",
+              "🧹 Cleaning noise & repairing clips...",
+              "🎸 Carving the beat to make room for vocals...",
+              "🎛️ Applying analog compression & 3D spatial effects...",
+              "🔥 Running vocal polish & dynamic EQ...",
+              "🎚️ Glueing bus & balancing levels...",
+              "💎 Mastering & final True-Peak limiting..."
+            ];
+            setMsg(stageText[mixStage]);
+          }
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
       if (!finalR) setMsg("Still working - don't resubmit, it can take a few minutes.");
