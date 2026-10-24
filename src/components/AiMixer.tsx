@@ -435,7 +435,15 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
         for (let i = 0; i < 120; i++) {
-          setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
+          setMsg([
+              "🔍 Analysing stems & fixing phase...",
+              "🧹 Cleaning noise & repairing clips...",
+              "🎸 Carving beat (2k-4k) for vocal clarity...",
+              "🎛️ Modeling 1176 analog compression...",
+              "🎧 Building 3D spatial vocal space...",
+              "🎚️ Applying dynamic EQ & vocal polish...",
+              "💎 Final True-Peak limiting & mastering..."
+            ][Math.min(Math.floor(i * 5 / 8), 6)]);
           await new Promise((r) => setTimeout(r, 5000));
           const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
           if (!s) continue; // Network drop (phone sleep) - retry silently
@@ -504,7 +512,15 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           dashboardName = String(gd.dashboardName || "");
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
         }
-        if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
+        if (gd.status === "queued") setMsg([
+              "🔍 Analysing stems & fixing phase...",
+              "🧹 Cleaning noise & repairing clips...",
+              "🎸 Carving beat (2k-4k) for vocal clarity...",
+              "🎛️ Modeling 1176 analog compression...",
+              "🎧 Building 3D spatial vocal space...",
+              "🎚️ Applying dynamic EQ & vocal polish...",
+              "💎 Final True-Peak limiting & mastering..."
+            ][Math.min(Math.floor(i * 5 / 8), 6)]);
         else {
             const stageText = [
               "🔍 Analysing stems & fixing phase...",
