@@ -25,12 +25,14 @@ const CTA: Record<string, string> = {
 };
 
 const naira = (n: number) => "\u20a6" + n.toLocaleString("en-NG");
+const dollar = (n: number) => "$" + n;
 
 const TIERS = [
   {
     id: "free",
     name: "Free",
-    price: naira(0),
+    ngn: 0,
+    usd: 0,
     period: "",
     features: ["1 watermarked 30s preview", "Hear it before you pay"],
     cta: "Start Free",
@@ -39,7 +41,8 @@ const TIERS = [
   ...PLANS.filter((p) => p.id !== "free").map((p) => ({
     id: p.id,
     name: p.name,
-    price: naira(p.ngn),
+    ngn: p.ngn,
+    usd: p.usd,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
     cta: CTA[p.id] ?? "Buy",
@@ -48,7 +51,8 @@ const TIERS = [
   ...MASTER_PLANS.map((p) => ({
     id: p.id,
     name: p.name + " \u00b7 mastering only",
-    price: naira(p.ngn),
+    ngn: p.ngn,
+    usd: p.usd,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
     cta: CTA[p.id] ?? "Buy",
@@ -57,6 +61,12 @@ const TIERS = [
 ];
 
 export default function Pricing() {
+  const [region, setRegion] = useState<"NG" | "INTL">("NG");
+  useEffect(() => {
+    fetch("/api/region").then((r) => r.json()).then((d) => {
+      if (d.region === "INTL") setRegion("INTL");
+    }).catch(() => {});
+  }, []);
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
@@ -114,7 +124,7 @@ export default function Pricing() {
 
             <h3 className="text-lg font-bold mb-1">{tier.name}</h3>
 
-            <div className="text-3xl font-black mb-1">{tier.price}</div>
+            <div className="text-3xl font-black mb-1">{tier.id === "free" ? "Free" : (region === "NG" ? naira(tier.ngn) : dollar(tier.usd))}</div>
 
             {tier.period ? (
               <div className="text-gray-700 text-sm mb-4">{tier.period}</div>
