@@ -24,11 +24,20 @@ def _download(url, d, name):
 
 def _upload(path, key):
     import boto3
-    endpoint = os.environ.get("R2_ENDPOINT") or f"https://{os.environ.get('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+    
+    account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID") or os.environ.get("R2_ACCOUNT_ID")
+    endpoint = os.environ.get("R2_ENDPOINT") or (f"https://{account_id}.r2.cloudflarestorage.com" if account_id else None)
     access_key = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("CLOUDFLARE_R2_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("R2_BUCKET") or os.environ.get("CLOUDFLARE_R2_BUCKET_NAME")
+    bucket = os.environ.get("R2_BUCKET") or os.environ.get("R2_BUCKET_NAME") or os.environ.get("CLOUDFLARE_R2_BUCKET_NAME")
     
+    if not endpoint:
+        raise ValueError("Missing R2 endpoint or account ID in env")
+    if not bucket:
+        raise ValueError("Missing R2 bucket name in env")
+    if not access_key or not secret_key:
+        raise ValueError("Missing R2 access keys in env")
+
     s3 = boto3.client("s3", endpoint_url=endpoint,
                       aws_access_key_id=access_key,
                       aws_secret_access_key=secret_key, region_name="auto")
