@@ -2,7 +2,7 @@
 
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PLANS, MASTER_PLANS } from "@/lib/pricing";
 
 const COLORS: Record<string, string> = {
