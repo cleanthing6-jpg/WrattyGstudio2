@@ -117,7 +117,7 @@ export default function Pricing() {
             <div className="text-3xl font-black mb-1">{tier.price}</div>
 
             {tier.period ? (
-              <div className="text-gray-500 text-sm mb-4">{tier.period}</div>
+              <div className="text-gray-700 text-sm mb-4">{tier.period}</div>
             ) : (
               <div className="mb-4">&nbsp;</div>
             )}
@@ -126,9 +126,9 @@ export default function Pricing() {
               {tier.features.map((feature, index) => (
                 <li
                   key={index}
-                  className="text-sm text-gray-400 flex items-start gap-2"
+                  className="text-sm text-gray-700 flex items-start gap-2"
                 >
-                  <span className="text-green-400 mt-0.5">✓</span>
+                  <span className="text-green-600 mt-0.5">✓</span>
                   {feature}
                 </li>
               ))}
@@ -142,13 +142,13 @@ export default function Pricing() {
               <button
                 onClick={() => startPayment(tier.id)}
                 disabled={loadingTier !== null}
-                className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-400 font-bold py-3 rounded-xl transition"
+                className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-700 font-bold py-3 rounded-xl transition"
               >
                 {loadingTier === tier.id ? "Connecting to Paystack..." : tier.cta}
               </button>
             ) : (
               <SignInButton mode="modal">
-                <button className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-400 font-bold py-3 rounded-xl transition">
+                <button className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-700 font-bold py-3 rounded-xl transition">
                   {tier.cta}
                 </button>
               </SignInButton>
