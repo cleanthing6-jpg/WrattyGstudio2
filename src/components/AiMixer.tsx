@@ -350,16 +350,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
         for (let k = 0; k < 120 && !roexVocalUrl; k++) {
-          setMsg([
-              "🔍 Analysing stems & fixing phase...",
-              "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving beat (2k-4k) for vocal clarity...",
-              "🎛️ Modeling 1176 analog compression...",
-              "🎧 Building 3D spatial vocal space...",
-              "🎚️ Applying dynamic EQ & vocal polish...",
-              "💎 Final True-Peak limiting & mastering..."
-            ][i % 7]);
-            setMsg("Mixing & Mastering...");
+          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
@@ -431,8 +422,6 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       } else {
         setMsg("Sending stems to your engine…");
         const stemsToPreview = await tune.applyToStems(done);
-        if (tune.enabled) setTunedStems(stemsToPreview);
-        else setTunedStems(null);
         const post = await withTimeout(fetch("/api/mix-preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -443,20 +432,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setTaskId(data.taskId);
         localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
-        let pStageIdx = 0;
         for (let i = 0; i < 120; i++) {
-          const pStages = [
-            "🔍 Analysing stems & fixing phase...",
-            "🧹 Cleaning noise & repairing clips...",
-            "🎸 Carving beat (2k-4k) for vocal clarity...",
-            "🎛️ Modeling 1176 analog compression...",
-            "🎧 Building 3D spatial vocal space...",
-            "🎚️ Applying dynamic EQ & vocal polish...",
-            "💎 Final True-Peak limiting & mastering..."
-          ];
-          setMsg(pStages[pStageIdx]);
+          setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
-          pStageIdx = Math.min(pStageIdx + 1, 6);
           const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
           if (!s) continue; // Network drop (phone sleep) - retry silently
           const sd = await s.json().catch(() => ({}));
@@ -481,7 +459,16 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   }
 
   const tune = useAutoTune();
-  const [tunedStems, setTunedStems] = useState<any[] | null>(null);
+  const [mixStage, setMixStage] = useState(0);
+
+  useEffect(() => {
+    if (!busy) { setMixStage(0); return; }
+    const stages = [0, 1, 2, 3, 4, 5, 6];
+    const interval = setInterval(() => {
+      setMixStage((prev) => (prev < stages.length - 1 ? prev + 1 : prev));
+    }, 8000); // Advances every 8 seconds
+    return () => clearInterval(interval);
+  }, [busy]);
 
 
   async function unlock() {
@@ -489,7 +476,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
-      const stemsToMix = tunedStems || await tune.applyToStems(prepared);
+      const stemsToMix = await tune.applyToStems(prepared);
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -499,7 +486,6 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
       localStorage.setItem("activeJob", JSON.stringify({ kind: "mix", id: d.job, startedAt: Date.now() }));
       let finalR = d && d.url ? d.url : "";
-      setMsg("Mixing & Mastering...");
       let dashboardSaved = false;
       let dashboardName = "";
       for (let i = 0; i < 120 && !finalR; i++) {
@@ -518,25 +504,16 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         }
         if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
         else {
-            setMsg("Mixing & Mastering...");
+            const stageText = [
               "🔍 Analysing stems & fixing phase...",
               "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving beat (2k-4k) for vocal clarity...",
-              "🎛️ Modeling 1176 analog compression...",
-              "🎧 Building 3D spatial vocal space...",
-              "🎚️ Applying dynamic EQ & vocal polish...",
-              "💎 Final True-Peak limiting & mastering..."
+              "🎸 Carving the beat to make room for vocals...",
+              "🎛️ Applying analog compression & 3D spatial effects...",
+              "🔥 Running vocal polish & dynamic EQ...",
+              "🎚️ Glueing bus & balancing levels...",
+              "💎 Mastering & final True-Peak limiting..."
             ];
-            setMsg([
-              "🔍 Analysing stems & fixing phase...",
-              "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving beat (2k-4k) for vocal clarity...",
-              "🎛️ Modeling 1176 analog compression...",
-              "🎧 Building 3D spatial vocal space...",
-              "🎚️ Applying dynamic EQ & vocal polish...",
-              "💎 Final True-Peak limiting & mastering..."
-            ][i % 7]);
-            setMsg("Mixing & Mastering...");
+            setMsg(stageText[mixStage]);
           }
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
