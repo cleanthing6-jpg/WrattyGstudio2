@@ -421,10 +421,11 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setMsg("Done - Beat-Lock mastered & saved: " + label);
       } else {
         setMsg("Sending stems to your engine…");
+        const stemsToPreview = await tune.applyToStems(done);
         const post = await withTimeout(fetch("/api/mix-preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stems: done, style, preview: true }),
+          body: JSON.stringify({ stems: stemsToPreview, style, preview: true }),
         }), 120000, "Mix request");
         const data = await post.json().catch(() => ({}));
         if (!post.ok || !data.taskId) throw new Error(data.error || "Could not start the mix (code " + post.status + ")");
@@ -573,6 +574,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         <input type="checkbox" checked={false} disabled onChange={() => setBeatLockMode(false)} />
         Protect my beat - vocals only go to the mixer
       </label>
+      <AutoTuneToggle tune={tune} />
       <button
         onClick={generate}
         disabled={!ready || busy}
@@ -592,7 +594,6 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           <p className="text-xs font-semibold text-gray-600 mb-1">AI preview</p>
           <audio controls src={previewUrl} className="w-full" />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
-          <AutoTuneToggle tune={tune} />
           {!finalUrl && taskId && (
             <button
               onClick={unlock}

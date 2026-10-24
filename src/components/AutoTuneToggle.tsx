@@ -1,21 +1,49 @@
 // src/components/AutoTuneToggle.tsx   (Tailwind classes; swap for your own styling if needed)
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { useAutoTune } from "@/hooks/useAutoTune";
 
-function useCountUp(target: number) {
+function useCountUp(target: number, running: boolean) {
   const [v, setV] = useState(0);
+  const lastTargetAt = useRef(Date.now());
+  const lastCreepAt = useRef(Date.now());
+
   useEffect(() => {
-    if (target === 0) { setV(0); return; }
-    const id = setInterval(() => setV((cur) => (cur < target ? cur + 1 : cur)), 25);
-    return () => clearInterval(id);
+    if (running) {
+      setV(0);
+      lastTargetAt.current = Date.now();
+      lastCreepAt.current = Date.now();
+    }
+  }, [running]);
+
+  useEffect(() => {
+    lastTargetAt.current = Date.now();
   }, [target]);
-  return v;
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      setV((cur) => {
+        if (cur < target) return Math.min(cur + 2, target);
+        if (Date.now() - lastTargetAt.current > 2500) {
+          const cap = Math.min(target + 15, 95);
+          if (cur < cap && Date.now() - lastCreepAt.current > 500) {
+            lastCreepAt.current = Date.now();
+            return cur + 1;
+          }
+        }
+        return cur;
+      });
+    }, 40);
+    return () => clearInterval(id);
+  }, [running, target]);
+
+  return running ? Math.max(1, v) : v;
 }
 
 export function AutoTuneToggle({ tune }: { tune: ReturnType<typeof useAutoTune> }) {
-  const shown = useCountUp(tune.pct);
   const running = tune.state === "running";
+  const shown = useCountUp(tune.pct, running);
 
   return (
     <div className="rounded-xl border border-white/10 p-4 space-y-3">
