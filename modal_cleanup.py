@@ -30,7 +30,7 @@ def api():
         deleted, missing, bad = [], [], []
         for k in keys:
             k = str(k)
-            if not (k.startswith("fx/") and (k.endswith(".mp3") or k.endswith(".flac"))):
+            if not (k.startswith("fx/") and (k.endswith(".mp3") or k.endswith(".flac") or k.endswith(".wav"))):
                 bad.append(k)
                 continue
             try:
