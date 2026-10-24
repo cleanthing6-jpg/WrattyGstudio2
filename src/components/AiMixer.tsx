@@ -19,6 +19,8 @@ async function localStartUpload(files: any[]): Promise<any[]> {
 
 const startUpload = localStartUpload;
 import { masterStage } from "@/lib/masterStage";
+import { useAutoTune } from "@/hooks/useAutoTune";
+import { AutoTuneToggle } from "@/components/AutoTuneToggle";
 
 type Stem = { url: string; name: string; role: string };
 
@@ -455,15 +457,18 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     }
   }
 
+  const tune = useAutoTune();
+
   async function unlock() {
     if (!taskId || busy || !prepared.length) return;
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
+      const stemsToMix = await tune.applyToStems(prepared);
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist, title: songTitle, stems: prepared, loudness: masterLoudness, preset: style }),
+        body: JSON.stringify({ artist, title: songTitle, stems: stemsToMix, loudness: masterLoudness, preset: style }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
@@ -587,6 +592,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           <p className="text-xs font-semibold text-gray-600 mb-1">AI preview</p>
           <audio controls src={previewUrl} className="w-full" />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
+          <AutoTuneToggle tune={tune} />
           {!finalUrl && taskId && (
             <button
               onClick={unlock}
