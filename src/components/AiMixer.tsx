@@ -350,7 +350,15 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
         for (let k = 0; k < 120 && !roexVocalUrl; k++) {
-          setMsg(stageText[Math.min(mStageIdx, 6)]);
+          setMsg([
+              "🔍 Analysing stems & fixing phase...",
+              "🧹 Cleaning noise & repairing clips...",
+              "🎸 Carving beat (2k-4k) for vocal clarity...",
+              "🎛️ Modeling 1176 analog compression...",
+              "🎧 Building 3D spatial vocal space...",
+              "🎚️ Applying dynamic EQ & vocal polish...",
+              "💎 Final True-Peak limiting & mastering..."
+            ][i % 7]);
             mStageIdx++;
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(vdata.taskId), 60000);
@@ -519,7 +527,15 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
               "🎚️ Applying dynamic EQ & vocal polish...",
               "💎 Final True-Peak limiting & mastering..."
             ];
-            setMsg(stageText[Math.min(mStageIdx, 6)]);
+            setMsg([
+              "🔍 Analysing stems & fixing phase...",
+              "🧹 Cleaning noise & repairing clips...",
+              "🎸 Carving beat (2k-4k) for vocal clarity...",
+              "🎛️ Modeling 1176 analog compression...",
+              "🎧 Building 3D spatial vocal space...",
+              "🎚️ Applying dynamic EQ & vocal polish...",
+              "💎 Final True-Peak limiting & mastering..."
+            ][i % 7]);
             mStageIdx++;
           }
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
