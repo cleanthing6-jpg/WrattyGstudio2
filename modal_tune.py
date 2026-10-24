@@ -79,7 +79,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str):
         put(status="error", error=str(e)[:300])
 
 
-@app.function(keep_warm=1)
+@app.function(min_containers=1)
 @modal.fastapi_endpoint(method="POST")
 def start(body: dict):
     job_id = uuid.uuid4().hex
