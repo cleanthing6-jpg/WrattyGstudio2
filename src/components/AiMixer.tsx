@@ -434,6 +434,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setTaskId(data.taskId);
         localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
+        let pStageIdx = 0;
         for (let i = 0; i < 120; i++) {
           const pStages = [
             "🔍 Analysing stems & fixing phase...",
@@ -444,8 +445,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             "🎚️ Applying dynamic EQ & vocal polish...",
             "💎 Final True-Peak limiting & mastering..."
           ];
-          setMsg(pStages[Math.min(mixStage, 6)]);
+          setMsg(pStages[pStageIdx]);
           await new Promise((r) => setTimeout(r, 5000));
+          pStageIdx = Math.min(pStageIdx + 1, 6);
           const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
           if (!s) continue; // Network drop (phone sleep) - retry silently
           const sd = await s.json().catch(() => ({}));
@@ -470,17 +472,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   }
 
   const tune = useAutoTune();
-  const [mixStage, setMixStage] = useState(0);
   const [tunedStems, setTunedStems] = useState<any[] | null>(null);
-
-  useEffect(() => {
-    if (!busy) { setMixStage(0); return; }
-    const stages = [0, 1, 2, 3, 4, 5, 6];
-    const interval = setInterval(() => {
-      setMixStage((prev) => (prev < stages.length - 1 ? prev + 1 : prev));
-    }, 8000); // Advances every 8 seconds
-    return () => clearInterval(interval);
-  }, [busy]);
 
 
   async function unlock() {
@@ -488,7 +480,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
-      const stemsToMix = await tune.applyToStems(prepared);
+      const stemsToMix = tunedStems || await tune.applyToStems(prepared);
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -498,6 +490,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
       localStorage.setItem("activeJob", JSON.stringify({ kind: "mix", id: d.job, startedAt: Date.now() }));
       let finalR = d && d.url ? d.url : "";
+      let mStageIdx = 0;
       let dashboardSaved = false;
       let dashboardName = "";
       for (let i = 0; i < 120 && !finalR; i++) {
