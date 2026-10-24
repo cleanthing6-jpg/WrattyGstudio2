@@ -507,11 +507,11 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             const stageText = [
               "🔍 Analysing stems & fixing phase...",
               "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving the beat to make room for vocals...",
-              "🎛️ Applying analog compression & 3D spatial effects...",
-              "🔥 Running vocal polish & dynamic EQ...",
-              "🎚️ Glueing bus & balancing levels...",
-              "💎 Mastering & final True-Peak limiting..."
+              "🎸 Carving beat (2k-4k) for vocal clarity...",
+              "🎛️ Modeling 1176 analog compression...",
+              "🎧 Building 3D spatial vocal space...",
+              "🎚️ Applying dynamic EQ & vocal polish...",
+              "💎 Final True-Peak limiting & mastering..."
             ];
             setMsg(stageText[mixStage]);
           }
