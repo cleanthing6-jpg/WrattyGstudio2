@@ -422,6 +422,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       } else {
         setMsg("Sending stems to your engine…");
         const stemsToPreview = await tune.applyToStems(done);
+        if (tune.enabled) setTunedStems(stemsToPreview);
+        else setTunedStems(null);
         const post = await withTimeout(fetch("/api/mix-preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -433,7 +435,16 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
         for (let i = 0; i < 120; i++) {
-          setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
+          const pStages = [
+            "🔍 Analysing stems & fixing phase...",
+            "🧹 Cleaning noise & repairing clips...",
+            "🎸 Carving beat (2k-4k) for vocal clarity...",
+            "🎛️ Modeling 1176 analog compression...",
+            "🎧 Building 3D spatial vocal space...",
+            "🎚️ Applying dynamic EQ & vocal polish...",
+            "💎 Final True-Peak limiting & mastering..."
+          ];
+          setMsg(pStages[Math.min(mixStage, 6)]);
           await new Promise((r) => setTimeout(r, 5000));
           const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
           if (!s) continue; // Network drop (phone sleep) - retry silently
