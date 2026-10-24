@@ -459,6 +459,17 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   }
 
   const tune = useAutoTune();
+  const [mixStage, setMixStage] = useState(0);
+
+  useEffect(() => {
+    if (!busy) { setMixStage(0); return; }
+    const stages = [0, 1, 2, 3, 4, 5, 6];
+    const interval = setInterval(() => {
+      setMixStage((prev) => (prev < stages.length - 1 ? prev + 1 : prev));
+    }, 8000); // Advances every 8 seconds
+    return () => clearInterval(interval);
+  }, [busy]);
+
 
   async function unlock() {
     if (!taskId || busy || !prepared.length) return;
