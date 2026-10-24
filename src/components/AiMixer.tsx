@@ -130,6 +130,7 @@ async function convertToWavFile(st: Stem): Promise<File> {
 }
 
 export default function AiMixer({ stems }: { stems: Stem[] }) {
+  const previewTunedStems = useRef<any[] | null>(null);
   const uploadErrorRef = useRef("");
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
