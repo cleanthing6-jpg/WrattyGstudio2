@@ -11,7 +11,7 @@ image = (modal.Image.debian_slim(python_version="3.11")
          .add_local_python_source("vocal_dsp", "beat_key"))
 app = modal.App("wratty-autotune", image=image)
 progress = modal.Dict.from_name("autotune-progress", create_if_missing=True)
-r2 = modal.Secret.from_name("wratty-r2")
+mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 
 
 def _download(url, d, name):
@@ -49,7 +49,7 @@ def _upload(path, key):
     return s3.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=3600 * 6)
 
 
-@app.function(secrets=[r2], timeout=900, cpu=2, memory=4096)
+@app.function(timeout=900, cpu=2, memory=4096, volumes={"/mixes": mixvol})
 def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str):
     from vocal_dsp import PitchCorrector, read_audio, write_audio, peak_limit
     from beat_key import detect_key
@@ -89,7 +89,14 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str):
             out = os.path.join(d, "lead_tuned.wav")
             write_audio(out, y, sr, channels=1, bits=24)
             put(stage="Saving", pct=99)
-            url = _upload(out, f"tuned/{job_id}.wav")
+            
+            # Save to the shared Modal volume exactly like wratty-mix
+            import shutil
+            os.makedirs("/mixes/fx", exist_ok=True)
+            dest = f"/mixes/fx/tuned-{job_id}.wav"
+            shutil.copy(out, dest)
+            mixvol.commit()
+            url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
             put(status="done", pct=100, stage="Done", url=url,
                 key=info.get("key"), keySource=key_src, notes=info.get("n_notes"))
     except Exception as e:
