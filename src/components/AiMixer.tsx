@@ -471,6 +471,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
   const tune = useAutoTune();
   const [mixStage, setMixStage] = useState(0);
+  const [tunedStems, setTunedStems] = useState<any[] | null>(null);
 
   useEffect(() => {
     if (!busy) { setMixStage(0); return; }
