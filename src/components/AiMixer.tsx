@@ -351,15 +351,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
         for (let k = 0; k < 120 && !roexVocalUrl; k++) {
-          setMsg([
-              "🔍 Analysing stems & fixing phase...",
-              "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving beat (2k-4k) for vocal clarity...",
-              "🎛️ Modeling 1176 analog compression...",
-              "🎧 Building 3D spatial vocal space...",
-              "🎚️ Applying dynamic EQ & vocal polish...",
-              "💎 Mastering & final True-Peak limiting..."
-            ][Math.min(Math.floor(i / 3), 6)]);
+          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
@@ -443,15 +435,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         localStorage.setItem("activeJob", JSON.stringify({ kind: "preview", id: data.taskId, startedAt: Date.now() }));
 
         for (let i = 0; i < 120; i++) {
-          setMsg([
-              "🔍 Analysing stems & fixing phase...",
-              "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving beat (2k-4k) for vocal clarity...",
-              "🎛️ Modeling 1176 analog compression...",
-              "🎧 Building 3D spatial vocal space...",
-              "🎚️ Applying dynamic EQ & vocal polish...",
-              "💎 Mastering & final True-Peak limiting..."
-            ][Math.min(i, 6)]);
+          setMsg("Mixing your stems… attempt " + (i + 1) + " of 120");
           await new Promise((r) => setTimeout(r, 5000));
           const s = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(data.taskId), 60000).catch(() => null);
           if (!s) continue; // Network drop (phone sleep) - retry silently
