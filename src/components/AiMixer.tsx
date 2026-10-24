@@ -350,7 +350,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (!vpost.ok || !vdata.taskId) throw new Error(vdata.error || "Could not start the vocal mix (code " + vpost.status + ")");
         let roexVocalUrl = "";
         for (let k = 0; k < 120 && !roexVocalUrl; k++) {
-          setMsg("Mixing your vocals - attempt " + (k + 1) + " of 120");
+          setMsg(stageText[Math.min(mStageIdx, 6)]);
+            mStageIdx++;
           await new Promise((r) => setTimeout(r, 5000));
           const vs = await fetchWithTimeout("/api/mix-preview?taskId=" + encodeURIComponent(vdata.taskId), 60000);
           const vsd = await vs.json().catch(() => ({}));
@@ -518,7 +519,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
               "🎚️ Applying dynamic EQ & vocal polish...",
               "💎 Final True-Peak limiting & mastering..."
             ];
-            setMsg(stageText[mixStage]);
+            setMsg(stageText[Math.min(mStageIdx, 6)]);
+            mStageIdx++;
           }
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
       }
