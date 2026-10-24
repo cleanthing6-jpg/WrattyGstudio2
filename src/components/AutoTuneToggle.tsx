@@ -68,7 +68,7 @@ export function AutoTuneToggle({ tune }: { tune: ReturnType<typeof useAutoTune> 
           {(["natural", "hard"] as const).map((p) => (
             <button key={p} disabled={running} onClick={() => tune.setPreset(p)}
               className={`rounded-lg px-3 py-1 ${tune.preset === p ? "bg-white/20" : "bg-white/5"}`}>
-              {p === "natural" ? "Natural (R&B)" : "Hard snap (rap)"}
+              {p === "natural" ? "Natural (Smooth)" : "Hard Snap"}
             </button>
           ))}
         </div>
