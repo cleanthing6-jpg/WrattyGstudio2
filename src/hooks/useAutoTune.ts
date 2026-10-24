@@ -58,8 +58,10 @@ export function useAutoTune() {
           }
         }
         throw new Error("timeout");
-      } catch {
-        setState("failed");          // mix continues with the original vocal
+      } catch (e: any) {
+        console.error("Tune error:", e);
+        setState("failed");
+        setStage(e?.message || "Tune failed");
         return stems;
       }
     },

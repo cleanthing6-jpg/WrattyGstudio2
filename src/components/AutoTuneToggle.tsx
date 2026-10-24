@@ -86,7 +86,7 @@ export function AutoTuneToggle({ tune }: { tune: ReturnType<typeof useAutoTune> 
         </div>
       )}
       {tune.state === "done" && <div className="text-xs text-emerald-400">Tuned{tune.key ? ` in ${tune.key}` : ""} ✓</div>}
-      {tune.state === "failed" && <div className="text-xs text-amber-400">Tuning failed, using the original vocal.</div>}
+      {tune.state === "failed" && <div className="text-xs text-amber-400">Tuning failed, using original. ({tune.stage})</div>}
     </div>
   );
 }
