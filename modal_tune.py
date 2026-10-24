@@ -24,10 +24,14 @@ def _download(url, d, name):
 
 def _upload(path, key):
     import boto3
-    s3 = boto3.client("s3", endpoint_url=os.environ["R2_ENDPOINT"],
-                      aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-                      aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"], region_name="auto")
-    bucket = os.environ["R2_BUCKET"]
+    endpoint = os.environ.get("R2_ENDPOINT") or f"https://{os.environ.get('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+    access_key = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("CLOUDFLARE_R2_ACCESS_KEY_ID")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY")
+    bucket = os.environ.get("R2_BUCKET") or os.environ.get("CLOUDFLARE_R2_BUCKET_NAME")
+    
+    s3 = boto3.client("s3", endpoint_url=endpoint,
+                      aws_access_key_id=access_key,
+                      aws_secret_access_key=secret_key, region_name="auto")
     s3.upload_file(path, bucket, key, ExtraArgs={"ContentType": "audio/wav"})
     return s3.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=3600 * 6)
 
