@@ -10,8 +10,8 @@ app = modal.App("wratty-autotune", image=image)
 progress = modal.Dict.from_name("autotune-progress", create_if_missing=True)
 mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 
-KEY_CONF_MIN = 0.55
-OFFSET_CONF_MIN = 0.15
+KEY_CONF_MIN = 0.20
+OFFSET_CONF_MIN = 0.05
 
 def _download(url, d, name):
     path = os.path.join(d, name)
