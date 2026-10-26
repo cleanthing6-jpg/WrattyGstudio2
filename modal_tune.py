@@ -19,6 +19,7 @@ def _download(url, d, name):
 @app.function(volumes={"/mixes": mixvol}, timeout=900, cpu=2, memory=4096)
 def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "natural"):
     from vocal_dsp import PitchCorrector, read_audio, write_audio, peak_limit
+    from beat_key import detect_key
     import vocal_rescue
 
     last = {"pct": -1}
@@ -29,6 +30,19 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
         put(status="running", pct=0, stage="Starting")
         with tempfile.TemporaryDirectory() as d:
             x, sr = read_audio(_download(lead_url, d, "lead_in"))
+            
+            # --- DETECT THE KEY FROM THE BEAT ---
+            key = "auto"
+            if beat_url:
+                put(stage="Reading beat key", pct=2)
+                try:
+                    bx, bsr = read_audio(_download(beat_url, d, "beat_in"))
+                    k, margin = detect_key(bx, bsr)
+                    if margin >= 0.05:
+                        key = k
+                    print(f"=== BEAT KEY DETECTED: {key} (margin {margin:.3f}) ===")
+                except Exception as e:
+                    print("Beat key detection failed:", e)
 
             def cb(frac, stage):
                 pct = int(4 + frac * 94)
@@ -36,21 +50,19 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                     last["pct"] = pct
                     put(pct=pct, stage=stage)
 
-            # 1. PHONE RECORD FIX (Pre-Rescue: removes room echo)
+            # 1. PHONE RECORD FIX (Pre)
             put(stage="Fixing phone recording", pct=4)
             y_pre, rescue_pre = vocal_rescue.rescue(x, sr, stage="pre")
-            print(f"=== RESCUE PRE ===\n{rescue_pre}\n==================")
 
-            # 2. PURE AUTO-TUNE (Exactly as it was yesterday)
+            # 2. PURE AUTO-TUNE (using the beat's key!)
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            tuner = PitchCorrector(preset=_preset, key="auto")
+            tuner = PitchCorrector(preset=_preset, key=key)
             tuner.progress_cb = cb
             y_tuned, info = tuner.process(y_pre, sr)
 
-            # 3. PHONE RECORD FIX (Post-Rescue: matches tone & adds air)
+            # 3. PHONE RECORD FIX (Post)
             put(stage="Polishing tone", pct=95)
             y_final, rescue_post = vocal_rescue.rescue(y_tuned, sr, stage="post")
-            print(f"=== RESCUE POST ===\n{rescue_post}\n==================")
 
             y_final = peak_limit(y_final, sr)
             out = os.path.join(d, "lead_tuned.wav")
@@ -63,7 +75,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             mixvol.commit()
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
             
-            print(f"=== PURE AUTO TUNE ===\nKey: {info.get('key')}\n=====================")
+            print(f"=== AUTO TUNE SUCCESS ===\nKey: {info.get('key')}\n=====================")
             put(status="done", pct=100, stage="Done", url=url, key=info.get("key"), notes=info.get("n_notes"))
     except Exception as e:
         import traceback
