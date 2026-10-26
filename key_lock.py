@@ -1,9 +1,16 @@
-"""key_lock.py - decide WHICH NOTES the tuner may snap to. Numpy only."""
+"""key_lock.py - decide WHICH NOTES the tuner may snap to. Numpy only.
+
+Key idea: tuning only needs the 7-note pitch-class SET, not the key name.
+D minor and F major share one set, so relative major/minor cannot matter.
+The only real ambiguity is parallel keys (D major vs D minor), which differ
+in 3 notes (F/F#, C/C#, B/Bb). Those are decided from the BEAT's own energy
+on those notes, never from the (possibly off-key) vocal alone.
+"""
 import numpy as np
 
 NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 MAJOR = np.array([0, 2, 4, 5, 7, 9, 11])
-MINOR = np.array([0, 2, 3, 5, 7, 8, 10])
+MINOR = np.array([0, 2, 3, 5, 7, 8, 10])   # natural minor; same set as relative major
 
 
 def _mono(x):
@@ -12,6 +19,7 @@ def _mono(x):
 
 
 def chroma(x, sr, ref_a=440.0, fmin=50.0, fmax=2000.0, n_fft=8192, hop=4096, max_sec=120):
+    """Peak-picked, tuning-corrected 12-bin chroma (energy weighted) + estimated tuning (cents)."""
     m = _mono(x)[: int(max_sec * sr)]
     if len(m) < n_fft:
         m = np.pad(m, (0, n_fft - len(m)))
@@ -29,6 +37,7 @@ def chroma(x, sr, ref_a=440.0, fmin=50.0, fmax=2000.0, n_fft=8192, hop=4096, max
         frames.append((midi[idx], mag[idx]))
     if not frames:
         return np.zeros(12), 0.0
+    # tuning: circular mean of deviation from nearest semitone
     dev = np.concatenate([f[0] - np.round(f[0]) for f in frames])
     wt = np.concatenate([f[1] for f in frames])
     ang = 2 * np.pi * dev
@@ -38,28 +47,29 @@ def chroma(x, sr, ref_a=440.0, fmin=50.0, fmax=2000.0, n_fft=8192, hop=4096, max
         pcs = np.round(mi - tun).astype(int) % 12
         fr = np.zeros(12)
         np.add.at(fr, pcs, np.sqrt(mg))
-        ch += fr / (fr.sum() + 1e-9)
+        ch += fr / (fr.sum() + 1e-9)          # each frame counts equally
     return ch / (ch.max() + 1e-9), float(tun * 100.0)
 
 
 def _set_scores(w):
+    """Fit of each of the 12 diatonic sets: share of chroma energy inside the set."""
     sc = np.zeros(12)
     for t in range(12):
         sc[t] = w[(MAJOR + t) % 12].sum() / (w.sum() + 1e-9)
-    return sc
+    return sc  # index t = major key t (== relative minor t+9)
 
 
 def detect_allowed(beat_chroma, vocal_chroma=None, extra_thresh=0.45, floor=0.08):
+    """Returns dict(allowed[12] bool, name, confidence, parallel_margin, source)."""
     w = np.asarray(beat_chroma, float).copy()
     src = "beat"
-    if w.sum() < 1e-6 or (w > 0.15).sum() < 4:
+    if w.sum() < 1e-6 or (w > 0.15).sum() < 4:      # sparse beat (drums/808 only)
         if vocal_chroma is None:
             return dict(allowed=np.ones(12, bool), name="unknown", confidence=0.0,
                         parallel_margin=0.0, source="none")
-        w = np.asarray(vocal_chroma, float) + 0.5 * w
-        src = "vocal"
+        w = np.asarray(vocal_chroma, float) + 0.5 * w; src = "vocal"
     elif vocal_chroma is not None:
-        w = w + 0.25 * np.asarray(vocal_chroma, float)
+        w = w + 0.25 * np.asarray(vocal_chroma, float)   # vocal only as tie-breaker
         src = "beat+vocal"
     sc = _set_scores(w)
     disagree = False
@@ -70,30 +80,32 @@ def detect_allowed(beat_chroma, vocal_chroma=None, extra_thresh=0.45, floor=0.08
     margin = float(sc[best] - sc[second])
     allowed = np.zeros(12, bool)
     allowed[(MAJOR + best) % 12] = True
+    # chromatic notes the beat REALLY uses (blue notes, borrowed chords) stay allowed
     allowed |= (np.asarray(beat_chroma) >= extra_thresh)
+    # diatonic notes with essentially no support are dropped (the F vs F# case)
     if src != "vocal":
         weak = np.asarray(beat_chroma) < floor
         for pc in np.where(weak & allowed)[0]:
             allowed[pc] = False
-    if allowed.sum() < 5:
+    if allowed.sum() < 5:                              # never leave a hole bigger than a tone
         allowed[(MAJOR + best) % 12] = True
     rel_min = (best + 9) % 12
     conf = float(np.clip(sc[best] * 1.0 - 0.5 * (1 - min(1, margin / 0.08)) * 0.2, 0, 1))
     conf = float(np.clip(conf * (0.6 + 0.4 * min(1, margin / 0.06)), 0, 1))
-    if disagree:
+    if disagree:   # beat and vocal point at different sets: do not trust either
         conf *= 0.5
     return dict(allowed=allowed, name=f"{NOTES[best]} major / {NOTES[rel_min]} minor",
                 confidence=conf, parallel_margin=margin, source=src)
 
 
 def parse_key(s):
-    s = s.strip().replace("\u266f", "#").replace("\u266d", "b")
+    """Manual override: 'D minor', 'Dm', 'F# major', 'Bb', 'C' -> allowed[12]."""
+    s = s.strip().replace("♯", "#").replace("♭", "b")
     root, rest = s[0].upper(), s[1:]
     acc = 0
-    if rest[:1] == "#":
-        acc, rest = 1, rest[1:]
-    elif rest[:1] == "b":
-        acc, rest = -1, rest[1:]
+    if rest[:1] == "#": acc, rest = 1, rest[1:]
+    elif rest[:1] == "b": acc, rest = -1, rest[1:]
+    t = ("C D EF G A B".replace(" ", "").find(root))
     base = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[root]
     t = (base + acc) % 12
     minor = rest.strip().lower().startswith(("m", "min")) and not rest.strip().lower().startswith("maj")
@@ -104,6 +116,7 @@ def parse_key(s):
 
 
 def resolve(manual=None, beat=None, vocal=None, sr=44100, min_conf=0.55):
+    """Priority: manual > beat (confident) > beat+vocal > safe chromatic (limited reach)."""
     if manual:
         return parse_key(manual)
     bc = chroma(beat, sr)[0] if beat is not None else None
@@ -118,46 +131,3 @@ def resolve(manual=None, beat=None, vocal=None, sr=44100, min_conf=0.55):
             return r
     return dict(allowed=np.ones(12, bool), name="unsure", confidence=0.0,
                 parallel_margin=0.0, source="safe-chromatic", max_pull_cents=35.0)
-
-
-def estimate_offset(f0_hz, allowed, ref_a=440.0, span=100.0, step=2.5, sigma=35.0):
-    f0 = np.asarray(f0_hz, float)
-    f0 = f0[np.isfinite(f0) & (f0 > 0)]
-    allowed = np.asarray(allowed, bool)
-    if f0.size < 50 or not allowed.any():
-        return 0.0, 0.0
-    midi_c = 100.0 * (69.0 + 12.0 * np.log2(f0 / ref_a))
-    idx = np.where(allowed)[0]
-    offs = np.arange(-span, span + step, step)
-    sc = np.zeros(len(offs))
-    for i, o in enumerate(offs):
-        pc = np.mod((midi_c + o) / 100.0, 12.0)
-        d = np.abs(((pc[:, None] - idx[None, :] + 6.0) % 12.0) - 6.0).min(axis=1) * 100.0
-        sc[i] = np.mean(np.exp(-0.5 * (d / sigma) ** 2)) - 0.0002 * abs(o)
-    b = int(np.argmax(sc))
-    far = np.abs(offs - offs[b]) > 40.0
-    second = sc[far].max() if far.any() else 0.0
-    conf = float(np.clip((sc[b] - second) / (sc[b] + 1e-9), 0.0, 1.0))
-    return float(offs[b]), conf
-
-
-def estimate_global_offset(x, sr, allowed, max_sec=120):
-    m = _mono(x)[: int(max_sec * sr)]
-    if len(m) < 8192:
-        m = np.pad(m, (0, 8192 - len(m)))
-    win = np.hanning(8192).astype(np.float32)
-    freqs = np.fft.rfftfreq(8192, 1.0 / sr)
-    sel = np.where((freqs >= 50) & (freqs <= 2000))[0]
-    midi_vals = 69.0 + 12.0 * np.log2(freqs[sel] / 440.0)
-    f0_all = []
-    for s_idx in range(0, len(m) - 8192 + 1, 4096):
-        mag = np.abs(np.fft.rfft(m[s_idx:s_idx + 8192] * win))[sel]
-        if mag.max() < 1e-6:
-            continue
-        pk = (mag[1:-1] > mag[:-2]) & (mag[1:-1] > mag[2:]) & (mag[1:-1] > 0.05 * mag.max())
-        idx = np.where(pk)[0] + 1
-        f0_all.append(440.0 * 2 ** ((midi_vals[idx] - 69.0) / 12.0))
-    if not f0_all:
-        return 0.0, 0.0
-    f0_hz = np.concatenate(f0_all)
-    return estimate_offset(f0_hz, allowed)
