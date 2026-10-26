@@ -1,6 +1,7 @@
 import os, uuid, tempfile, urllib.request, shutil
+import numpy as np
 import modal
-image = (modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg").pip_install("numpy", "scipy", "boto3", "fastapi[standard]").add_local_python_source("vocal_dsp", "beat_key", "flat_fix"))
+image = (modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg").pip_install("numpy", "scipy", "boto3", "fastapi[standard]").add_local_python_source("vocal_dsp", "beat_key", "flat_fix", "key_lock"))
 app = modal.App("wratty-autotune", image=image)
 progress = modal.Dict.from_name("autotune-progress", create_if_missing=True)
 mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
@@ -16,6 +17,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
     from vocal_dsp import PitchCorrector, read_audio, write_audio, peak_limit
     from beat_key import analyse_beat
     from flat_fix import fix_flat
+    import key_lock
     last = {"pct": -1}
     def put(**kw): progress[job_id] = {**progress.get(job_id, {}), **kw}
     try:
@@ -42,11 +44,11 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                 if pct != last["pct"]: last["pct"] = pct; put(pct=pct, stage=stage)
             
             # 1. Flat Fix
-            y, info = fix_flat(x, sr, ref_cents=ref_cents, key=key, progress_cb=cb_fix)
+            y, info = fix_flat(x, sr, ref_cents=ref_cents, key=key, progress_cb=cb_fix, allowed_pcs=allowed_pcs)
             
             # 2. Auto-Tune
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            tuner = PitchCorrector(preset=_preset, key=key, max_correction_semitones=4.0)
+            tuner = PitchCorrector(preset=_preset, key=key, allowed_pcs=allowed_pcs, max_correction_semitones=4.0)
             tuner.progress_cb = cb_tune
             y, tune_info = tuner.process(y, sr)
 
