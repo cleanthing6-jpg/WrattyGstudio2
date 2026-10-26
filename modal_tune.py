@@ -32,28 +32,49 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
         with tempfile.TemporaryDirectory() as d:
             x, sr = read_audio(_download(lead_url, d, "lead_in"))
             key, key_src, ref_cents = "auto", "vocal", 0.0
-            allowed_pcs = None # <--- CRITICAL FIX: Defined here, outside the if/else block
+            allowed_pcs = None
 
             if beat_url:
                 put(stage="Reading beat key", pct=2)
                 try:
                     bx, bsr = read_audio(_download(beat_url, d, "beat_in"))
-                    _, beat_tun = key_lock.chroma(bx, bsr)
+                    # Get raw chromas
+                    bc, beat_tun = key_lock.chroma(bx, bsr)
+                    vc, _ = key_lock.chroma(x, sr)
                     ref_cents = beat_tun
-                    r = key_lock.resolve(beat=bx, vocal=x, sr=sr)
+
+                    # Try detect_allowed (real mask, even if low confidence)
+                    r = key_lock.detect_allowed(bc, vc)
                     key = r["name"]
-                    if key in ("unsure", "unknown", "none", "safe-chromatic"):
-                        key = "auto"
                     key_src = r["source"]
-                    allowed_pcs = list(np.where(r["allowed"])[0])
                     print(f"=== KEY LOCK ===\n{r}\n=================")
+
+                    # Compute global offset using estimate_offset
+                    # This resolves +46 vs -54 ambiguity by aligning vocal to beat's note set
+                    if r["allowed"].any():
+                        off_c, off_conf = key_lock.estimate_global_offset(x, sr, r["allowed"])
+                        print(f"=== GLOBAL OFFSET ===\noffset={off_c:.1f}c confidence={off_conf:.2f}\n=====================")
+                        if off_conf >= 0.15 and abs(off_c) >= 5:
+                            ref_cents = off_c
+                            print(f"✅ Using offset {off_c:.1f}c as ref_cents")
+
+                    # Use real allowed mask ONLY if confidence is high
+                    if r["confidence"] >= 0.55:
+                        allowed_pcs = list(np.where(r["allowed"])[0])
+                        print(f"✅ Using per-note mask (confidence {r['confidence']:.2f})")
+                    else:
+                        allowed_pcs = None
+                        print(f"⚠️ Low confidence ({r['confidence']:.2f}) — using chromatic + offset")
                 except Exception as e:
                     print("Key lock failed:", e)
+                    import traceback; traceback.print_exc()
             else:
-                r = key_lock.resolve(vocal=x, sr=sr)
+                vc, _ = key_lock.chroma(x, sr)
+                r = key_lock.detect_allowed(np.zeros(12), vc)
                 key = r["name"]
                 key_src = r["source"]
-                allowed_pcs = list(np.where(r["allowed"])[0])
+                if r["confidence"] >= 0.55:
+                    allowed_pcs = list(np.where(r["allowed"])[0])
                 print(f"=== KEY LOCK (VOCAL) ===\n{r}\n=================")
 
             def cb_fix(frac, stage):
@@ -63,10 +84,8 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                 pct = int(50 + frac * 49)
                 if pct != last["pct"]: last["pct"] = pct; put(pct=pct, stage=stage)
 
-            # 1. Flat Fix
             y, info = fix_flat(x, sr, ref_cents=ref_cents, key=key, progress_cb=cb_fix, allowed_pcs=allowed_pcs)
 
-            # 2. Auto-Tune
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
             tuner = PitchCorrector(preset=_preset, key=key, allowed_pcs=allowed_pcs, max_correction_semitones=4.0)
             tuner.progress_cb = cb_tune
@@ -76,13 +95,12 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             out = os.path.join(d, "lead_tuned.wav")
             write_audio(out, y, sr, channels=1, bits=24)
             put(stage="Saving", pct=99)
-            
             os.makedirs("/mixes/fx", exist_ok=True)
             dest = f"/mixes/fx/tuned-{job_id}.wav"
             shutil.copy(out, dest)
             mixvol.commit()
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
-            
+
             print("=== FLAT FIX RESULTS ===")
             print(info)
             print(f"=== AUTO TUNE KEY ===\nKey: {tune_info.get('key')}, Key Source: {key_src}\n=====================")

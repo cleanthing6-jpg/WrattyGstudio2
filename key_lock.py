@@ -98,3 +98,26 @@ def resolve(manual=None, beat=None, vocal=None, sr=44100, min_conf=0.55):
         r = detect_allowed(np.zeros(12), vc)
         if r["confidence"] >= min_conf: return r
     return dict(allowed=np.ones(12, bool), name="unsure", confidence=0.0, parallel_margin=0.0, source="safe-chromatic", max_pull_cents=35.0)
+
+
+def estimate_global_offset(x, sr, allowed, max_sec=120):
+    """Convenience wrapper: extract peak f0 from audio, compute cents offset to align to allowed notes."""
+    m = _mono(x)[: int(max_sec * sr)]
+    if len(m) < 8192:
+        m = np.pad(m, (0, 8192 - len(m)))
+    win = np.hanning(8192).astype(np.float32)
+    freqs = np.fft.rfftfreq(8192, 1.0 / sr)
+    sel = np.where((freqs >= 50) & (freqs <= 2000))[0]
+    midi_vals = 69.0 + 12.0 * np.log2(freqs[sel] / 440.0)
+    f0_all = []
+    for s_idx in range(0, len(m) - 8192 + 1, 4096):
+        mag = np.abs(np.fft.rfft(m[s_idx:s_idx + 8192] * win))[sel]
+        if mag.max() < 1e-6:
+            continue
+        pk = (mag[1:-1] > mag[:-2]) & (mag[1:-1] > mag[2:]) & (mag[1:-1] > 0.05 * mag.max())
+        idx = np.where(pk)[0] + 1
+        f0_all.append(440.0 * 2 ** ((midi_vals[idx] - 69.0) / 12.0))
+    if not f0_all:
+        return 0.0, 0.0
+    f0_hz = np.concatenate(f0_all)
+    return estimate_offset(f0_hz, allowed)
