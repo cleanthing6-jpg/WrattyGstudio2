@@ -43,7 +43,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             
             # 2. Auto-Tune
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            tuner = PitchCorrector(preset=_preset, key=key)
+            tuner = PitchCorrector(preset=_preset, key=key, max_correction_semitones=4.0)
             tuner.progress_cb = cb_tune
             y, tune_info = tuner.process(y, sr)
 
@@ -53,6 +53,8 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
             print("=== FLAT FIX RESULTS ===")
             print(info)
+            print("=== AUTO TUNE KEY ===")
+            print(f"Key: {key}, Key Source: {key_src}")
             print("=========================")
             put(status="done", pct=100, stage="Done", url=url, key=tune_info.get("key"), keySource=key_src, notes=tune_info.get("n_notes"), flat_info=info)
     except Exception as e:
