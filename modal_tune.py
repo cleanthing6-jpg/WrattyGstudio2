@@ -1,11 +1,10 @@
 import os, uuid, tempfile, urllib.request, shutil
 import modal
 
-# Added vocal_rescue to the image
 image = (modal.Image.debian_slim(python_version="3.11")
          .apt_install("ffmpeg")
          .pip_install("numpy", "scipy", "boto3", "fastapi[standard]")
-         .add_local_python_source("vocal_dsp", "beat_key", "vocal_rescue"))
+         .add_local_python_source("vocal_dsp", "beat_key"))
 app = modal.App("wratty-autotune", image=image)
 progress = modal.Dict.from_name("autotune-progress", create_if_missing=True)
 mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
@@ -20,7 +19,6 @@ def _download(url, d, name):
 @app.function(volumes={"/mixes": mixvol}, timeout=900, cpu=2, memory=4096)
 def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "natural"):
     from vocal_dsp import PitchCorrector, read_audio, write_audio, peak_limit
-    import vocal_rescue
 
     last = {"pct": -1}
     def put(**kw):
@@ -37,25 +35,14 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                     last["pct"] = pct
                     put(pct=pct, stage=stage)
 
-            # 1. PHONE RECORD FIX (Pre-Rescue: removes room echo)
-            put(stage="Fixing phone recording", pct=4)
-            y_pre, rescue_pre = vocal_rescue.rescue(x, sr, stage="pre")
-            print(f"=== RESCUE PRE ===\n{rescue_pre}\n==================")
-
-            # 2. PURE AUTO-TUNE (Dynamic, no masks, no offsets)
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            tuner = PitchCorrector(preset=_preset, key="auto", max_correction_semitones=4.0)
+            tuner = PitchCorrector(preset=_preset, key="auto")
             tuner.progress_cb = cb
-            y_tuned, info = tuner.process(y_pre, sr)
+            y, info = tuner.process(x, sr)
 
-            # 3. PHONE RECORD FIX (Post-Rescue: matches tone & adds air)
-            put(stage="Polishing tone", pct=95)
-            y_final, rescue_post = vocal_rescue.rescue(y_tuned, sr, stage="post")
-            print(f"=== RESCUE POST ===\n{rescue_post}\n==================")
-
-            y_final = peak_limit(y_final, sr)
+            y = peak_limit(y, sr)
             out = os.path.join(d, "lead_tuned.wav")
-            write_audio(out, y_final, sr, channels=1, bits=24)
+            write_audio(out, y, sr, channels=1, bits=24)
             put(stage="Saving", pct=99)
             
             os.makedirs("/mixes/fx", exist_ok=True)
@@ -64,7 +51,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             mixvol.commit()
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
             
-            print(f"=== AUTO TUNE SUCCESS ===\nKey: {info.get('key')}\n=====================")
+            print(f"=== PURE AUTO TUNE ===\nKey: {info.get('key')}\n=====================")
             put(status="done", pct=100, stage="Done", url=url, key=info.get("key"), notes=info.get("n_notes"))
     except Exception as e:
         import traceback
