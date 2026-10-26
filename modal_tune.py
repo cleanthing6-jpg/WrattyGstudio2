@@ -51,6 +51,9 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
             out = os.path.join(d, "lead_tuned.wav"); write_audio(out, y, sr, channels=1, bits=24); put(stage="Saving", pct=99)
             os.makedirs("/mixes/fx", exist_ok=True); dest = f"/mixes/fx/tuned-{job_id}.wav"; shutil.copy(out, dest); mixvol.commit()
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
+            print("=== FLAT FIX RESULTS ===")
+            print(info)
+            print("=========================")
             put(status="done", pct=100, stage="Done", url=url, key=tune_info.get("key"), keySource=key_src, notes=tune_info.get("n_notes"), flat_info=info)
     except Exception as e:
         import traceback; traceback.print_exc(); put(status="error", error=str(e)[:300])
