@@ -32,7 +32,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                     print(r)
                     print("=====================")
                     ref_cents = r["ref_cents"]
-                    if r["key_margin"] >= 0.01: key, key_src = r["key"], "beat"
+                    if r["key_margin"] >= 0.06: key, key_src = r["key"], "beat"
                 except Exception: pass
             def cb_fix(frac, stage):
                 pct = int(4 + frac * 45)
