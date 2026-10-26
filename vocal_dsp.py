@@ -240,7 +240,7 @@ class PitchCorrector:
         bpm, bconf = (c.bpm, 1.0) if c.bpm else self.estimate_bpm(rms, v)
         segs, min_note_s = self._segment(midi, v, bpm); kt = self.estimate_tuning_and_key(midi, v, conf, segs)
         if c.ref_a_auto_dev is not None: kt["tuning_used_cents"] = c.ref_a_auto_dev
-        if c.key and c.key.lower() != "auto": tonic, mode = self._parse_key(c.key); kt["key_source"] = "user"; pen = 0.40
+        if c.key and c.key.lower() not in ("auto", "unsure", "unknown", "none", "safe-chromatic"): tonic, mode = self._parse_key(c.key); kt["key_source"] = "user"; pen = 0.40
         else: tonic, mode = kt["tonic"], kt["mode"]; kt["key_source"] = "auto"; pen = float(np.clip((kt["key_margin"] - 0.05) / 0.15, 0.0, 1.0) * 0.40)
         scale_pcs = c.allowed_pcs if c.allowed_pcs else self._scale_set(tonic, mode)
         self.info.update(key=f"{NOTE_NAMES[tonic]} {mode}", scale_notes=[NOTE_NAMES[i] for i in scale_pcs], bpm=round(bpm, 1), bpm_conf=round(bconf, 2), min_note_ms=round(min_note_s * 1000), offscale_penalty_cents=round(pen * 100), voiced_fraction=round(float(v.mean()), 3), runner_up_key=kt["runner_up"], **{k: (round(kt[k], 3) if isinstance(kt[k], float) else kt[k]) for k in ("tuning_dev_cents", "tuning_used_cents", "tuning_p", "key_corr", "key_margin", "key_source")})

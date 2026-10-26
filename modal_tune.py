@@ -42,6 +42,8 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                     ref_cents = beat_tun
                     r = key_lock.resolve(beat=bx, vocal=x, sr=sr)
                     key = r["name"]
+                    if key in ("unsure", "unknown", "none", "safe-chromatic"):
+                        key = "auto"
                     key_src = r["source"]
                     allowed_pcs = list(np.where(r["allowed"])[0])
                     print(f"=== KEY LOCK ===\n{r}\n=================")
