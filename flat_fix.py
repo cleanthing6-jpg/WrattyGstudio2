@@ -1,7 +1,9 @@
 import numpy as np
 from vocal_dsp import PitchCorrector
-PREP = dict(retune_ms=55, strength=0.85, drift_fix=0.70, vibrato_keep=1.0, tol_cents=8)
-def fix_flat(x, sr, ref_cents=0.0, key="auto", sharp_ratio=0.5, bypass_below=0.15, progress_cb=None):
+# Increased max correction to 3.0 semitones and lowered bypass threshold
+PREP = dict(retune_ms=55, strength=0.90, drift_fix=0.80, vibrato_keep=1.0, tol_cents=5, max_correction_semitones=3.0)
+
+def fix_flat(x, sr, ref_cents=0.0, key="auto", sharp_ratio=0.5, bypass_below=0.05, progress_cb=None):
     x = np.asarray(x, dtype=np.float64); pc = PitchCorrector(preset="studio", key=key, ref_a_auto_dev=ref_cents, **PREP)
     pc.progress_cb = progress_cb; A = pc.analyse(x, sr); shift, target = pc.plan_corrections(A)
     fl, wt = [], []
