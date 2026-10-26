@@ -1,13 +1,6 @@
 import os
 import modal
 import uuid
-import numpy as np
-import soundfile as sf
-import requests
-from io import BytesIO
-
-from vocal_dsp import PitchCorrector
-from beat_key import detect_key
 
 app = modal.App("wratty-autotune")
 volume = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
@@ -18,8 +11,17 @@ image = (modal.Image.debian_slim(python_version="3.11")
 
 @app.function(image=image, volumes={"/mixes": volume}, timeout=600, cpu=2.0, memory=4096)
 def tune_job(job_id: str, vocal_url: str, beat_url: str = None, preset: dict = None, manual_key: str = None):
+    # 🚨 ALL IMPORTS MOVED INSIDE THE FUNCTION 🚨
+    import numpy as np
+    import soundfile as sf
+    import requests
+    from io import BytesIO
+    from vocal_dsp import PitchCorrector
+    from beat_key import detect_key
+
     progress_dict = modal.Dict.from_name("tuning-progress", create_if_missing=True)
     progress_dict[job_id] = {"status": "running", "pct": 10, "stage": "Downloading audio files..."}
+    
     try:
         vocal_res = requests.get(vocal_url)
         vocal_res.raise_for_status()
