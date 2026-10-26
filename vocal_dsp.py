@@ -118,6 +118,7 @@ class TunerConfig:
     ref_a: float = 440.0; fmin: float = 70.0; fmax: float = 900.0; max_correction_semitones: float = 1.5
     retune_ms: float | None = None; strength: float | None = None; drift_fix: float | None = None
     vibrato_keep: float | None = None; tol_cents: float | None = None; ref_a_auto_dev: float | None = None
+    allowed_pcs: list[int] | None = None
     adaptive_speed: bool = True; tuning_mode: str = 'follow'
 
 class PitchCorrector:
