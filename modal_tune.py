@@ -56,12 +56,12 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                 print(f"=== KEY LOCK ===\n{r}\n=================")
 
                 if r["confidence"] >= KEY_CONF_MIN:
-                    allowed_pcs = [int(i) for i in np.where(r["allowed"])[0]]
+                    allowed_pcs = None
                     key_src, key_name = r["source"], r["name"]
                     off_c, off_conf = key_lock.estimate_global_offset(x, sr, r["allowed"], min_conf=OFFSET_CONF_MIN)
                     print(f"=== GLOBAL OFFSET ===\noffset={off_c:.1f}c confidence={off_conf:.2f}\n=====================")
-                    if off_conf >= OFFSET_CONF_MIN and abs(off_c) >= 5.0:
-                        global_offset = float(off_c)
+                    if False:
+                        # global_offset disabled for dynamic tuning
                 else:
                     print(f"⚠️ Key unsure ({r['confidence']:.2f}): no mask, no offset, no key name forced")
                     put(needsKey=True, keyCandidates=r.get("candidates", []))
