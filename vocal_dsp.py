@@ -1,22 +1,5 @@
 """
 vocal_dsp.py  --  Adaptive vocal noise cleaner + key/tempo-aware pitch corrector
-=================================================================================
-Pure numpy/scipy (no ML models, no GPU, no licences).  Offline / file-based.
-
-  AdaptiveNoiseCleaner : rumble HP + auto hum notch + minimum-statistics noise
-                         tracking + log-MMSE (Ephraim-Malah) gain + voice-aware
-                         gap attenuation.
-  PitchCorrector       : pYIN-style Viterbi pitch tracker, key + tuning + tempo
-                         detection, note segmentation, retune-speed smoothing,
-                         vibrato-preserving correction, TD-PSOLA shifter
-                         (formants preserved for the small shifts used here).
-
-Typical use
------------
-    from vocal_dsp import *
-    x, sr = read_audio("lead.flac")                     # mono float
-    clean = AdaptiveNoiseCleaner().process(x, sr)
-    tuned, info = PitchCorrector(preset="natural").process(clean, sr)
 """
 from __future__ import annotations
 import math
@@ -27,7 +10,6 @@ from scipy.special import exp1
 from scipy.stats import gamma as _gamma
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
 
 def read_audio(path, mono=True):
     import subprocess, tempfile, os
@@ -42,7 +24,6 @@ def read_audio(path, mono=True):
         x = x.mean(axis=1)
     return x, sr
 
-
 def write_audio(path, x, sr, channels=1, bits=24):
     import subprocess, tempfile, os
     from scipy.io import wavfile
@@ -55,7 +36,6 @@ def write_audio(path, x, sr, channels=1, bits=24):
         fmt = ["-c:a", "flac", "-sample_fmt", "s32"] if path.endswith(".flac") else \
               ["-c:a", "pcm_s24le"] if bits == 24 else ["-c:a", "pcm_s16le"]
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp] + fmt + [path], check=True)
-
 
 @dataclass
 class CleanerConfig:
@@ -70,7 +50,6 @@ class CleanerConfig:
     n_fft: int = 2048
     hop: int = 512
     dd_alpha: float = 0.97
-
 
 class AdaptiveNoiseCleaner:
     def __init__(self, cfg: CleanerConfig | None = None, **kw):
@@ -111,21 +90,18 @@ class AdaptiveNoiseCleaner:
         y = signal.sosfiltfilt(sos, y)
         if c.auto_hum:
             y = self._notch_hum(y, sr)
-
         n, hop = c.n_fft, c.hop
         _, _, X = signal.stft(y, sr, window="hann", nperseg=n, noverlap=n - hop,
                               boundary="zeros", padded=True)
         F, T = X.shape
         P = np.abs(X) ** 2
         freqs = np.fft.rfftfreq(n, 1 / sr)
-
         bm = np.zeros(T + 4)
         nb = len(y) // hop + 1
         blk = np.abs(np.pad(y, (0, nb * hop - len(y))))[: nb * hop].reshape(nb, hop).max(1)
         Lb = min(nb, T + 2)
         bm[2: 2 + Lb] = blk[:Lb]
         valid = np.maximum.reduce([bm[i: i + T] for i in range(4)]) > 10 ** (-100 / 20)
-
         Msm = 5
         Ps = ndimage.uniform_filter1d(P, size=Msm, axis=1)
         E = Ps.sum(0)
@@ -151,7 +127,6 @@ class AdaptiveNoiseCleaner:
         N = ndimage.gaussian_filter1d(N, sigma=6, axis=1)
         N = np.maximum(N, 1e-20)
         self._N = N
-
         b1, b2 = np.searchsorted(freqs, [150, 5000])
         snr_db = 10 * np.log10((Ps[b1:b2].sum(0) + 1e-20) / (N[b1:b2].sum(0) + 1e-20))
         vp = np.clip((snr_db - 3.0) / 6.0, 0, 1)
@@ -159,7 +134,6 @@ class AdaptiveNoiseCleaner:
         vp = ndimage.uniform_filter1d(vp, size=15)
         floor_db = c.gap_reduction_db + (c.reduction_db - c.gap_reduction_db) * vp
         floor = 10 ** (-floor_db / 20.0)
-
         G = np.ones_like(P)
         Gprev = np.ones(F)
         gprev = np.ones(F)
@@ -194,7 +168,6 @@ class AdaptiveNoiseCleaner:
         self._vp, self._valid = vp, valid
         return out
 
-
 SCALES = {
     "major": [0, 2, 4, 5, 7, 9, 11],
     "minor": [0, 2, 3, 5, 7, 8, 10],
@@ -210,10 +183,10 @@ _KMIN = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.
 PRESETS = {
     "transparent": dict(retune_ms=90, strength=0.65, drift_fix=0.35, vibrato_keep=1.0, tol_cents=12),
     "natural":     dict(retune_ms=40, strength=0.90, drift_fix=0.60, vibrato_keep=1.0, tol_cents=5),
+    "studio":      dict(retune_ms=30, strength=0.95, drift_fix=0.70, vibrato_keep=1.0, tol_cents=3),
     "pop":         dict(retune_ms=12, strength=1.00, drift_fix=0.90, vibrato_keep=0.85, tol_cents=0),
     "hard":        dict(retune_ms=3,  strength=1.00, drift_fix=1.00, vibrato_keep=0.0, tol_cents=0),
 }
-
 
 @dataclass
 class TunerConfig:
@@ -233,7 +206,6 @@ class TunerConfig:
     ref_a_auto_dev: float | None = None
     adaptive_speed: bool = True
     tuning_mode: str = 'follow'
-
 
 class PitchCorrector:
     HOP16 = 80
@@ -287,7 +259,6 @@ class PitchCorrector:
             cm[s:e, MAXLAG + 1] = 1.0
             rms[s:e] = np.sqrt(E1[:, 0] / W)
             self._prog(0.15 * e / n, "Analysing pitch")
-
         bpo = 48
         K = int(math.log2(c.fmax / c.fmin) * bpo) + 1
         fk = c.fmin * 2 ** (np.arange(K) / bpo)
@@ -300,7 +271,6 @@ class PitchCorrector:
         cost_v[gate] += 1.0
         cost_u = np.full(n, 0.40)
         cost_u[gate] = 0.0
-
         J, lam, vu = 8, 0.006, 0.08
         pen = lam * np.abs(np.arange(-J, J + 1))
         delta = np.concatenate([cost_v[0], [cost_u[0]]])
@@ -500,7 +470,15 @@ class PitchCorrector:
                          **{k: (round(kt[k], 3) if isinstance(kt[k], float) else kt[k]) for k in
                             ("tuning_dev_cents", "tuning_used_cents", "tuning_p", "key_corr", "key_margin", "key_source")})
         return dict(midi=midi, v=v, conf=conf, rms=rms, segs=segs, scale_pcs=scale_pcs,
-                    dev=kt["tuning_used_cents"] / 100.0, bpm=bpm, pen=pen)
+                    dev=kt["tuning_used_cents"] / 100.0, bpm=bpm, pen=pen,
+                    singer_dev=kt["tuning_dev_cents"] / 100.0, singer_sig=bool(kt["tuning_p"] < 0.05))
+
+    @staticmethod
+    def _core(m):
+        n = len(m)
+        if n >= 12:
+            return float(np.median(m[int(0.25 * n):int(0.90 * n)]))
+        return float(np.median(m))
 
     def plan_corrections(self, A):
         p, c = self.p, self.cfg
@@ -513,19 +491,36 @@ class PitchCorrector:
         c_note = np.zeros(n)
         vib = np.zeros(n)
         target = np.full(n, np.nan)
+        tau_scale = np.ones(n)
         tol = p["tol_cents"] / 100.0
         maxc = c.max_correction_semitones
+        bias, consist = 0.0, 0.0
+        cores = np.array([self._core(midi[a_:b_]) - dev for a_, b_ in segs if b_ - a_ >= 10])
+        if len(cores) >= 8:
+            w_ = np.array([math.sqrt(b_ - a_) for a_, b_ in segs if b_ - a_ >= 10])
+            z_ = (w_ * np.exp(2j * np.pi * cores)).sum() / w_.sum()
+            consist = float(abs(z_))
+            b0 = float(np.angle(z_) / (2 * np.pi) * 100.0)
+            if b0 > 35.0:
+                b0 -= 100.0
+            if consist >= 0.5 and abs(b0) >= 8:
+                bias = float(np.clip(b0, -60.0, 35.0))
+        lean = 0.85 * bias / 100.0
+        drift = min(1.0, p["drift_fix"] + (0.15 if bias < -10 else 0.0))
+        self.info["singer_bias_cents"] = round(bias, 1)
+        self.info["singer_consistency"] = round(consist, 2)
         for a, b in segs:
             m = midi[a:b]
-            c0 = float(np.median(m))
-            T = grid[np.argmin(np.abs(grid - (c0 - dev)) + offscale)]
+            c0 = self._core(m)
+            T = grid[np.argmin(np.abs(grid - (c0 - dev - lean)) + offscale)]
             T_abs = T + (dev if c.tuning_mode == 'follow' else 0.0)
             e = T_abs - c0
             e_eff = math.copysign(max(abs(e) - tol, 0.0), e)
             L = ndimage.gaussian_filter1d(m, sigma_loc, mode="nearest") if len(m) > 3 else np.full(len(m), c0)
-            c_note[a:b] = np.clip(p["strength"] * (e_eff - p["drift_fix"] * (L - c0)), -maxc, maxc)
+            c_note[a:b] = np.clip(p["strength"] * (e_eff - drift * (L - c0)), -maxc, maxc)
             vib[a:b] = m - L
             target[a:b] = T_abs
+            tau_scale[a:b] = 1.0 + 0.8 * float(np.clip((abs(e_eff) - 0.25) / 0.75, 0.0, 1.0))
         retune_ms = p["retune_ms"]
         if c.adaptive_speed:
             durs = np.array([(b - a) * dt * 1000 for a, b in segs if b - a >= 10])
@@ -535,12 +530,12 @@ class PitchCorrector:
                 self.info["median_note_ms"] = round(med)
         self.info["retune_ms_used"] = round(retune_ms, 1)
         tau = max(retune_ms, 0.5) / 1000.0
-        alpha = 1 - math.exp(-dt / tau)
+        alpha = 1 - np.exp(-dt / (tau * tau_scale))
         cs = np.zeros(n)
         for s_, e_ in _runs(v):
             cur = c_note[s_]
             for i in range(s_, e_):
-                cur += (c_note[i] - cur) * alpha
+                cur += (c_note[i] - cur) * alpha[i]
                 cs[i] = cur
         shift = cs - (1 - p["vibrato_keep"]) * vib
         shift = np.clip(shift, -maxc - 0.5, maxc + 0.5)
@@ -660,11 +655,11 @@ class PitchCorrector:
         shift, target = self.plan_corrections(A)
         self._prog(0.70, "Retuning")
         y = self.psola(np.asarray(x, dtype=np.float64), sr, A["midi"], A["v"], shift)
-        self.info.update(n_notes=len(A["segs"]))
+        self.info.update(n_notes=len(A["segs"]),
+                         avg_lift_cents=round(float(np.mean(shift[A["v"]])) * 100, 1) if A["v"].any() else 0.0)
         self._prog(1.0, "Done")
         self._dbg = dict(A, shift=shift, target=target)
         return y, self.info
-
 
 def peak_limit(x, sr, ceiling_db=-0.3, look_ms=2.0):
     ceil = 10 ** (ceiling_db / 20)
@@ -676,12 +671,10 @@ def peak_limit(x, sr, ceiling_db=-0.3, look_ms=2.0):
     g = ndimage.uniform_filter1d(g, w)
     return x * np.minimum(g, 1.0)
 
-
 def _runs(mask):
     m = np.concatenate([[0], mask.astype(np.int8), [0]])
     d = np.diff(m)
     return list(zip(np.where(d == 1)[0], np.where(d == -1)[0]))
-
 
 def midi_cents_error(midi, v, scale_pcs, dev=0.0):
     grid = np.array([m for m in range(20, 110) if (m % 12) in scale_pcs], dtype=float)
