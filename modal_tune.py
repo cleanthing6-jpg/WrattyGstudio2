@@ -1,15 +1,14 @@
 import os, uuid, tempfile, urllib.request, shutil
-import numpy as np
 import modal
 
+# We only need vocal_dsp now. No flat_fix, no key_lock.
 image = (modal.Image.debian_slim(python_version="3.11")
          .apt_install("ffmpeg")
          .pip_install("numpy", "scipy", "boto3", "fastapi[standard]")
-         .add_local_python_source("vocal_dsp", "beat_key", "flat_fix", "key_lock"))
+         .add_local_python_source("vocal_dsp", "beat_key"))
 app = modal.App("wratty-autotune", image=image)
 progress = modal.Dict.from_name("autotune-progress", create_if_missing=True)
 mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
-
 
 def _download(url, d, name):
     path = os.path.join(d, name)
@@ -18,12 +17,9 @@ def _download(url, d, name):
         f.write(r.read())
     return path
 
-
 @app.function(volumes={"/mixes": mixvol}, timeout=900, cpu=2, memory=4096)
 def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "natural", manual_key: str | None = None):
     from vocal_dsp import PitchCorrector, read_audio, write_audio, peak_limit
-    from flat_fix import fix_flat
-    import key_lock
 
     last = {"pct": -1}
     def put(**kw):
@@ -33,66 +29,40 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
         put(status="running", pct=0, stage="Starting")
         with tempfile.TemporaryDirectory() as d:
             x, sr = read_audio(_download(lead_url, d, "lead_in"))
-            key_src, key_name = "unsure", "unsure"
+            
+            # Use manual key if provided, otherwise "auto" (PitchCorrector analyzes the vocal)
+            key = manual_key if manual_key else "auto"
 
-            # --- KEY INFO: report only, does NOT influence tuning ---
-            try:
-                if manual_key:
-                    r = key_lock.parse_key(manual_key)
-                elif beat_url:
-                    put(stage="Reading beat key", pct=2)
-                    bx, bsr = read_audio(_download(beat_url, d, "beat_in"))
-                    bc = key_lock.key_chroma(bx, bsr)
-                    vc, _ = key_lock.chroma(x, sr)
-                    r = key_lock.detect_allowed(bc, vc)
-                else:
-                    vc, _ = key_lock.chroma(x, sr)
-                    r = key_lock.detect_allowed(np.zeros(12), vc)
-                key_src, key_name = r["source"], r["name"]
-                print(f"=== KEY LOCK (report only) ===\n{r}\n=================")
-            except Exception as e:
-                print("Key lock failed:", e)
-
-            def cb_fix(frac, stage):
-                pct = int(4 + frac * 45)
+            def cb(frac, stage):
+                pct = int(4 + frac * 94)
                 if pct != last["pct"]:
-                    last["pct"] = pct; put(pct=pct, stage=stage)
-            def cb_tune(frac, stage):
-                pct = int(50 + frac * 49)
-                if pct != last["pct"]:
-                    last["pct"] = pct; put(pct=pct, stage=stage)
+                    last["pct"] = pct
+                    put(pct=pct, stage=stage)
 
-            # --- FULLY DYNAMIC: no global offset, no mask ---
-            y, info = fix_flat(x, sr, ref_cents=0.0, key="auto", progress_cb=cb_fix,
-                               allowed_pcs=None, global_offset_cents=None)
-
+            # --- PURE AUTO-TUNE ---
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            tuner = PitchCorrector(preset=_preset, key="auto", allowed_pcs=None, max_correction_semitones=4.0)
-            tuner.progress_cb = cb_tune
-            y, tune_info = tuner.process(y, sr)
+            tuner = PitchCorrector(preset=_preset, key=key)
+            tuner.progress_cb = cb
+            y, info = tuner.process(x, sr)
 
             y = peak_limit(y, sr)
             out = os.path.join(d, "lead_tuned.wav")
             write_audio(out, y, sr, channels=1, bits=24)
             put(stage="Saving", pct=99)
+            
             os.makedirs("/mixes/fx", exist_ok=True)
             dest = f"/mixes/fx/tuned-{job_id}.wav"
             shutil.copy(out, dest)
             mixvol.commit()
             url = f"https://wrattyg--wratty-files-web.modal.run/f/fx/tuned-{job_id}.wav"
+            
+            print(f"=== AUTO TUNE SUCCESS ===\nKey: {info.get('key')}\n=====================")
 
-            print("=== FLAT FIX RESULTS ===")
-            print(info)
-            print(f"=== AUTO TUNE ===\nTuner label: {tune_info.get('key')}, Key report: {key_name} ({key_src})\n=====================")
-
-            put(status="done", pct=100, stage="Done", url=url,
-                key=key_name, keySource=key_src,
-                notes=tune_info.get("n_notes"), flat_info=info)
+            put(status="done", pct=100, stage="Done", url=url, key=info.get("key"), notes=info.get("n_notes"))
     except Exception as e:
         import traceback
         traceback.print_exc()
         put(status="error", error=str(e)[:300])
-
 
 @app.function(min_containers=1)
 @modal.fastapi_endpoint(method="POST")
@@ -101,7 +71,6 @@ def start(body: dict):
     progress[job_id] = {"status": "queued", "pct": 0, "stage": "Queued"}
     tune_job.spawn(job_id, body["url"], body.get("beatUrl"), body.get("preset", "natural"), body.get("key"))
     return {"jobId": job_id}
-
 
 @app.function()
 @modal.fastapi_endpoint(method="GET")
