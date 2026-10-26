@@ -28,8 +28,11 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                 try:
                     bx, bsr = read_audio(_download(beat_url, d, "beat_in"))
                     r = analyse_beat(bx, bsr)
+                    print("=== BEAT ANALYSIS ===")
+                    print(r)
+                    print("=====================")
                     ref_cents = r["ref_cents"]
-                    if r["key_margin"] >= 0.05: key, key_src = r["key"], "beat"
+                    if r["key_margin"] >= 0.01: key, key_src = r["key"], "beat"
                 except Exception: pass
             def cb_fix(frac, stage):
                 pct = int(4 + frac * 45)
