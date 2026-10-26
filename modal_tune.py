@@ -80,7 +80,7 @@ def tune_job(job_id: str, lead_url: str, beat_url: str | None, preset: str = "na
                                allowed_pcs=allowed_pcs, global_offset_cents=global_offset)
 
             _preset = preset if preset in ("natural", "hard", "pop", "transparent") else "natural"
-            max_corr = 2.0 if global_offset is not None else 4.0
+            max_corr = 4.0
             tuner = PitchCorrector(preset=_preset, key="auto", allowed_pcs=allowed_pcs, max_correction_semitones=max_corr)
             tuner.progress_cb = cb_tune
             y, tune_info = tuner.process(y, sr)
