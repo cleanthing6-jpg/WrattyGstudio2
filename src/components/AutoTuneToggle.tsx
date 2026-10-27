@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { useAutoTune } from "@/hooks/useAutoTune";
+import { PianoRollConsole } from "./PianoRollConsole";
 
 function useCountUp(target: number, running: boolean) {
   const [v, setV] = useState(0);
@@ -86,7 +87,12 @@ export function AutoTuneToggle({ tune }: { tune: ReturnType<typeof useAutoTune> 
         </div>
       )}
       
-      {tune.state === "done" && <div className="text-xs font-semibold text-emerald-600">Tuned{tune.key ? ` in ${tune.key}` : ""} ✓</div>}
+      {tune.state === "done" && (
+          <>
+            <div className="text-xs font-semibold text-emerald-600">Tuned{tune.key ? ` in ${tune.key}` : ""} ✓</div>
+            <PianoRollConsole pianoRoll={tune.pianoRoll} />
+          </>
+        )}
       {tune.state === "failed" && <div className="text-xs font-semibold text-amber-600">Tuning failed, using original. ({tune.stage})</div>}
     </div>
   );

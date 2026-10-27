@@ -1,4 +1,3 @@
-// src/hooks/useAutoTune.ts
 "use client";
 import { useCallback, useEffect, useState } from "react";
 
@@ -16,8 +15,8 @@ export function useAutoTune() {
   const [stage, setStage] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [key, setKey] = useState<string | null>(null);
+  const [pianoRoll, setPianoRoll] = useState<any[]>([]);
 
-  // elapsed-seconds counter while running
   useEffect(() => {
     if (state !== "running") return;
     const t0 = Date.now();
@@ -26,14 +25,13 @@ export function useAutoTune() {
     return () => clearInterval(id);
   }, [state]);
 
-  /** Tunes the lead stem and returns a new stems array. Any problem => original stems (graceful). */
   const applyToStems = useCallback(
     async (stems: Stem[]): Promise<Stem[]> => {
       const lead = stems.find((s) => s.role === "lead");
       if (!enabled || !lead) return stems;
       const beat = stems.find((s) => s.role === "beat" || s.role === "instrumental");
 
-      setState("running"); setPct(0); setStage("Starting"); setKey(null);
+      setState("running"); setPct(0); setStage("Starting"); setKey(null); setPianoRoll([]);
       try {
         const start = await fetch("/api/tune", {
           method: "POST",
@@ -53,7 +51,9 @@ export function useAutoTune() {
           if (s.stage) setStage(s.stage);
           if (s.status === "error") throw new Error(s.error || "tune error");
           if (s.status === "done" && s.url) {
-            setPct(100); setState("done"); setKey(s.key ?? null);
+            setPct(100); setState("done");
+            setKey(s.detectedKey ?? s.key ?? null);
+            setPianoRoll(s.pianoRoll ?? []);
             return stems.map((x) => (x === lead ? { ...x, url: s.url } : x));
           }
         }
@@ -68,5 +68,5 @@ export function useAutoTune() {
     [enabled, preset]
   );
 
-  return { enabled, setEnabled, preset, setPreset, state, pct, stage, seconds, key, applyToStems };
+  return { enabled, setEnabled, preset, setPreset, state, pct, stage, seconds, key, pianoRoll, applyToStems };
 }
