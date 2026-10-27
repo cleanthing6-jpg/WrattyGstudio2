@@ -1,64 +1,52 @@
-"""Beat analysis: tuning reference and key detection."""
 import numpy as np
-from scipy import signal
-from vocal_dsp import NOTE_NAMES, _KMAJ, _KMIN
+import scipy.signal
+import librosa
 
-_N = 16384
 
-def _middle(x, sr, max_seconds):
-    x = np.asarray(x, dtype=np.float64)
-    if len(x) > max_seconds * sr:
-        mid, h = len(x) // 2, int(max_seconds * sr / 2)
-        x = x[mid - h: mid + h]
-    return x
+def detect_key(beat_audio: np.ndarray, sr: int):
+    """Detects root key and scale from a beat track.
 
-def detect_tuning_cents(x, sr, max_seconds=75):
-    x = _middle(x, sr, max_seconds)
-    f, _, S = signal.stft(x, sr, window="hann", nperseg=_N, noverlap=_N // 2)
-    M = np.abs(S)
-    sel = np.where((f >= 120) & (f <= 2000))[0]
-    z, wsum = 0j, 0.0
-    for t in range(M.shape[1]):
-        mag = M[:, t]
-        seg = mag[sel]
-        if seg.max() <= 0: continue
-        pk, _ = signal.find_peaks(seg, height=0.15 * seg.max())
-        for k in pk:
-            i = sel[k]
-            if i < 1 or i >= len(f) - 1: continue
-            a, b, c = np.log(mag[i - 1] + 1e-12), np.log(mag[i] + 1e-12), np.log(mag[i + 1] + 1e-12)
-            d = 0.5 * (a - c) / (a - 2 * b + c + 1e-12)
-            fr = (i + d) * (f[1] - f[0])
-            semis = 69 + 12 * np.log2(fr / 440.0)
-            w = mag[i]
-            z += w * np.exp(2j * np.pi * semis)
-            wsum += w
-    if wsum == 0: return 0.0, 0.0
-    return float(np.angle(z) / (2 * np.pi) * 100.0), float(abs(z) / wsum)
+    Applies a 250 Hz high-pass filter to strip bass/808 distortion
+    before chroma analysis. Returns (key, scale, confidence).
+    """
+    if len(beat_audio) == 0:
+        return "C", "Natural Minor", 0.0
 
-def _key_from_chroma(x, sr, tuning_cents, max_seconds):
-    x = _middle(x, sr, max_seconds)
-    f, _, S = signal.stft(x, sr, window="hann", nperseg=_N, noverlap=_N // 2)
-    mag = np.sqrt(np.abs(S)).mean(axis=1)
-    sel = (f >= 55) & (f <= 2000)
-    midi = np.round(69 + 12 * np.log2(f[sel] / 440.0) - tuning_cents / 100.0).astype(int)
-    pc = np.zeros(12)
-    np.add.at(pc, midi % 12, mag[sel])
-    pc = pc / pc.sum()
-    scores = sorted(
-        ((np.corrcoef(pc, np.roll(prof, t))[0, 1], t, m)
-         for t in range(12) for m, prof in (("major", _KMAJ), ("minor", _KMIN))),
-        reverse=True)
-    return f"{NOTE_NAMES[scores[0][1]]} {scores[0][2]}", float(scores[0][0] - scores[1][0])
+    if beat_audio.ndim > 1:
+        beat_audio = np.mean(beat_audio, axis=1)
 
-def analyse_beat(x, sr, max_seconds=75):
-    cents, conf = detect_tuning_cents(x, sr, max_seconds)
-    use = conf >= 0.35 and abs(cents) >= 8
-    ref = float(np.clip(cents, -50, 50)) if use else 0.0
-    key, margin = _key_from_chroma(x, sr, ref, max_seconds)
-    return dict(key=key, key_margin=margin, tuning_cents=cents, tuning_conf=conf, ref_cents=ref)
+    nyquist = sr * 0.5
+    cutoff = min(250.0 / nyquist, 0.99)
+    b, a = scipy.signal.butter(4, cutoff, btype='high')
+    filtered_beat = scipy.signal.lfilter(b, a, beat_audio)
 
-def detect_key(x, sr, max_seconds=75):
-    """The function modal_tune.py is looking for."""
-    r = analyse_beat(x, sr, max_seconds)
-    return r["key"], r["key_margin"]
+    chroma = librosa.feature.chroma_cqt(y=filtered_beat, sr=sr)
+    chroma_mean = np.mean(chroma, axis=1)
+
+    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    major_profile = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+    minor_profile = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+
+    best_score = -1.0
+    best_key = "C"
+    best_scale = "Natural Minor"
+
+    for i in range(12):
+        rot_major = np.roll(major_profile, i)
+        rot_minor = np.roll(minor_profile, i)
+
+        score_maj = np.corrcoef(chroma_mean, rot_major)[0, 1]
+        score_min = np.corrcoef(chroma_mean, rot_minor)[0, 1]
+
+        if score_maj > best_score:
+            best_score = score_maj
+            best_key = note_names[i]
+            best_scale = "Major"
+
+        if score_min > best_score:
+            best_score = score_min
+            best_key = note_names[i]
+            best_scale = "Natural Minor"
+
+    confidence = float(max(0.0, min(1.0, (best_score + 1.0) / 2.0)))
+    return best_key, best_scale, confidence
