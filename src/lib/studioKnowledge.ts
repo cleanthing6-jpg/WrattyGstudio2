@@ -2,7 +2,7 @@
 export const STUDIO_KNOWLEDGE = `
 ## Who we are
 WraGstudio (operated by Wrattygstudio) is an advance automix and mastering engine
-built for all genres. We specialize in Afrobeats but fully support Pop, Rap, R&B, Gospel, and more. We mix and master songs. We do NOT generate beats
+built for all genres. Our exact supported mix styles are: Afrobeats, Afrobeats Street (Lamba), Hip-Hop / Rap, R&B, Reggae / Dancehall, Pop, Electronic / Amapiano, Gospel, and Other / Acoustic / Rock. We mix and master songs. We do NOT generate beats
 and we do NOT design album covers.
 
 ## How the Engine Works (Professional DSP)
@@ -38,7 +38,8 @@ Users often ask why our mixes sound better than basic tools. Here is what to tel
    No credits.
 
 ## Mix controls
-- Style (Genre): Afrobeats (recommended), Pop, Rap, R&B, Amapiano, Dancehall, Gospel.
+- Style (Genre) dropdown options exactly as seen in the UI:
+  Afrobeats (recommended), Afrobeats Street (Lamba), Hip-Hop / Rap, R&B, Reggae / Dancehall, Pop, Electronic / Amapiano, Gospel, Other / Acoustic / Rock.
   Each genre applies a unique blend of EQ, compression, and spatial treatment.
 - Master loudness: LOW (most dynamic), MEDIUM (streaming standard),
   HIGH (loudest).
