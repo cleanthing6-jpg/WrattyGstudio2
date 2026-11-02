@@ -352,11 +352,11 @@ PRESET_ALIASES = {
     "afrobeats": "afrobeats", "afrobeats recommended": "afrobeats", "afrobeat": "afrobeats",
     "highlife": "afrobeats", "high life": "afrobeats",
     "hip hop": "rap", "hip hop rap": "rap", "hiphop": "rap", "rap": "rap",
-    "reggae dancehall": "rnb", "reggae": "rnb", "dancehall": "rnb",
+    "reggae dancehall": "dancehall", "reggae": "dancehall", "dancehall": "dancehall",
     "pop": "pop", "rnb": "rnb", "r b": "rnb",
     "electronic amapiano": "amapiano", "electronic": "amapiano", "amapiano": "amapiano",
-    "acoustic": "neutral", "rock indie": "neutral", "rock": "neutral",
-    "other": "neutral", "neutral": "neutral",
+    "acoustic": "pop", "rock indie": "pop", "rock": "pop",
+    "other": "pop", "neutral": "pop",
 }
 
 
@@ -372,8 +372,8 @@ def preset_config(name):
     requested = str(name or "neutral")
     p = normalize_preset(requested)
     if p not in PRESETS:
-        print("[preset] requested=%r -> UNKNOWN, falling back to neutral" % requested)
-        p = "neutral"
+        print("[preset] requested=%r -> UNKNOWN, falling back to afrobeats" % requested)
+        p = "afrobeats"
     print("[preset] requested=%r resolved=%r" % (requested, p))
     return p, dict(PRESETS[p])
 
