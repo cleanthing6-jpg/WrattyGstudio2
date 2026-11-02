@@ -42,7 +42,6 @@ Users often ask why our mixes sound better than basic tools. Here is what to tel
   Each genre applies a unique blend of EQ, compression, and spatial treatment.
 - Master loudness: LOW (most dynamic), MEDIUM (streaming standard),
   HIGH (loudest).
-- Vocal space: Studio (tight and dry), Room, Hall, Cathedral (huge), Plate Shine (glassy and bright).
 
 ## Prices - one-off, credits NEVER expire
 All prices are in Naira (NGN) for Nigeria. International customers pay USD.
