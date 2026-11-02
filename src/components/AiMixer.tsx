@@ -535,7 +535,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   return (
     <div className="rounded-xl border border-blue-200 bg-white p-4">
       <h3 className="text-lg font-bold mb-1">✨ Idan Mix &amp; Master (Pro Engine)</h3>
-      <p className="text-xs text-gray-500 mb-3">Afrobeats mix and master engine. The 30-second preview is free.</p>
+      <p className="text-xs text-gray-500 mb-3">Industry-standard mix and master engine. The 30-second preview is free.</p>
 
       <label className="block text-xs font-semibold text-gray-600 mb-1">Musical style</label>
       <select

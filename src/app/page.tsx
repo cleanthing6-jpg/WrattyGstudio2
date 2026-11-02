@@ -64,7 +64,7 @@ export default function Home() {
         <section className="max-w-6xl mx-auto px-4 pt-16 pb-10 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs text-slate-600 shadow-sm">
             <span className="flex gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /><span className="w-2 h-2 rounded-full bg-yellow-400" /><span className="w-2 h-2 rounded-full bg-red-500" /></span>
-            Idan Mix &amp; Master studio for African sounds
+            Idan Mix &amp; Master studio for every genre
           </span>
           <h1 className="mt-6 text-5xl md:text-7xl font-black tracking-tight leading-[1.02]">
             Upload. Mix.
@@ -118,7 +118,7 @@ export default function Home() {
       </main>
       <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-400">
         <p className="font-bold text-sm text-slate-700">WraG<span className="text-green-600">studio</span></p>
-        <p className="mt-2">Made for African creators. © 2026</p>
+        <p className="mt-2">Made for creators worldwide. © 2026</p>
         <p className="mt-1">WraGstudio is a brand operated by WrattyGstudio.</p>
         <nav className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2">
           <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
