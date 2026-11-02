@@ -1,9 +1,17 @@
 // Facts only. Rules live in the SYSTEM prompt in /api/support/route.ts.
 export const STUDIO_KNOWLEDGE = `
 ## Who we are
-WraGstudio (operated by Wrattygstudio) is an AI mixing and mastering studio
-built for African sounds. We mix and master songs. We do NOT generate beats
+WraGstudio (operated by Wrattygstudio) is an advance automix and mastering engine
+built for all genres. We specialize in Afrobeats but fully support Pop, Rap, R&B, Gospel, and more. We mix and master songs. We do NOT generate beats
 and we do NOT design album covers.
+
+## How the Engine Works (Professional DSP)
+Users often ask why our mixes sound better than basic tools. Here is what to tell them:
+- Autotune & Pitch Correction: Our Tune feature uses professional PSOLA and Resplice technology. It corrects pitch while preserving natural breath, texture, and formants so the vocal never sounds robotic.
+- Role-Aware Mixing: The engine separates stems by role. A Lead vocal gets completely different EQ and compression than a Backing vocal.
+- Adaptive EQ: The engine measures the audio before acting. Dynamic Air only boosts high frequencies if the vocal is dull.
+- Safe Reference Mastering: The mastering chain matches a 29-band commercial reference curve but caps EQ moves at ±3dB to protect your song's dynamics from being over-processed.
+
 
 ## Services
 1. Mix & Master - /studio (the main service)
@@ -30,11 +38,11 @@ and we do NOT design album covers.
    No credits.
 
 ## Mix controls
-- Style: Afrobeats (recommended), Hip-Hop/Rap, Reggae/Dancehall, Pop,
-  Electronic/Amapiano, Acoustic, Rock/Indie, Other.
+- Style (Genre): Afrobeats (recommended), Pop, Rap, R&B, Amapiano, Dancehall, Gospel.
+  Each genre applies a unique blend of EQ, compression, and spatial treatment.
 - Master loudness: LOW (most dynamic), MEDIUM (streaming standard),
   HIGH (loudest).
-- Vocal space: Studio, Room, Hall, Cathedral, Plate Shine.
+- Vocal space: Studio (tight and dry), Room, Hall, Cathedral (huge), Plate Shine (glassy and bright).
 
 ## Prices - one-off, credits NEVER expire
 All prices are in Naira (NGN) for Nigeria. International customers pay USD.
@@ -60,7 +68,7 @@ never wipes the other type. Mix credits and master credits are separate.
   refresh the dashboard and it will be back.
 - Previews never spend credits.
 - Renders take a few minutes. Tell users NOT to resubmit; it queues and
-  starts automatically. One job runs at a time.
+  starts automatically.
 - Free accounts: 30-second renders, limited per day.
 
 ## Payments
