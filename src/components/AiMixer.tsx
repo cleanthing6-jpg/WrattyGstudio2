@@ -604,11 +604,11 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         disabled={!ready || busy}
         className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
       >
-        {busy ? "Working…" : "🔊 Generate free AI preview"}
+        {busy ? "Working…" : "🔊 Idan Mix Preview"}
       </button>
 
       {!ready && (
-        <p className="mt-2 text-xs text-gray-500">Add at least 2 stems above (e.g. lead vocal + beat) to unlock the AI engine.</p>
+        <p className="mt-2 text-xs text-gray-500">Add at least 2 stems above (e.g. lead vocal + beat) to unlock the engine.</p>
       )}
       {msg && <p className="mt-3 text-xs text-blue-700">{msg}</p>}
       {err && <p className="mt-3 text-xs font-semibold text-red-600">⚠️ {err}</p>}
