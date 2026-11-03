@@ -454,6 +454,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
   }
   if (row.status === "done") {
+    // --- SAFE EMAIL TRIGGER ---
+      try {
+        await sql`UPDATE mix_jobs SET notified_at = NOW() WHERE id = ${id}`;
+        const user = await currentUser();
+        if (user?.primaryEmailAddress?.emailAddress) {
+          const name = user.firstName || "Artist";
+          const title = row.song_title || "Your Track";
+          await sendMixReadyEmail(user.primaryEmailAddress.emailAddress, name, title);
+        }
+      } catch (e) {
+        console.error("Email failed", e);
+      }
+    }
+    // --------------------------
+
     const f = filesOf(row);
     const saved = row.max_seconds
       ? { saved: false, name: "" }

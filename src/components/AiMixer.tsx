@@ -498,6 +498,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         if (gd.error) throw new Error(gd.error);
         if (gd.status === "failed") throw new Error(gd.error || "Mix failed on the server");
         if (gd.status === "done" && gd.url) {
+          setToast("🎉 Your mix is ready! Click to listen.");
+          setTimeout(() => setToast(""), 5000);
           finalR = gd.url;
           localStorage.removeItem("activeJob");
           dashboardSaved = gd.dashboardSaved === true;
@@ -517,7 +519,11 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             ];
             setMsg(stageText[mixStage]);
           }
-        if (gd.status === "failed") throw new Error(gd.error || "Mix failed");
+        if (gd.status === "failed") {
+          setToast("❌ Mix failed. Please try again.");
+          setTimeout(() => setToast(""), 5000);
+          throw new Error(gd.error || "Mix failed");
+        }
       }
       if (!finalR) setMsg("Still working - don't resubmit, it can take a few minutes.");
       setFinalUrl(finalR);
