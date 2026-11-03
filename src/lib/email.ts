@@ -1,12 +1,14 @@
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendMixReadyEmail(to: string, name: string, songTitle: string) {
   try {
     await resend.emails.send({
-      from: "WraGstudio <hello@wrattygstudio2.zevcloud.app>",
+      from: 'WraGstudio <hello@wrattygstudio2.zevcloud.app>',
       to,
+      subject: `🎧 Your WraGstudio mix is ready!`,
+      text: `Hey ${name},\n\nYour mix and master for "${songTitle}" is finished!\n\nListen to your track and unlock the full high-quality download here:\nhttps://wrattygstudio2.zevcloud.app/dashboard\n\n— The WraGstudio Team`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Hey ${name},</h2>
@@ -21,6 +23,6 @@ export async function sendMixReadyEmail(to: string, name: string, songTitle: str
     });
     console.log(`Email sent to ${to}`);
   } catch (error) {
-    console.error("Failed to send email:", error);
+    console.error('Failed to send email:', error);
   }
 }

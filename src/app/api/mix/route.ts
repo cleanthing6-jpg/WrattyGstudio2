@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUser, consumeCredit, refundCredit } from "@/lib/credits";
 import { sendAlert } from "@/lib/alert";
+import { sendMixReadyEmail } from "@/lib/email";
+import { currentUser } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -455,6 +457,7 @@ export async function GET(req: NextRequest) {
   }
   if (row.status === "done") {
     // --- SAFE EMAIL TRIGGER ---
+    if (!row.notified_at) {
       try {
         await sql`UPDATE mix_jobs SET notified_at = NOW() WHERE id = ${id}`;
         const user = await currentUser();
@@ -468,7 +471,6 @@ export async function GET(req: NextRequest) {
       }
     }
     // --------------------------
-
     const f = filesOf(row);
     const saved = row.max_seconds
       ? { saved: false, name: "" }
