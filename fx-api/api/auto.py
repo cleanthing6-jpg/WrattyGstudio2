@@ -75,6 +75,8 @@ ROLE_TREAT = {
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
+    "feature": {"gain": -1.0, "hpf": 85.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.5, "air": 1.5,
+                 "ratio": 4.0, "atk": 5.0, "rel": 60.0, "sat": 0.45, "width": 1.0},
     "response": {"gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.0,
                  "harsh": 2.5, "air": 1.0, "ratio": 3.0, "atk": 10.0, "rel": 80.0,
                  "sat": 0.4, "width": 1.50},
@@ -427,7 +429,7 @@ def _treat_for(role):
 
 # Lead vocal shift earlier in ms (aligns vocal to beat).
 
-ROLE_VOCALS = ("lead", "adlib", "backing", "response", "intro", "outro")
+ROLE_VOCALS = ("lead", "adlib", "backing", "response", "intro", "outro", "feature")
 CLARITY_MIN = 2.0
 RAISE_PER_PASS = 0.75
 RAISE_CAP = 1.0
@@ -1338,6 +1340,7 @@ ROLE_BUS = {
     "lead":    {"glue": None,          "plate": 0.1, "delay": 1.0, "exciter": False, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.06, "delay": 1.0, "exciter": False,  "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 0.12, "delay": 1.0, "exciter": False,  "note": 0.75},
+    "feature": {"glue": None,          "plate": 0.10, "delay": 1.0, "exciter": False,  "note": 0.75},
 }
 
 
