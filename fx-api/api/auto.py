@@ -2138,6 +2138,22 @@ def mix(groups, sr, loud="MEDIUM"):
             except Exception as _e:
                 rep.setdefault("declip_error", {})[_r] = str(_e)[:120]
 
+    # --- ADAPTIVE PHASE ALIGNMENT ---
+    try:
+        import vocal_align
+        _v_stems = [ro_map[r] for r in ('lead', 'adlib', 'backing') if r in ro_map and ro_map[r] is not None]
+        _lead_idx = 0 if 'lead' in ro_map else None
+        if _v_stems and beat is not None and _lead_idx is not None:
+            _aligned, _align_rep = vocal_align.align_group(_v_stems, beat, sr, lead_index=_lead_idx)
+            rep['vocal_alignment'] = _align_rep
+            _idx = 0
+            for r in ('lead', 'adlib', 'backing'):
+                if r in ro_map and ro_map[r] is not None:
+                    ro_map[r] = _aligned[_idx]
+                    _idx += 1
+    except Exception as _ae:
+        rep['vocal_alignment_error'] = str(_ae)[:150]
+
     _match_role_levels(ro_map, sr, rep)
     rep["mode"] = "two_track" if len(beats) == 1 else "stems"
     rep["roles"] = {r: len(groups.get(r) or []) for r in ROLE_VOCALS if groups.get(r)}
