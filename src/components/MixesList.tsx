@@ -137,32 +137,39 @@ function srcFor(m: Mix, fmt: "mp3" | "flac") {
                 onError={() => setPlayErr(m.id)}
               />
             )}
-            {playErr === m.id && (
-              <p className="mt-1 text-xs font-semibold text-red-600">
-                This file would not play. Download it with the button below.
-              </p>
+            {playErr === m.id ? (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-bold text-amber-800">
+                  ⏳ This audio file has expired.
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  To save storage, rendered mixes are deleted after 30 days. Please go back to the Studio and run the mix again to generate a fresh download.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {hasMp3 && (
+                  <a
+                    href={hrefFor(m, "mp3")}
+                    download={m.name + ".mp3"}
+                    className="text-xs bg-green-500 hover:bg-green-400 text-black font-bold px-3 py-1.5 rounded-lg"
+                  >
+                    ⬇ MP3
+                  </a>
+                )}
+                {hasFlac && (
+                  <a
+                    href={hrefFor(m, "flac")}
+                    download={m.name + ".flac"}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg"
+                  >
+                    ⬇ FLAC lossless
+                  </a>
+                )}
+              </div>
             )}
 
-            <div className="flex flex-wrap gap-2 mt-2">
-              {hasMp3 && (
-                <a
-                  href={hrefFor(m, "mp3")}
-                  download={m.name + ".mp3"}
-                  className="text-xs bg-green-500 hover:bg-green-400 text-black font-bold px-3 py-1.5 rounded-lg"
-                >
-                  ⬇ MP3
-                </a>
-              )}
-              {hasFlac && (
-                <a
-                  href={hrefFor(m, "flac")}
-                  download={m.name + ".flac"}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg"
-                >
-                  ⬇ FLAC lossless
-                </a>
-              )}
-            </div>
+
           </div>
         );
       })}
