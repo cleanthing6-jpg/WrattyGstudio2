@@ -2221,6 +2221,20 @@ def mix(groups, sr, loud="MEDIUM"):
     _dry_voc = core.copy()
     core, _info = _role_buses(_pre, sr, bpm, raised, beat=beat)
 
+    # --- LIVE SONG SECTION DETECTION ---
+    try:
+        import song_sections
+        _sec_res = song_sections.analyze(beat, core, sr)
+        rep["song_sections"] = _sec_res
+        if _sec_res.get("strength", 0.0) > 0:
+            _curves = song_sections.control_curves(_sec_res, core.shape[1], sr)
+            core = song_sections.apply_gain_db(core, sr, _curves["vocal_db"])
+            rep["section_curves_applied"] = True
+    except Exception as _se:
+        rep["song_sections_error"] = str(_se)[:150]
+    # -----------------------------------
+
+
     # Parallel compression on the summed vocal bus (two-track path)
     if _NEW.get("parallel_ny", False):
         try:
