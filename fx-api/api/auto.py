@@ -63,6 +63,8 @@ DUCK_CAP = {BODY: 1.0, PRES: 3.5, HARSH: 2.0}
 DUCK_TARGET = {BODY: 1.0, PRES: 3.2, HARSH: 1.3}
 
 ROLE_TREAT = {
+    "feature": {"gain": -1.0, "hpf": 85.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.5, "air": 1.5,
+                 "ratio": 4.0, "atk": 5.0, "rel": 60.0, "sat": 0.45, "width": 1.0},
     "lead":    {"gain": -2.0,  "hpf": 100.0, "mud": 2.0, "box": 2.0, "pres": 3.0,
                 "harsh": 1.5, "air": 2.8, "ratio": 2.0, "atk": 20.0, "rel": 100.0,
                 "sat": 0.35, "width": 1.0},
@@ -75,7 +77,6 @@ ROLE_TREAT = {
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
-    "feature": {"gain": -1.0, "hpf": 85.0, "mud": 2.0, "box": 1.5, "pres": 2.0, "harsh": 2.5, "air": 1.5,
                  "ratio": 4.0, "atk": 5.0, "rel": 60.0, "sat": 0.45, "width": 1.0},
     "response": {"gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.0,
                  "harsh": 2.5, "air": 1.0, "ratio": 3.0, "atk": 10.0, "rel": 80.0,
@@ -1337,10 +1338,10 @@ def _ambience(voc, sr, bpm, scale=1.0, headroom=True, delay_scale=None, plate_sc
 
 
 ROLE_BUS = {
+    "feature": {"glue": None,          "plate": 0.10, "delay": 1.0, "exciter": False,  "note": 0.75},
     "lead":    {"glue": None,          "plate": 0.1, "delay": 1.0, "exciter": False, "plate_from_delay": False, "note": 0.75},
     "backing": {"glue": (-12.0, 1.30), "plate": 0.06, "delay": 1.0, "exciter": False,  "note": 1.00},
     "adlib":   {"glue": (-14.0, 1.20), "plate": 0.12, "delay": 1.0, "exciter": False,  "note": 0.75},
-    "feature": {"glue": None,          "plate": 0.10, "delay": 1.0, "exciter": False,  "note": 0.75},
 }
 
 
