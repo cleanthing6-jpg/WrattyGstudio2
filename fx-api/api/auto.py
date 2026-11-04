@@ -2084,6 +2084,23 @@ def mix(groups, sr, loud="MEDIUM"):
             beat = _o if beat is None else _sum([beat, _o])
             rep["other_folded_into_beat"] = len(_oth)
     voc = _sum(list(ro_map.values())) if ro_map else None
+    
+    # --- SAVE TRUE RAW SUM FOR A/B PREVIEW ---
+    try:
+        import soundfile as sf
+        _raw_voc = voc if voc is not None else np.zeros((2, 1))
+        _raw_beat = beat if beat is not None else np.zeros((2, 1))
+        
+        # Match lengths
+        _max_len = max(_raw_voc.shape[1], _raw_beat.shape[1])
+        if _raw_voc.shape[1] < _max_len: _raw_voc = np.pad(_raw_voc, ((0,0),(0,_max_len-_raw_voc.shape[1])))
+        if _raw_beat.shape[1] < _max_len: _raw_beat = np.pad(_raw_beat, ((0,0),(0,_max_len-_raw_beat.shape[1])))
+            
+        _raw_mix = (_raw_voc + _raw_beat).astype(np.float32)
+        sf.write('/tmp/raw_mix.wav', _raw_mix.T, sr)
+    except Exception as _rwe:
+        print('raw sum error:', _rwe)
+    # -----------------------------------------
 
     if beat is None and voc is None:
         rep["mode"] = "sum"

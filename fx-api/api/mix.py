@@ -635,6 +635,17 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         if _tp0 > auto.CEILING_DB:
             mixed = (mixed * 10.0 ** ((auto.CEILING_DB - _tp0) / 20.0)).astype(np.float32)
             report["safety_trim_db"] = round(auto.CEILING_DB - _tp0, 2)
+        # Upload Raw Sum for A/B Preview
+        try:
+            if os.path.exists("/tmp/raw_mix.wav"):
+                _raw_stem = uuid.uuid4().hex
+                raw_url = put("/tmp/raw_mix.wav", "fx/%s-raw.wav" % _raw_stem, "audio/wav")
+                report["raw_url"] = raw_url
+                os.remove("/tmp/raw_mix.wav")
+        except Exception as _rwe:
+            report["raw_url_error"] = str(_rwe)[:150]
+        # ---------------------------------------
+
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
         del mixed
