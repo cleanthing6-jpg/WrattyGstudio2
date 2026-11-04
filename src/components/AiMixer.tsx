@@ -447,7 +447,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           if (sd.status === "preview" && sd.url) {
             setToast("🎧 Preview ready — 30 seconds.");
             setPreviewUrl(sd.url);
-            if (sd.raw_url) setRawUrl(sd.raw_url);
+            if (sd.raw_url) setRawUrl(sd.report?.raw_url || sd.raw_url);
             localStorage.removeItem("activeJob");
             setMsg("Preview ready — listen below 🎧");
             break;
