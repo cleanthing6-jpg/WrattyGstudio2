@@ -77,7 +77,6 @@ ROLE_TREAT = {
     "other":   {"gain": -4.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 0.8,
                 "harsh": 2.5, "air": 1.5, "ratio": 3.0, "atk": 10.0, "rel": 110.0,
                 "sat": 1.5, "width": 1.10},
-                 "ratio": 4.0, "atk": 5.0, "rel": 60.0, "sat": 0.45, "width": 1.0},
     "response": {"gain": -2.0, "hpf": 100.0, "mud": 2.0, "box": 1.0, "pres": 2.0,
                  "harsh": 2.5, "air": 1.0, "ratio": 3.0, "atk": 10.0, "rel": 80.0,
                  "sat": 0.4, "width": 1.50},
