@@ -426,6 +426,9 @@ function clientJobResponse(row: any) {
   let safeResult = result;
   if (result && typeof result === "object") {
     safeResult = { ...result };
+    if (result.report && typeof result.report === "object") {
+      safeResult = { ...safeResult, ...result.report };
+    }
     if (files && typeof files === "object") {
       safeResult.files = { ...files };
       if (rawMp3) safeResult.files.mp3 = mp3;
