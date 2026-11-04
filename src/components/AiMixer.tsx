@@ -595,9 +595,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         </select>
 
       {toast && (
-        <div className="mb-3 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
-          <span>{toast}</span>
-          <button onClick={() => setToast("")} className="ml-2 shrink-0 text-green-700 underline">dismiss</button>
+        <div className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-between rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-900 shadow-2xl md:left-auto md:w-96 md:right-8 md:bottom-8 animate-in slide-in-from-bottom-5">
+          <span className="flex items-center gap-2">🔔 {toast}</span>
+          <button onClick={() => setToast("")} className="ml-2 shrink-0 text-green-700 underline hover:text-green-900">Dismiss</button>
         </div>
       )}
       <label className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
