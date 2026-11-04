@@ -128,7 +128,7 @@ function srcFor(m: Mix, fmt: "mp3" | "flac") {
               </button>
             </div>
 
-            {hasMp3 && (
+            {hasMp3 && playErr !== m.id && (
               <audio
                 controls
                 src={srcFor(m, "mp3")}
