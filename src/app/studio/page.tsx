@@ -386,14 +386,7 @@ function StudioInner() {
                 <label className="block text-sm text-gray-500 mb-2">
                   
                 </label>
-                <div>
-                <label className="block text-sm text-gray-400 mb-2">Vocal space</label>
-                <select value={spaceMode} onChange={(e) => setSpaceMode(e.target.value as SpaceMode)} className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
-                  <option value="studio">Studio — current sound</option>
-                  <option value="room">Room — tight and dry</option>
-                  <option value="plate">Plate Shine — glassy bright halo</option>
-                </select>
-              </div>
+                
 
               <div className="flex gap-2 mb-4">
                 <button onClick={() => setMixMode("split")}
