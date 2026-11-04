@@ -327,33 +327,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
 
         setjob(jid, "analysing")
         
-        # --- SAVE TRUE RAW SUM FOR A/B PREVIEW ---
-        try:
-            _raw_mix = np.zeros((2, 0), dtype=np.float32)
-            for arrs in groups.values():
-                for a in arrs:
-                    if a is None: continue
-                    if a.ndim == 1: a = np.stack([a, a])
-                    if _raw_mix.shape[1] < a.shape[1]:
-                        _raw_mix = np.pad(_raw_mix, ((0,0),(0,a.shape[1]-_raw_mix.shape[1])))
-                    elif a.shape[1] < _raw_mix.shape[1]:
-                        a = np.pad(a, ((0,0),(0,_raw_mix.shape[1]-a.shape[1])))
-                    _raw_mix += a
-            
-            # Only save the first 30 seconds for the web preview so it streams instantly
-            _max_len = int(sr * 30)
-            if _raw_mix.shape[1] > _max_len:
-                _raw_mix = _raw_mix[:, :_max_len]
-
-            _raw_path = os.path.join(tmp, "raw-preview.wav")
-            save16(_raw_path, _raw_mix, sr)
-            _raw_stem = uuid.uuid4().hex
-            _raw_url = put(_raw_path, "fx/%s-raw.wav" % _raw_stem, "audio/wav")
-        except Exception as _rwe:
-            _raw_url = None
-            print("Raw mix error:", _rwe)
-        # -----------------------------------------
-
+        
         mixed, report = auto.mix(groups, sr)
         
         if _raw_url:
@@ -681,8 +655,20 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         save16(out, mixed, sr)
 
         # --- GENERATE A/B PREVIEW (MP3) ---
-        if _raw_mix is not None:
-            try:
+        try:
+            # Calculate the true raw sum right here, right now
+            _raw_mix = np.zeros((2, 0), dtype=np.float32)
+            for arrs in groups.values():
+                for a in arrs:
+                    if a is None: continue
+                    if a.ndim == 1: a = np.stack([a, a])
+                    if _raw_mix.shape[1] < a.shape[1]:
+                        _raw_mix = np.pad(_raw_mix, ((0,0),(0,a.shape[1]-_raw_mix.shape[1])))
+                    elif a.shape[1] < _raw_mix.shape[1]:
+                        a = np.pad(a, ((0,0),(0,_raw_mix.shape[1]-a.shape[1])))
+                    _raw_mix += a
+
+            if _raw_mix.shape[1] > 0:
                 import ab_preview
                 _ab = ab_preview.make_ab_preview(_raw_mix, mixed, sr, bpm=report.get("bpm"))
                 
