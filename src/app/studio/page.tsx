@@ -461,6 +461,7 @@ function StudioInner() {
                             className="mt-1 text-xs border border-slate-200 rounded-lg px-2 py-1 w-full bg-white"
                           >
                             <option value="lead">Lead vocal</option>
+                            <option value="feature">Feature (Rap)</option>
                             <option value="backing">Backing vocal</option>
                             <option value="adlib">Ad-lib</option>
                             <option value="response">Punch-In (Response)</option>
