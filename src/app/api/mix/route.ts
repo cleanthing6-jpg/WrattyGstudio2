@@ -504,7 +504,7 @@ export async function GET(req: NextRequest) {
     const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
               flac_key=${flacU || null}, mp3_key=${mp3U || null},
               result=${JSON.stringify({ ...d.report, ...d.result, files: d.files || d.result?.files })}::jsonb, updated_at=NOW()
-              WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
+              WHERE id=${id} AND (status <> 'done' OR result->>'raw_url' IS NULL) RETURNING id`) as any[];
     if (!row.max_seconds) {
       dashboardSave = await saveToDashboard(userId, row, mp3U, flacU);
     }
