@@ -499,11 +499,11 @@ export async function GET(req: NextRequest) {
     // email exactly once instead of on every 5s poll.
     // RETURNING id -> empty means another poll already flipped it, so we
     // save + email exactly once instead of on every 5s poll.
-    const flacU = String(d.result?.files?.flac || "");
-    const mp3U = String(d.result?.files?.mp3 || "");
+    const flacU = String(d.files?.flac || d.result?.files?.flac || "");
+    const mp3U = String(d.files?.mp3 || d.result?.files?.mp3 || "");
     const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
               flac_key=${flacU || null}, mp3_key=${mp3U || null},
-              result=${JSON.stringify(d.report || d.result || {})}::jsonb, updated_at=NOW()
+              result=${JSON.stringify({ ...d.report, ...d.result, files: d.files || d.result?.files })}::jsonb, updated_at=NOW()
               WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
     if (!row.max_seconds) {
       dashboardSave = await saveToDashboard(userId, row, mp3U, flacU);
