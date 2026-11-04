@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   if (d?.status === "done" && d?.url) {
     const url = `/api/download?id=${encodeURIComponent("job:" + taskId)}&format=mp3`;
-    return NextResponse.json({ status: "preview", url });
+    return NextResponse.json({ status: "preview", url, result: d.result || d.report });
   }
   if (d?.status === "failed") return NextResponse.json({ status: "failed", error: d?.error || "Preview failed" });
   return NextResponse.json({ status: d?.status || "queued", url: "", position: d?.position || 0 });
