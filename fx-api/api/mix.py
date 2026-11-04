@@ -679,6 +679,31 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
 
         out = os.path.join(tmp, "mix.wav")
         save16(out, mixed, sr)
+
+        # --- GENERATE A/B PREVIEW (MP3) ---
+        if _raw_mix is not None:
+            try:
+                import ab_preview
+                _ab = ab_preview.make_ab_preview(_raw_mix, mixed, sr, bpm=report.get("bpm"))
+                
+                _raw_mp3 = os.path.join(tmp, "raw-preview.mp3")
+                _mix_mp3 = os.path.join(tmp, "mixed-preview.mp3")
+                
+                ab_preview.write_mp3(_raw_mp3, _ab["raw"], sr)
+                ab_preview.write_mp3(_mix_mp3, _ab["mixed"], sr)
+                
+                _raw_stem = uuid.uuid4().hex
+                _mix_stem = uuid.uuid4().hex
+                
+                report["raw_url"] = put(_raw_mp3, "fx/%s-raw.mp3" % _raw_stem, "audio/mpeg")
+                report["ab_preview_info"] = _ab["info"]
+                
+                # If you want the mixed preview to be the short 30s MP3 instead of the full track, replace report['url']
+                # report["url"] = put(_mix_mp3, "fx/%s-mixed-ab.mp3" % _mix_stem, "audio/mpeg")
+                
+            except Exception as _abe:
+                print("A/B preview error:", _abe)
+        # -----------------------------------
         del mixed
         gc.collect()
         rel, rel_sr = load(out)
