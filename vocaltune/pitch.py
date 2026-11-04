@@ -73,7 +73,7 @@ def track_pitch(
     B = 1500
     for s in range(0, n_frames, B):
         idx = starts[s:s + B, None] + np.arange(W + L)[None, :]
-        fr = xp[idx]
+        fr = xp[np.clip(idx, 0, len(xp) - 1)]
         dn = _cmnd(fr, W, L)
         per = 1.0 - ((1 - lw) * dn[:, li] + lw * dn[:, np.minimum(li + 1, L)])
         obs[s:s + B] = np.clip(per, 0.0, 1.0)
