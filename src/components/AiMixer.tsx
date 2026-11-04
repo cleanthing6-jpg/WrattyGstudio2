@@ -621,7 +621,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       {previewUrl && (
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-1">AI preview</p>
+          <p className="text-xs font-semibold text-gray-600 mb-1">Mix Preview</p>
           <audio controls src={previewUrl} className="w-full" />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
           {!finalUrl && taskId && (

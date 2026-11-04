@@ -5,7 +5,7 @@ export default function Refund() {
     <main className="mx-auto max-w-2xl px-4 py-10 text-sm leading-relaxed text-gray-700">
       <h1 className="mb-4 text-2xl font-bold text-gray-900">Refund Policy</h1>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">Before you buy</h2>
-      <p className="mb-3">Every account can generate a free AI preview, so you can hear the result before paying. Please use it.</p>
+      <p className="mb-3">Every account can generate a free Mix Preview, so you can hear the result before paying. Please use it.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">When we refund</h2>
       <p className="mb-3">If a payment succeeds but your plan never activates, or a render fails and you were charged, we refund it in full. Report within 7 days.</p>
       <h2 className="mb-2 mt-6 text-lg font-semibold text-gray-900">When we do not</h2>
