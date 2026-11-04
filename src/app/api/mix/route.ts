@@ -503,7 +503,7 @@ export async function GET(req: NextRequest) {
     const mp3U = String(d.result?.files?.mp3 || "");
     const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
               flac_key=${flacU || null}, mp3_key=${mp3U || null},
-              result=${JSON.stringify(d.result || {})}::jsonb, updated_at=NOW()
+              result=${JSON.stringify(d.report || d.result || {})}::jsonb, updated_at=NOW()
               WHERE id=${id} AND status <> 'done' RETURNING id`) as any[];
     if (!row.max_seconds) {
       dashboardSave = await saveToDashboard(userId, row, mp3U, flacU);

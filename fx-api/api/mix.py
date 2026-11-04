@@ -326,7 +326,33 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
             groups[bucket].append(a)
 
         setjob(jid, "analysing")
+        
+        # --- SAVE TRUE RAW SUM FOR A/B PREVIEW ---
+        try:
+            _raw_mix = np.zeros((2, 0), dtype=np.float32)
+            for arrs in groups.values():
+                for a in arrs:
+                    if a is None: continue
+                    if a.ndim == 1: a = np.stack([a, a])
+                    if _raw_mix.shape[1] < a.shape[1]:
+                        _raw_mix = np.pad(_raw_mix, ((0,0),(0,a.shape[1]-_raw_mix.shape[1])))
+                    elif a.shape[1] < _raw_mix.shape[1]:
+                        a = np.pad(a, ((0,0),(0,_raw_mix.shape[1]-a.shape[1])))
+                    _raw_mix += a
+            
+            _raw_path = os.path.join(tmp, "raw-mix.wav")
+            save16(_raw_path, _raw_mix, sr)
+            _raw_stem = uuid.uuid4().hex
+            _raw_url = put(_raw_path, "fx/%s-raw.wav" % _raw_stem, "audio/wav")
+        except Exception as _rwe:
+            _raw_url = None
+            print("Raw mix error:", _rwe)
+        # -----------------------------------------
+
         mixed, report = auto.mix(groups, sr)
+        
+        if _raw_url:
+            report["raw_url"] = _raw_url
 
         # Trim trailing silence — end the render where the audio actually ends
         try:
