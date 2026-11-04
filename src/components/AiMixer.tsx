@@ -1,6 +1,7 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
 
+import ABPreview from "./ABPreview";
 import { useState, useRef, useEffect } from "react";
 import { uploadStem } from "@/lib/freeUpload";
 
@@ -147,6 +148,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [taskId, setTaskId] = useState("");
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [rawUrl, setRawUrl] = useState("");
   const [finalUrl, setFinalUrl] = useState("");
   const [masterUrl, setMasterUrl] = useState("");
   const { user } = useUser();
@@ -445,6 +447,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           if (sd.status === "preview" && sd.url) {
             setToast("🎧 Preview ready — 30 seconds.");
             setPreviewUrl(sd.url);
+            if (sd.raw_url) setRawUrl(sd.raw_url);
             localStorage.removeItem("activeJob");
             setMsg("Preview ready — listen below 🎧");
             break;
@@ -621,8 +624,13 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
       {previewUrl && (
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-1">Mix Preview</p>
-          <audio controls src={previewUrl} className="w-full" />
+          <ABPreview
+            aUrl={rawUrl || previewUrl}
+            bUrl={previewUrl}
+            aLabel="Raw Stems"
+            bLabel="Idan Master"
+            durationSec={30}
+          />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
           {!finalUrl && taskId && (
             <button
