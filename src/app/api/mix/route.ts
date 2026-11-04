@@ -458,17 +458,19 @@ export async function GET(req: NextRequest) {
   if (row.status === "done") {
     // --- SAFE EMAIL TRIGGER ---
     if (!row.notified_at) {
-      try {
-        await sql`UPDATE mix_jobs SET notified_at = NOW() WHERE id = ${id}`;
-        const user = await currentUser();
-        if (user?.primaryEmailAddress?.emailAddress) {
-          const name = user.firstName || "Artist";
-          const title = row.song_title || "Your Track";
-          await sendMixReadyEmail(user.primaryEmailAddress.emailAddress, name, title);
+      void (async () => {
+        try {
+          await sql`UPDATE mix_jobs SET notified_at = NOW() WHERE id = ${id}`;
+          const user = await currentUser();
+          if (user?.primaryEmailAddress?.emailAddress) {
+            const name = user.firstName || "Artist";
+            const title = row.song_title || "Your Track";
+            await sendMixReadyEmail(user.primaryEmailAddress.emailAddress, name, title);
+          }
+        } catch (e) {
+          console.error("Email failed", e);
         }
-      } catch (e) {
-        console.error("Email failed", e);
-      }
+      })();
     }
     // --------------------------
     const f = filesOf(row);
