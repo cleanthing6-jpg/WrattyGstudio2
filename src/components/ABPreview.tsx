@@ -11,7 +11,6 @@ type Props = {
   durationSec?: number;
 };
 
-// Average RMS, measured in the browser only. Nothing is uploaded or altered.
 async function rmsOf(url: string): Promise<number> {
   const buf = await (await fetch(url)).arrayBuffer();
   const ctx = new OfflineAudioContext(1, 44100, 44100);
@@ -39,6 +38,7 @@ export default function ABPreview({
 
   useEffect(() => {
     let cancelled = false;
+    if (!aUrl || !bUrl) return;
     (async () => {
       try {
         const [ra, rb] = await Promise.all([rmsOf(aUrl), rmsOf(bUrl)]);
@@ -50,7 +50,6 @@ export default function ABPreview({
     return () => { cancelled = true; };
   }, [aUrl, bUrl]);
 
-  // Apply the loudness match so the A/B is fair.
   useEffect(() => {
     if (aRef.current) aRef.current.volume = Math.min(gain.a, 1);
     if (bRef.current) bRef.current.volume = Math.min(gain.b, 1);
@@ -69,19 +68,35 @@ export default function ABPreview({
   function play() {
     const a = aRef.current, b = bRef.current;
     if (!a || !b) return;
+    
+    // Safety check for missing/broken urls
+    if (side === "a" && !aUrl) return;
+    if (side === "b" && !bUrl) return;
+
     const el = side === "a" ? a : b;
     const other = side === "a" ? b : a;
+
     if (el.currentTime < startSec || el.currentTime >= startSec + durationSec) {
       a.currentTime = startSec;
       b.currentTime = startSec;
     }
     other.pause();
-    el.play().then(() => setPlaying(true)).catch(() => {});
+    
+    // Handle play promise rejection so the UI doesn't get stuck
+    el.play()
+      .then(() => setPlaying(true))
+      .catch((err) => {
+        console.error("Playback failed:", err);
+        setPlaying(false);
+      });
   }
 
   function toggle(next: "a" | "b") {
     const a = aRef.current, b = bRef.current;
     if (!a || !b) return;
+    if (next === "a" && !aUrl) return;
+    if (next === "b" && !bUrl) return;
+
     const at = a.currentTime;
     setSide(next);
     if (playing) {
@@ -89,7 +104,7 @@ export default function ABPreview({
       b.currentTime = at;
       const el = next === "a" ? a : b;
       el.currentTime = at;
-      el.play().catch(() => {});
+      el.play().catch(() => setPlaying(false));
     }
   }
 
@@ -148,14 +163,13 @@ export default function ABPreview({
         Preview only — your full master downloads after purchase.
       </p>
 
-      {(["a", "b"] as const).map((s) => (
+      {aUrl && (
         <audio
-          key={s}
-          ref={s === "a" ? aRef : bRef}
-          src={s === "a" ? aUrl : bUrl}
+          ref={aRef}
+          src={aUrl}
           preload="none"
           onTimeUpdate={(e) => {
-            if (s !== side) return;
+            if (side !== "a") return;
             const el = e.currentTarget;
             setT(el.currentTime);
             if (el.currentTime >= clipEnd) {
@@ -166,8 +180,29 @@ export default function ABPreview({
             }
           }}
           onEnded={() => setPlaying(false)}
+          onError={() => setPlaying(false)}
         />
-      ))}
+      )}
+      {bUrl && (
+        <audio
+          ref={bRef}
+          src={bUrl}
+          preload="none"
+          onTimeUpdate={(e) => {
+            if (side !== "b") return;
+            const el = e.currentTarget;
+            setT(el.currentTime);
+            if (el.currentTime >= clipEnd) {
+              el.pause();
+              both((x) => { x.currentTime = startSec; });
+              setT(startSec);
+              setPlaying(false);
+            }
+          }}
+          onEnded={() => setPlaying(false)}
+          onError={() => setPlaying(false)}
+        />
+      )}
     </div>
   );
 }
