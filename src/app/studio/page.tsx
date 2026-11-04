@@ -391,8 +391,6 @@ function StudioInner() {
                 <select value={spaceMode} onChange={(e) => setSpaceMode(e.target.value as SpaceMode)} className="w-full border border-slate-200 rounded-lg px-3 py-2 bg-white text-sm">
                   <option value="studio">Studio — current sound</option>
                   <option value="room">Room — tight and dry</option>
-                  <option value="hall">Hall — big and open</option>
-                  <option value="cathedral">Cathedral — huge and dark</option>
                   <option value="plate">Plate Shine — glassy bright halo</option>
                 </select>
               </div>
