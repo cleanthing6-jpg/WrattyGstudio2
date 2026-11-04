@@ -11,16 +11,6 @@ type Props = {
   durationSec?: number;
 };
 
-async function rmsOf(url: string): Promise<number> {
-  const buf = await (await fetch(url)).arrayBuffer();
-  const ctx = new OfflineAudioContext(1, 44100, 44100);
-  const audio = await ctx.decodeAudioData(buf.slice(0));
-  const d = audio.getChannelData(0);
-  let sum = 0;
-  for (let i = 0; i < d.length; i += 100) sum += d[i] * d[i];
-  return Math.sqrt(sum / Math.max(Math.ceil(d.length / 100), 1)) || 1e-6;
-}
-
 export default function ABPreview({
   aUrl,
   bUrl,
@@ -34,26 +24,6 @@ export default function ABPreview({
   const [side, setSide] = useState<"a" | "b">("b");
   const [playing, setPlaying] = useState(false);
   const [t, setT] = useState(0);
-  const [gain, setGain] = useState<{ a: number; b: number }>({ a: 1, b: 1 });
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!aUrl || !bUrl) return;
-    (async () => {
-      try {
-        const [ra, rb] = await Promise.all([rmsOf(aUrl), rmsOf(bUrl)]);
-        if (cancelled) return;
-        const target = Math.min(ra, rb);
-        setGain({ a: Math.min(ra / target, 4), b: Math.min(rb / target, 4) });
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, [aUrl, bUrl]);
-
-  useEffect(() => {
-    if (aRef.current) aRef.current.volume = Math.min(gain.a, 1);
-    if (bRef.current) bRef.current.volume = Math.min(gain.b, 1);
-  }, [gain]);
 
   function both(fn: (el: HTMLAudioElement) => void) {
     if (aRef.current) fn(aRef.current);
@@ -69,7 +39,6 @@ export default function ABPreview({
     const a = aRef.current, b = bRef.current;
     if (!a || !b) return;
     
-    // Safety check for missing/broken urls
     if (side === "a" && !aUrl) return;
     if (side === "b" && !bUrl) return;
 
@@ -82,7 +51,6 @@ export default function ABPreview({
     }
     other.pause();
     
-    // Handle play promise rejection so the UI doesn't get stuck
     el.play()
       .then(() => setPlaying(true))
       .catch((err) => {
@@ -141,7 +109,7 @@ export default function ABPreview({
           {playing ? "II" : ">"}
         </button>
         <span className="text-xs text-slate-500">
-          {durationSec}s excerpt · loudness-matched
+          {durationSec}s excerpt
         </span>
       </div>
 
