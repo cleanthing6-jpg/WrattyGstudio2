@@ -340,7 +340,12 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                         a = np.pad(a, ((0,0),(0,_raw_mix.shape[1]-a.shape[1])))
                     _raw_mix += a
             
-            _raw_path = os.path.join(tmp, "raw-mix.wav")
+            # Only save the first 30 seconds for the web preview so it streams instantly
+            _max_len = int(sr * 30)
+            if _raw_mix.shape[1] > _max_len:
+                _raw_mix = _raw_mix[:, :_max_len]
+
+            _raw_path = os.path.join(tmp, "raw-preview.wav")
             save16(_raw_path, _raw_mix, sr)
             _raw_stem = uuid.uuid4().hex
             _raw_url = put(_raw_path, "fx/%s-raw.wav" % _raw_stem, "audio/wav")
