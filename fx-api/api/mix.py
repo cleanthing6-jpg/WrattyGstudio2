@@ -330,8 +330,6 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         
         mixed, report = auto.mix(groups, sr)
         
-        if _raw_url:
-            report["raw_url"] = _raw_url
 
         # Trim trailing silence — end the render where the audio actually ends
         try:
