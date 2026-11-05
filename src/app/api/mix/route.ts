@@ -47,6 +47,7 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mode TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS raw_key     TEXT`;
   // Dismissed renders stay in the table (the file is still there) but drop
   // off the dashboard list.
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`;

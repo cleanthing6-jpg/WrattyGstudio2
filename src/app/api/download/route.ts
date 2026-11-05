@@ -7,13 +7,7 @@ import { getMongoClient } from "@/lib/mongodb";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The Modal files app gates GET /f/ behind a short-lived HMAC ticket. It now
-// accepts that ticket in the URL as ?t= as well as the x-fx-ticket header,
-// so we can 302 the browser straight at Modal instead of streaming the file
-// through this route. Render sees only the auth check, not the bytes.
-const BASE = (process.env.FILES_BASE_URL || "https://wrattyg--wratty-files-web.modal.run")
-  .replace(/\/+$/, "");
-
+const BASE = (process.env.FILES_BASE_URL || "https://wrattyg--wratty-files-web.modal.run").replace(/\/+$/, "");
 const FILES_HOSTS = (() => {
   try { return new Set([new URL(BASE).host]); } catch { return new Set<string>(); }
 })();
@@ -27,17 +21,15 @@ function ticket(scope: string, ttlSec = 900): string {
 }
 
 const safeName = (s: string) =>
-  (s || "").normalize("NFC")
-    .replace(/[/\\:*?"<>|\x00-\x1f]/g, "-")
-    .replace(/\s+/g, " ").trim()
-    .replace(/^\.+|\.+$/g, "").slice(0, 80);
+  (s || "").normalize("NFC").replace(/[/\\:*?"<>|\x00-\x1f]/g, "-").replace(/\s+/g, " ").trim().replace(/^\.+|\.+$/g, "").slice(0, 80);
 
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const id = req.nextUrl.searchParams.get("id") || "";
-  const fmt = req.nextUrl.searchParams.get("format") === "flac" ? "flac" : "mp3";
+  const fmtParam = req.nextUrl.searchParams.get("format");
+  const fmt = fmtParam === "flac" ? "flac" : fmtParam === "raw" ? "raw" : "mp3";
   const dl = req.nextUrl.searchParams.get("dl") === "1";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
@@ -46,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   if (id.startsWith("job:")) {
     const rows = (await sql`
-      SELECT artist_name, song_title, url, mp3_key, flac_key, result FROM mix_jobs
+      SELECT artist_name, song_title, url, mp3_key, flac_key, raw_key, result FROM mix_jobs
       WHERE id = ${id.slice(4)} AND user_id = ${userId}`) as any[];
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const row = rows[0];
@@ -55,9 +47,12 @@ export async function GET(req: NextRequest) {
     if (typeof res === "string") { try { res = JSON.parse(res); } catch { res = {}; } }
     const files = (res && res.files) || {};
 
-    target = String(fmt === "flac"
-      ? (row.flac_key || files.flac || "")
-      : (row.mp3_key || files.mp3 || ""));
+    target = String(
+      fmt === "flac" ? (row.flac_key || files.flac || "") :
+      fmt === "raw" ? (row.raw_key || files.raw || (res && (res.raw_url || (res.report && res.report.raw_url))) || "") :
+      (row.mp3_key || files.mp3 || "")
+    );
+    
     if (!/^https:\/\//.test(target)) {
       return NextResponse.json({ error: "No " + fmt.toUpperCase() + " stored for this render" }, { status: 404 });
     }
@@ -86,10 +81,9 @@ export async function GET(req: NextRequest) {
   const tk = ticket("read", 900);
   if (tk) u.searchParams.set("t", tk);
 
-  const ext = /\.flac$/i.test(u.pathname) ? "flac" : /\.mp3$/i.test(u.pathname) ? "mp3" : fmt;
+  const ext = /\.flac$/i.test(u.pathname) ? "flac" : /\.mp3$/i.test(u.pathname) ? "mp3" : fmt === "raw" ? "mp3" : fmt;
   const name = (safeName(label) || "mix") + "." + ext;
   if (dl) u.searchParams.set("name", name);
 
-  console.log("[download] redirect", id, fmt, name);
   return NextResponse.redirect(u.toString(), 302);
 }
