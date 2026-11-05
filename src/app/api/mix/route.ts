@@ -12,18 +12,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const RAW_MIX = process.env.MIX_API_URL || "";
-// Ignore a misconfigured value (e.g. the secret pasted into the URL field)
-// and fall back to the Modal engine instead of the old Render host.
 const MIX = (/^https?:\/\//.test(RAW_MIX)
   ? RAW_MIX
   : "https://wrattyg--wratty-mix-api.modal.run"
 ).replace(/\/+$/, "");
 const SECRET = process.env.FX_INTERNAL_SECRET || "";
 
-// Renders run in their own Modal containers (2 CPU / 8GB each), NOT on
-// Render. This cap is the only thing limiting how many run at once.
 const MAX_RUNNING = 10;
-// Each user may hold at most one mix (queued or running).
 
 async function ensureTable() {
   await sql`CREATE TABLE IF NOT EXISTS mix_jobs (
@@ -48,8 +43,6 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS flac_key    TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS raw_key     TEXT`;
-  // Dismissed renders stay in the table (the file is still there) but drop
-  // off the dashboard list.
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`;
   await sql`CREATE TABLE IF NOT EXISTS preview_quota (
     user_id TEXT NOT NULL,
@@ -87,11 +80,7 @@ async function mixer(path: string, init: RequestInit, tries: number, retryCodes:
   return { ok: false, status: 0, data: null, error: "mixer unreachable: " + last };
 }
 
-
-// Fail a job AND give the credit back in ONE statement. The status guard
-// means exactly one caller can win, so a credit is never refunded twice.
 async function failJob(id: string, error: string) {
-  // Alert the OWNER (throttled to 1/hour) without blocking the refund.
   void sendAlert("A mix failed", "job " + id + "\n" + error);
   await sql`
     WITH f AS (
@@ -111,7 +100,6 @@ async function failJob(id: string, error: string) {
 }
 
 async function reapStale() {
-  // Every statement below fails jobs AND refunds any credit they spent.
   await sql`
     WITH f AS (
       UPDATE mix_jobs SET status='failed', error='Mixer restarted before finishing - please try again', updated_at=NOW()
@@ -159,8 +147,6 @@ async function reapStale() {
   `;
 }
 
-// Start the oldest queued job, but only if nothing is running.
-// Single atomic statement, so two callers cannot start two jobs.
 async function pump(depth = 0): Promise<void> {
   const started = (await sql`
     UPDATE mix_jobs SET status='running', updated_at=NOW()
@@ -182,7 +168,7 @@ async function pump(depth = 0): Promise<void> {
 
   if (!r.ok || !(r.data && r.data.job)) {
     await failJob(job.id, String(r.error || "mixer did not start"));
-    if (depth < 5) await pump(depth + 1);   // never stall the queue
+    if (depth < 5) await pump(depth + 1);
     return;
   }
   await sql`UPDATE mix_jobs SET runner_job=${String(r.data.job)}, updated_at=NOW() WHERE id=${job.id}`;
@@ -205,10 +191,6 @@ export async function POST(req: NextRequest) {
   const stems = (Array.isArray(body?.stems) ? body.stems : [])
     .map((s: any) => ({ url: String(s?.url || ""), role: String(s?.role || s?.name || "stem") }))
     .filter((s: any) => {
-      // The Modal worker FETCHES this url, so an arbitrary https url is an
-      // SSRF vector. Block loopback / private / link-local targets - the
-      // cloud metadata endpoint (169.254.169.254) is the one that matters
-      // most. Every legitimate external host (R2, the splitter) still passes.
       if (!/^https:\/\//.test(s.url)) return false;
       try {
         const h = new URL(s.url).hostname.toLowerCase();
@@ -228,8 +210,6 @@ export async function POST(req: NextRequest) {
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : "afrobeats";
-  // Display name for the finished downloads. Sanitised HERE so the browser
-  // can never inject a path separator or a control character.
   const artist = String(body?.artist || "")
     .replace(/[^\p{L}\p{N} ._&'()-]/gu, "").trim().slice(0, 60);
   const title = String(body?.title || "")
@@ -244,9 +224,9 @@ export async function POST(req: NextRequest) {
 
   let maxSeconds: number | null;
   if (wantsPreview) {
-    maxSeconds = 30;   // a preview is ALWAYS 30s - owner included
+    maxSeconds = 30;
   } else if (isOwner) {
-    maxSeconds = null; // owner full render: full length, no charge
+    maxSeconds = null;
   } else if (tier === "free") {
     if (mode === "master") {
       return NextResponse.json(
@@ -280,11 +260,6 @@ export async function POST(req: NextRequest) {
   console.log("[mix-debug]", { ownerConfigured: !!ownerId, isOwner, wantsPreview, tier, maxSeconds });
   await ensureTable();
     if (!isOwner && (wantsPreview || tier === "free")) {
-      // Atomic: the ON CONFLICT takes a row lock, so two concurrent requests
-      // serialise and cannot both read "9". RETURNING is empty when the WHERE
-      // fails - that is our signal the day's 10 slots are gone. No refund on
-      // failure: a slot covers the ATTEMPT (exactly like the old count-all
-      // query did) and it closes the fail-to-regain-slots loop.
       const claimed = (await sql`
         INSERT INTO preview_quota (user_id, day, used)
         VALUES (${userId}, (NOW() AT TIME ZONE 'UTC')::date, 1)
@@ -297,8 +272,6 @@ export async function POST(req: NextRequest) {
       }
     }
   await reapStale();
-  // Pressing Mix again means the previous run was abandoned - drop it so it
-  // can never block the new one and can never pile up.
   await sql`
     WITH f AS (
       UPDATE mix_jobs SET status='failed', error='Superseded by your newer request', updated_at=NOW()
@@ -316,15 +289,11 @@ export async function POST(req: NextRequest) {
     ) SELECT 1
   `;
 
-  // No per-user rejection. A new request supersedes your own older
-  // job instead of blocking you; the shared queue still protects the engine.
-
   const id = crypto.randomUUID();
   try {
     await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title, mode)
       VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null}, ${mode})`;
   } catch (e) {
-    // The credit was already spent but no job exists to refund it - give it back now.
     if (creditType) await refundCredit(userId, creditType as any);
     throw e;
   }
@@ -335,7 +304,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ job: id, status: row.status, position }, { status: 202 });
 }
 
-// Clerk v5 exports clerkClient as an object, v6 as a function. Support both.
 async function ownerEmail(userId: string): Promise<string> {
   try {
     const cc: any = typeof clerkClient === "function" ? await (clerkClient as any)() : clerkClient;
@@ -347,16 +315,12 @@ async function ownerEmail(userId: string): Promise<string> {
   }
 }
 
-// Best-effort: a mail failure must never break the render or the response.
 async function notify(userId: string, status: "ready" | "failed", opts?: any) {
   const to = await ownerEmail(userId);
   if (!to) return;
   await sendRenderEmail(to, status, opts);
 }
 
-// Full renders are listed on the dashboard (Mongo `mixes`, read by
-// /api/mixes). Previews are not. Best-effort: a Mongo hiccup must never
-// break the render poll.
 async function saveToDashboard(
   userId: string, row: any, mp3: string, flac: string
 ): Promise<{ saved: boolean; name: string }> {
@@ -392,7 +356,6 @@ async function saveToDashboard(
   }
 }
 
-
 function filesOf(row: any) {
   let result: any = row && row.result;
   if (typeof result === "string") {
@@ -404,9 +367,9 @@ function filesOf(row: any) {
   return {
     mp3: String((row && row.mp3_key) || files.mp3 || (low.indexOf(".mp3") >= 0 ? src : "")),
     flac: String((row && row.flac_key) || files.flac || (low.indexOf(".flac") >= 0 ? src : "")),
+    raw: String((row && row.raw_key) || files.raw || (result && result.report && result.report.raw_url) || ""),
   };
 }
-
 
 function clientJobResponse(row: any) {
   if (!row || !row.id) return row;
@@ -419,10 +382,12 @@ function clientJobResponse(row: any) {
   const isFlac = /\.flac(?:$|[?#])/i.test(sourceUrl);
   const rawMp3 = String(row.mp3_key || (files && files.mp3) || (isFlac ? "" : sourceUrl));
   const rawFlac = String(row.flac_key || (files && files.flac) || (isFlac ? sourceUrl : ""));
-  const fileUrl = (f: "mp3" | "flac") =>
+  const rawRaw = String(row.raw_key || (result && result.report && result.report.raw_url) || "");
+  const fileUrl = (f: "mp3" | "flac" | "raw") =>
     "/api/download?id=" + encodeURIComponent("job:" + row.id) + "&format=" + f;
   const mp3 = rawMp3.indexOf("https://") === 0 ? fileUrl("mp3") : "";
   const flac = rawFlac.indexOf("https://") === 0 ? fileUrl("flac") : "";
+  const raw = rawRaw.indexOf("https://") === 0 ? fileUrl("raw") : "";
   const publicUrl = (isFlac ? flac : mp3) || mp3 || flac;
   let safeResult = result;
   if (result && typeof result === "object") {
@@ -434,10 +399,12 @@ function clientJobResponse(row: any) {
       safeResult.files = { ...files };
       if (rawMp3) safeResult.files.mp3 = mp3;
       if (rawFlac) safeResult.files.flac = flac;
+      if (rawRaw) safeResult.files.raw = raw;
     }
     if (typeof safeResult.url === "string") safeResult.url = publicUrl;
+    safeResult.raw_url = raw;
   }
-  return { ...row, url: publicUrl, mp3_key: mp3, flac_key: flac, result: safeResult };
+  return { ...row, url: publicUrl, mp3_key: mp3, flac_key: flac, raw_key: raw, result: safeResult };
 }
 
 export async function GET(req: NextRequest) {
@@ -460,7 +427,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
   }
   if (row.status === "done") {
-    // --- SAFE EMAIL TRIGGER ---
     if (!row.notified_at) {
       void (async () => {
         try {
@@ -476,7 +442,6 @@ export async function GET(req: NextRequest) {
         }
       })();
     }
-    // --------------------------
     const f = filesOf(row);
     const saved = row.max_seconds
       ? { saved: false, name: "" }
@@ -488,9 +453,6 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // The row is marked running BEFORE Modal's job id is stored. Polling in
-  // that window asks Modal with an empty id, gets "none", and would mark a
-  // perfectly healthy render as failed. Wait for the id.
   if (!row.runner_job) {
     return NextResponse.json(clientJobResponse({ ...row, position: 0 }));
   }
@@ -499,14 +461,11 @@ export async function GET(req: NextRequest) {
   let dashboardSave: { saved: boolean; name: string } = { saved: false, name: "" };
 
   if (d && d.status === "done" && d.url) {
-    // RETURNING id -> empty means another poll already flipped it, so we
-    // email exactly once instead of on every 5s poll.
-    // RETURNING id -> empty means another poll already flipped it, so we
-    // save + email exactly once instead of on every 5s poll.
     const flacU = String(d.files?.flac || d.result?.files?.flac || "");
     const mp3U = String(d.files?.mp3 || d.result?.files?.mp3 || "");
+    const rawU = String(d.result?.report?.raw_url || d.result?.raw_url || "");
     const tr = (await sql`UPDATE mix_jobs SET status='done', url=${d.url},
-              flac_key=${flacU || null}, mp3_key=${mp3U || null},
+              flac_key=${flacU || null}, mp3_key=${mp3U || null}, raw_key=${rawU || null},
               result=${JSON.stringify({ ...d.report, ...d.result, files: d.files || d.result?.files })}::jsonb, updated_at=NOW()
               WHERE id=${id} AND (status <> 'done' OR result->>'raw_url' IS NULL) RETURNING id`) as any[];
     if (!row.max_seconds) {
@@ -520,8 +479,6 @@ export async function GET(req: NextRequest) {
     await failJob(id, err);
     if (!row.max_seconds) await notify(userId, "failed", { error: err });
   } else if (d && d.status === "none") {
-    // Only believe "none" once the job is old enough that Modal must have
-    // registered it. Below that it is a startup race, not a failure.
     const ag = (await sql`SELECT EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age
       FROM mix_jobs WHERE id=${id}`) as any[];
     if (Number(ag[0]?.age || 0) > 180) {
