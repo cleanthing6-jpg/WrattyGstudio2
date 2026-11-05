@@ -627,8 +627,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           <ABPreview
             aUrl={rawUrl || previewUrl}
             bUrl={previewUrl}
-            aLabel="Raw Stems"
-            bLabel="Mixed Preview"
+            aLabel="Before Mix"
+            bLabel="After Mix Preview"
           />
           {isOwner ? (<a href={previewUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-blue-600 underline">Download full preview</a>) : null}
           {!finalUrl && taskId && (

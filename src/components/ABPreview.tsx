@@ -10,7 +10,7 @@ type Props = {
   bLabel?: string;
 };
 
-export default function ABPreview({ aUrl, bUrl, aLabel = "Raw Stems", bLabel = "Mixed Preview" }: Props) {
+export default function ABPreview({ aUrl, bUrl, aLabel = "Before Mix", bLabel = "After Mix Preview" }: Props) {
   const rawRef = useRef<HTMLAudioElement>(null);
   const mixedRef = useRef<HTMLAudioElement>(null);
   const playerRef = useRef<ABPlayer | null>(null);
