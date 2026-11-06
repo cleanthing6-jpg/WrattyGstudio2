@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import getMongoClient from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -9,10 +10,23 @@ export async function POST(req: Request) {
   const email = user?.primaryEmailAddress?.emailAddress;
   if (!email) return NextResponse.json({ error: "No email" }, { status: 400 });
 
-  // Amount in kobo (Naira) or cents (USD). $2,500 = 250,000 cents.
-  // Paystack international payments usually require setting currency properly.
-  const priceInKobo = 250000 * 100; // Adjust for Naira conversion if needed
+  // Block free email providers (Gmail, Yahoo, etc.)
+  const freeEmails = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"];
+  const domain = email.split("@")[1];
+  if (freeEmails.includes(domain)) {
+    return NextResponse.json({ error: "Please use a business email address." }, { status: 403 });
+  }
 
+  // Ensure they have a developer profile
+  const client = await getMongoClient();
+  const db = client.db();
+  const profile = await db.collection("developer_profiles").findOne({ clerkUserId: userId });
+  
+  if (!profile) {
+    return NextResponse.json({ error: "Please complete your company verification first." }, { status: 403 });
+  }
+
+  const priceInKobo = 250000 * 100; 
   const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
   const callbackUrl = new URL("/developers", appUrl).toString();
 
@@ -25,12 +39,13 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       email,
       amount: priceInKobo,
-      currency: "NGN", // Change to "USD" if your Paystack account supports it
+      currency: "NGN", 
       callback_url: callbackUrl,
       metadata: {
-        type: "api_credits", // This is CRUCIAL for the webhook
+        type: "api_credits",
         userId: userId,
         credits: 1000,
+        company: profile.companyName,
       },
     }),
   });

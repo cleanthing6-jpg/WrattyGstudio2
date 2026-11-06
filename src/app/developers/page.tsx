@@ -23,25 +23,50 @@ const CodeBlock = ({ code, language }: { code: string; language: string }) => {
 export default function DeveloperDocs() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [keys, setKeys] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [buying, setBuying] = useState(false);
+  
+  // Form State
+  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     if (isSignedIn) {
-      fetch("/api/developer/keys")
-        .then((res) => res.json())
-        .then((data) => setKeys(data.keys));
+      fetch("/api/developer/keys").then((res) => res.json()).then((data) => setKeys(data.keys));
+      fetch("/api/developer/profile").then((res) => res.json()).then((data) => {
+        if (data.profile) setProfile(data.profile);
+      });
     }
   }, [isSignedIn]);
+
+  const submitVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    const res = await fetch("/api/developer/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName, website })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setProfile({ companyName, website });
+    } else {
+      setFormError(data.error);
+    }
+  };
 
   const buyCredits = async () => {
     setBuying(true);
     const res = await fetch("/api/developer/buy", { method: "POST" });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
-    else setBuying(false);
+    else {
+        alert(data.error);
+        setBuying(false);
+    }
   };
 
-  // The code examples use the shared test key so anyone can copy/paste
   const sharedTestKey = "wratty_live_sk_test_12345";
 
   const curlMix = `curl -X POST https://wrattygstudio2.zevcloud.app/api/v1/mix \\
@@ -50,7 +75,6 @@ export default function DeveloperDocs() {
   -d '{
     "mode": "mix",
     "preset": "afrobeats",
-    "loudness": "HIGH",
     "stems": [
       { "url": "https://your-s3-bucket.com/beat.wav", "role": "beat" },
       { "url": "https://your-s3-bucket.com/vocal.wav", "role": "lead" }
@@ -93,6 +117,7 @@ export default function DeveloperDocs() {
             {!isSignedIn ? (
               <p className="text-slate-400 text-sm border-t border-slate-800 pt-6">Sign in to purchase production API keys.</p>
             ) : keys.length > 0 ? (
+              // SHOW KEYS IF THEY ALREADY BOUGHT
               <div className="space-y-4 border-t border-slate-800 pt-6">
                 <h3 className="text-lg font-bold text-white mb-4">Your Production Keys</h3>
                 {keys.map((k) => (
@@ -103,48 +128,36 @@ export default function DeveloperDocs() {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : profile ? (
+              // SHOW BUY BUTTON IF PROFILE EXISTS
               <div className="text-center py-8 bg-slate-800/50 rounded-xl border border-slate-700 border-dashed mt-6">
-                <p className="text-slate-400 mb-4 text-sm">Need a dedicated production key that doesn't run out?</p>
+                <p className="text-slate-300 mb-2 font-semibold">Company Verified: {profile.companyName}</p>
+                <p className="text-slate-400 mb-6 text-sm">You are eligible to purchase production API keys.</p>
                 <button onClick={buyCredits} disabled={buying} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg">
                   {buying ? "Redirecting to Paystack..." : "Buy 1,000 Mixes ($2,500)"}
                 </button>
               </div>
+            ) : (
+              // SHOW VERIFICATION FORM IF NO PROFILE
+              <div className="border-t border-slate-800 pt-6 mt-6">
+                <h3 className="text-lg font-bold text-white mb-4">Company Verification Required</h3>
+                <p className="text-sm text-slate-400 mb-4">To purchase production API keys, please verify your company details. This prevents abuse.</p>
+                <form onSubmit={submitVerification} className="space-y-4 max-w-md">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Company / Platform Name</label>
+                    <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" placeholder="e.g. BeatStars" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Company Website URL</label>
+                    <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} required className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" placeholder="https://beatstars.com" />
+                  </div>
+                  {formError && <p className="text-red-400 text-sm">{formError}</p>}
+                  <button type="submit" className="bg-white text-black font-bold py-3 px-6 rounded-lg hover:bg-slate-200 transition-colors">
+                    Verify Company
+                  </button>
+                </form>
+              </div>
             )}
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Supported Genres (Presets)</h2>
-            <p className="mb-4 text-slate-400">
-              Pass the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">preset</code> parameter in your JSON body to choose a genre.
-            </p>
-            <div className="overflow-hidden rounded-xl border border-slate-800">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-900 text-slate-400">
-                  <tr>
-                    <th className="p-4 font-medium">Preset Value</th>
-                    <th className="p-4 font-medium">Genre / Style</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {[
-                    { id: "afrobeats", desc: "Afrobeats (Recommended)" },
-                    { id: "afrobeats_street", desc: "Afrobeats Street (Lamba)" },
-                    { id: "rap", desc: "Hip-Hop / Rap" },
-                    { id: "rnb", desc: "R&B" },
-                    { id: "dancehall", desc: "Reggae / Dancehall" },
-                    { id: "pop", desc: "Pop" },
-                    { id: "amapiano", desc: "Electronic / Amapiano" },
-                    { id: "gospel", desc: "Gospel" },
-                  ].map((g) => (
-                    <tr key={g.id} className="hover:bg-slate-900/50">
-                      <td className="p-4 font-mono text-green-400">{g.id}</td>
-                      <td className="p-4 text-slate-300">{g.desc}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </section>
 
           <section>
