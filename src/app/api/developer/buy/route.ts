@@ -2,6 +2,41 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import getMongoClient from "@/lib/mongodb";
 
+// Simple in-memory cache so we don't hit the rate API on every single click
+let cachedRate: { value: number; timestamp: number } | null = null;
+const CACHE_DURATION_MS = 1000 * 60 * 60; // Cache for 1 hour
+
+async function getLiveUsdToNgnRate(): Promise<number> {
+  const now = Date.now();
+  
+  // Return cached rate if it's less than 1 hour old
+  if (cachedRate && (now - cachedRate.timestamp < CACHE_DURATION_MS)) {
+    return cachedRate.value;
+  }
+
+  try {
+    // Fetch free live rate (no API key required)
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", { cache: "no-store" });
+    const data = await res.json();
+    
+    if (data.result === "success" && data.rates?.NGN) {
+      const liveRate = data.rates.NGN;
+      
+      // Add a 5% buffer to protect against sudden market drops
+      // This ensures you don't lose money if the Naira weakens
+      const safeRate = Math.ceil(liveRate * 1.05);
+      
+      cachedRate = { value: safeRate, timestamp: now };
+      return safeRate;
+    }
+  } catch (error) {
+    console.error("Failed to fetch live exchange rate:", error);
+  }
+
+  // Fallback to a safe high rate if the API is completely down
+  return 1600; 
+}
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -9,9 +44,8 @@ export async function POST(req: Request) {
 
     const user = await currentUser();
     const email = user?.primaryEmailAddress?.emailAddress;
-    if (!email) return NextResponse.json({ error: "No email" }, { status: 400 });
+    if (!email) return NextResponse.json({ error: "No email found on your account." }, { status: 400 });
 
-    // Ensure they have a developer profile
     const client = await getMongoClient();
     const db = client.db();
     const profile = await db.collection("developer_profiles").findOne({ clerkUserId: userId });
@@ -23,20 +57,24 @@ export async function POST(req: Request) {
     const body = await req.json();
     const packageType = body.packageType || "mix";
 
-    // Approximate NGN conversion for Paystack (Paystack requires NGN)
-    // 1 USD ≈ 1,500 NGN (Adjust this based on your actual pricing)
-    let amountNGN = 0;
+    // Fetch the live rate dynamically
+    const usdToNgn = await getLiveUsdToNgnRate();
+
+    let usdAmount = 0;
     let credits = 0;
 
     if (packageType === "master") {
-      amountNGN = 1000 * 1500; // $1,000 -> ₦1,500,000
+      usdAmount = 1000;
       credits = 1000;
     } else {
-      amountNGN = 2500 * 1500; // $2,500 -> ₦3,750,000
+      usdAmount = 2500;
       credits = 1000;
     }
 
+    // Convert to NGN using the live rate + buffer
+    const amountNGN = usdAmount * usdToNgn;
     const priceInKobo = amountNGN * 100; 
+    
     const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
     const callbackUrl = new URL("/developers", appUrl).toString();
 
@@ -56,14 +94,14 @@ export async function POST(req: Request) {
           userId: userId,
           credits: credits,
           company: profile.companyName,
-          packageType: packageType
+          packageType: packageType,
+          exchangeRateUsed: usdToNgn // Saved for your records
         },
       }),
     });
 
     const data = await response.json();
     
-    // Pass the exact Paystack error message to the frontend
     if (!data.status) {
       return NextResponse.json({ error: data.message || "Paystack rejected the transaction" }, { status: 500 });
     }
