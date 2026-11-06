@@ -1,92 +1,49 @@
-import { sql } from "@/lib/db";
-import { getUser, grantCredits } from "@/lib/credits";
-import { findPlanById } from "@/lib/pricing";
+import getMongoClient from "@/lib/mongodb";
+import { grantCredits } from "@/lib/credits";
+import crypto from "crypto";
 
-// Derived from lib/pricing.ts - the single source of truth.
-// Paystack amounts are in the smallest unit: kobo for NGN, cents for USD.
-function expectedAmount(tier: string, currency: string): number | undefined {
-  const plan = findPlanById(tier);
-  if (!plan) return undefined;
-  if (currency === "NGN") return plan.ngn * 100;
-  if (currency === "USD") return plan.usd * 100;
-  return undefined;
-}
-
-let _ready = false;
-// Idempotent: creates the table, and adds `status` if it already exists.
-async function ensureRefsTable() {
-  if (_ready) return;
-  await sql`CREATE TABLE IF NOT EXISTS paystack_refs (
-    reference TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    tier TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'granted',
-    created_at TIMESTAMP DEFAULT NOW()
-  )`;
-  await sql`ALTER TABLE paystack_refs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'granted'`;
-  // Self-heal: a crash mid-grant must not strand a paid reference forever.
-  await sql`UPDATE paystack_refs SET status='pending'
-            WHERE status='granting' AND created_at < NOW() - INTERVAL '10 minutes'`;
-  _ready = true;
-}
-
-// Called by BOTH the browser callback and the webhook. Safe to call repeatedly.
 export async function fulfilPaystackReference(reference: string) {
-  await ensureRefsTable();
-
   const secret = process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) throw new Error("PAYSTACK_SECRET_KEY missing");
+  if (!secret) throw new Error("No Paystack secret");
 
-  const res = await fetch(
-    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-    { headers: { Authorization: `Bearer ${secret}` } }
-  );
-  const body = await res.json();
-  const tx = body?.data;
+  // 1. Verify the transaction with Paystack
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+  const data = await res.json();
+  if (!data.status || data.data.status !== "success") return;
 
-  const userId = tx?.metadata?.userId;
-  const tier = tx?.metadata?.tier;
-  const currency = tx?.currency;
-  const expected = expectedAmount(tier, currency);
+  const metadata = data.data.metadata;
 
-  if (
-    !res.ok ||
-    body?.status !== true ||
-    tx?.status !== "success" ||
-    tx?.reference !== reference ||
-    typeof userId !== "string" ||
-    typeof tier !== "string" ||
-    !expected ||
-    tx?.amount !== expected
-  ) {
-    throw new Error("Payment verification failed");
+  // 2. Handle B2B API Purchases
+  if (metadata?.type === "api_credits") {
+    const client = await getMongoClient();
+    const db = client.db();
+    
+    // Check if they already have a key
+    const existing = await db.collection("api_clients").findOne({ clerkUserId: metadata.userId });
+    if (existing) {
+        // Top up existing
+        await db.collection("api_clients").updateOne(
+            { clerkUserId: metadata.userId },
+            { $inc: { credits: metadata.credits } }
+        );
+    } else {
+        // Generate brand new key
+        const apiKey = "wratty_live_sk_" + crypto.randomBytes(16).toString("hex");
+        await db.collection("api_clients").insertOne({
+            clerkUserId: metadata.userId,
+            name: "Developer Portal User",
+            apiKey: apiKey,
+            credits: metadata.credits,
+            createdAt: new Date()
+        });
+    }
+    return;
   }
 
-  const plan = findPlanById(tier);
-  if (!plan) throw new Error("Unknown tier: " + tier);
-  const addMix = plan.service === "master-only" ? 0 : plan.tracks;
-  const addMaster = plan.service === "master-only" ? plan.tracks : 0;
-
-  // Ensure the balance columns exist before touching them.
-  await getUser(userId);
-
-  // ONE statement = atomic. The credit grant and the reference record
-  // commit together, so a crash can never double-grant or lose a paid order.
-  const granted = (await sql`
-    WITH claim AS (
-      INSERT INTO paystack_refs (reference, user_id, tier, status)
-      VALUES (${reference}, ${userId}, ${tier}, 'granted')
-      ON CONFLICT (reference) DO UPDATE SET status = 'granted'
-        WHERE paystack_refs.status NOT IN ('granted', 'granting')
-      RETURNING reference
-    )
-    UPDATE users
-    SET mix_credits = mix_credits + ${addMix},
-        master_credits = master_credits + ${addMaster},
-        tier = ${tier}
-    WHERE id = ${userId} AND EXISTS (SELECT 1 FROM claim)
-    RETURNING mix_credits, master_credits
-  `) as any[];
-
-  return granted.length ? "granted" : "already_granted";
+  // 3. Handle B2C App Purchases (Your existing logic)
+  if (metadata?.userId && metadata?.tier) {
+    await grantCredits(metadata.userId, metadata.tier);
+  }
 }
