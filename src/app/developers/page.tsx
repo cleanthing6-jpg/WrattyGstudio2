@@ -25,12 +25,10 @@ export default function DeveloperDocs() {
   const [keys, setKeys] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   
-  // Loading & Error States
   const [buying, setBuying] = useState<"mix" | "master" | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedKey, setCopiedKey] = useState(false);
   
-  // Form State
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
   const [formError, setFormError] = useState("");
@@ -49,35 +47,45 @@ export default function DeveloperDocs() {
     e.preventDefault();
     setFormError("");
     setSubmittingForm(true);
-    const res = await fetch("/api/developer/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyName, website })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setProfile({ companyName, website });
-    } else {
-      setFormError(data.error);
+    try {
+      const res = await fetch("/api/developer/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName, website })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfile({ companyName, website });
+      } else {
+        setFormError(data.error || "Failed to verify");
+      }
+    } catch (err) {
+      setFormError("Network error occurred.");
+    } finally {
+      setSubmittingForm(false);
     }
-    setSubmittingForm(false);
   };
 
   const buyCredits = async (packageType: "mix" | "master") => {
     setBuying(packageType);
     setErrorMsg("");
     
-    const res = await fetch("/api/developer/buy", { 
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ packageType })
-    });
-    
-    const data = await res.json();
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      setErrorMsg(data.error || "Failed to connect to Paystack.");
+    try {
+      const res = await fetch("/api/developer/buy", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageType })
+      });
+      
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setErrorMsg(data.error || "Failed to connect to Paystack.");
+        setBuying(null);
+      }
+    } catch (err: any) {
+      setErrorMsg("Network error. Please try again.");
       setBuying(null);
     }
   };
@@ -104,7 +112,6 @@ export default function DeveloperDocs() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-300 font-sans selection:bg-green-500/30">
       
-      {/* Clean B2B Navbar */}
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -123,15 +130,12 @@ export default function DeveloperDocs() {
 
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-16">
         
-        {/* Header */}
         <section>
           <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Developer API</h1>
           <p className="text-lg text-slate-400 leading-relaxed">Automate commercial-grade mixing and mastering with the Idan mix Engine.</p>
         </section>
 
-        {/* API ACCESS DASHBOARD */}
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-          {/* Subtle gradient glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-green-500/5 blur-3xl pointer-events-none"></div>
 
           <h2 className="text-2xl font-bold text-white mb-6 border-b border-slate-800 pb-4">API Access</h2>
@@ -144,7 +148,6 @@ export default function DeveloperDocs() {
                 </SignInButton>
              </div>
           ) : keys.length > 0 ? (
-            // STATE 1: PRODUCTION KEYS EXIST
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-white mb-4">Your Production Keys</h3>
               {keys.map((k) => (
@@ -156,7 +159,6 @@ export default function DeveloperDocs() {
               ))}
             </div>
           ) : !profile ? (
-            // STATE 2: NO PROFILE - FORCE VERIFICATION
             <div>
               <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mb-8">
                 <h3 className="text-yellow-500 font-bold mb-1">Company Verification Required</h3>
@@ -179,14 +181,12 @@ export default function DeveloperDocs() {
               </form>
             </div>
           ) : (
-            // STATE 3: PROFILE EXISTS - SHOW TEST KEY & PRICING
             <div className="space-y-10">
               <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 w-fit px-3 py-1 rounded-full border border-green-500/20">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                 Verified: {profile.companyName}
               </div>
 
-              {/* Sleek Test Key UI */}
               <div>
                 <h3 className="text-lg font-bold text-white mb-3">Your Free Test Key</h3>
                 <p className="text-sm text-slate-400 mb-4">Use this key to test up to 5 free mixes.</p>
@@ -205,12 +205,13 @@ export default function DeveloperDocs() {
 
               <div className="border-t border-slate-800"></div>
 
-              {/* Premium Pricing Cards */}
               <div>
                 <h3 className="text-lg font-bold text-white mb-6">Production Packages</h3>
+                
+                {/* THE ERROR MESSAGE BOX */}
                 {errorMsg && (
-                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center">
-                    {errorMsg}
+                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center font-medium">
+                    ⚠️ {errorMsg}
                   </div>
                 )}
 
