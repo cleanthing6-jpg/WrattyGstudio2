@@ -41,10 +41,11 @@ export default function DeveloperDocs() {
     else setBuying(false);
   };
 
-  const activeKey = keys[0]?.apiKey || "YOUR_API_KEY";
+  // The code examples use the shared test key so anyone can copy/paste
+  const sharedTestKey = "wratty_live_sk_test_12345";
 
   const curlMix = `curl -X POST https://wrattygstudio2.zevcloud.app/api/v1/mix \\
-  -H "Authorization: Bearer ${activeKey}" \\
+  -H "Authorization: Bearer ${sharedTestKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "mode": "mix",
@@ -79,40 +80,43 @@ export default function DeveloperDocs() {
             <p className="text-lg text-slate-400">Automate commercial-grade mixing and mastering with the Idan mix Engine.</p>
           </section>
 
-          {/* DYNAMIC API KEY SECTION */}
           <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
-            <h2 className="text-2xl font-bold text-white mb-6">Your API Keys</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">API Access</h2>
             
+            <div className="mt-4 mb-8">
+              <p className="text-sm text-slate-400 mb-2">Public Test Key (Shared, 5 credits max):</p>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex justify-between items-center">
+                <code className="text-yellow-400 font-mono text-lg select-all">{sharedTestKey}</code>
+              </div>
+            </div>
+
             {!isSignedIn ? (
-              <p className="text-slate-400">Please sign in to generate your free test key.</p>
+              <p className="text-slate-400 text-sm border-t border-slate-800 pt-6">Sign in to purchase production API keys.</p>
             ) : keys.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-4 border-t border-slate-800 pt-6">
+                <h3 className="text-lg font-bold text-white mb-4">Your Production Keys</h3>
                 {keys.map((k) => (
-                  <div key={k._id} className={`p-4 rounded-xl border ${k.isTest ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                    <p className={`text-xs uppercase mb-1 ${k.isTest ? 'text-yellow-400' : 'text-green-400'}`}>
-                      {k.isTest ? "Free Test Key (5 Mixes)" : "Live Production Key"}
-                    </p>
-                    <code className="text-white font-mono text-lg break-all">{k.apiKey}</code>
+                  <div key={k._id} className="p-4 rounded-xl border bg-green-500/10 border-green-500/30">
+                    <p className="text-xs uppercase mb-1 text-green-400">Live Production Key</p>
+                    <code className="text-white font-mono text-lg break-all select-all">{k.apiKey}</code>
                     <p className="text-sm text-slate-400 mt-2">Credits Remaining: <strong className="text-white">{k.credits}</strong></p>
-                    
-                    {k.isTest && (
-                      <button onClick={buyCredits} disabled={buying} className="mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">
-                        {buying ? "Redirecting..." : "Upgrade to 1,000 Mixes ($2,500)"}
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-400">Generating your free test key...</p>
+              <div className="text-center py-8 bg-slate-800/50 rounded-xl border border-slate-700 border-dashed mt-6">
+                <p className="text-slate-400 mb-4 text-sm">Need a dedicated production key that doesn't run out?</p>
+                <button onClick={buyCredits} disabled={buying} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg">
+                  {buying ? "Redirecting to Paystack..." : "Buy 1,000 Mixes ($2,500)"}
+                </button>
+              </div>
             )}
           </section>
 
-          {/* GENRE SELECTION SECTION */}
           <section>
             <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Supported Genres (Presets)</h2>
             <p className="mb-4 text-slate-400">
-              Pass the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">preset</code> parameter in your JSON body to change how the Idan mix engine processes the audio.
+              Pass the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">preset</code> parameter in your JSON body to choose a genre.
             </p>
             <div className="overflow-hidden rounded-xl border border-slate-800">
               <table className="w-full text-left text-sm">
