@@ -29,10 +29,16 @@ export default function DeveloperDocs() {
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedKey, setCopiedKey] = useState(false);
   
+  // Verification Form State
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
   const [formError, setFormError] = useState("");
   const [submittingForm, setSubmittingForm] = useState(false);
+
+  // Support Form State
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportStatus, setSupportStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   useEffect(() => {
     if (isSignedIn) {
@@ -87,6 +93,28 @@ export default function DeveloperDocs() {
     } catch (err: any) {
       setErrorMsg("Network error. Please try again.");
       setBuying(null);
+    }
+  };
+
+  const submitSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSupportStatus("loading");
+    try {
+      const res = await fetch("/api/developer/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: supportSubject, message: supportMessage })
+      });
+      if (res.ok) {
+        setSupportStatus("success");
+        setSupportSubject("");
+        setSupportMessage("");
+        setTimeout(() => setSupportStatus("idle"), 5000);
+      } else {
+        setSupportStatus("error");
+      }
+    } catch {
+      setSupportStatus("error");
     }
   };
 
@@ -215,37 +243,53 @@ export default function DeveloperDocs() {
                 )}
 
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="p-6 rounded-2xl border border-green-500/30 bg-gradient-to-b from-slate-800 to-slate-900 relative shadow-xl">
-                    <div className="absolute top-0 right-6 -translate-y-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">POPULAR</div>
-                    <h4 className="text-lg font-bold text-white mb-2">Full Mix + Master</h4>
-                    <p className="text-slate-400 text-sm mb-6">Perfect for platforms sending raw stems.</p>
-                    <div className="flex items-baseline gap-1 mb-6">
-                      <span className="text-4xl font-black text-white">$2,500</span>
+                  {/* MIX PACKAGE */}
+                  <div className="p-6 rounded-2xl border border-green-500/30 bg-gradient-to-b from-slate-800 to-slate-900 relative shadow-xl flex flex-col justify-between">
+                    <div>
+                      <div className="absolute top-0 right-6 -translate-y-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">POPULAR</div>
+                      <h4 className="text-lg font-bold text-white mb-2">Full Mix + Master</h4>
+                      <p className="text-slate-400 text-sm mb-6">Perfect for platforms sending raw stems.</p>
+                      <div className="flex items-baseline gap-1 mb-6">
+                        <span className="text-4xl font-black text-white">$2,500</span>
+                      </div>
+                      <ul className="text-sm text-slate-300 space-y-3 mb-8">
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Full Mixes</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Stem alignment & cleanup</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
+                      </ul>
                     </div>
-                    <ul className="text-sm text-slate-300 space-y-3 mb-8">
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Full Mixes</li>
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Stem alignment & cleanup</li>
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
-                    </ul>
-                    <button onClick={() => buyCredits("mix")} disabled={buying !== null} className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
-                      {buying === "mix" ? "Redirecting..." : "Buy Mix Credits"}
-                    </button>
+                    <div className="space-y-3">
+                       <button onClick={() => buyCredits("mix")} disabled={buying !== null} className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+                        {buying === "mix" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                      </button>
+                      <a href="mailto:developers@wrattygstudio.com?subject=Enterprise%20API%20Invoice%20Request%20-%20Mix%20Package" className="w-full block text-center bg-transparent border border-slate-600 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors">
+                        Request USD Invoice
+                      </a>
+                    </div>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-slate-700 bg-slate-800/50 relative shadow-xl">
-                    <h4 className="text-lg font-bold text-white mb-2">Master Only</h4>
-                    <p className="text-slate-400 text-sm mb-6">For platforms with already mixed tracks.</p>
-                    <div className="flex items-baseline gap-1 mb-6">
-                      <span className="text-4xl font-black text-white">$1,000</span>
+                  {/* MASTER PACKAGE */}
+                  <div className="p-6 rounded-2xl border border-slate-700 bg-slate-800/50 relative shadow-xl flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-white mb-2">Master Only</h4>
+                      <p className="text-slate-400 text-sm mb-6">For platforms with already mixed tracks.</p>
+                      <div className="flex items-baseline gap-1 mb-6">
+                        <span className="text-4xl font-black text-white">$1,000</span>
+                      </div>
+                      <ul className="text-sm text-slate-300 space-y-3 mb-8">
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Masters</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Loudness & tone matching</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
+                      </ul>
                     </div>
-                    <ul className="text-sm text-slate-300 space-y-3 mb-8">
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Masters</li>
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Loudness & tone matching</li>
-                      <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
-                    </ul>
-                    <button onClick={() => buyCredits("master")} disabled={buying !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
-                      {buying === "master" ? "Redirecting..." : "Buy Master Credits"}
-                    </button>
+                    <div className="space-y-3">
+                      <button onClick={() => buyCredits("master")} disabled={buying !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+                        {buying === "master" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                      </button>
+                      <a href="mailto:developers@wrattygstudio.com?subject=Enterprise%20API%20Invoice%20Request%20-%20Master%20Package" className="w-full block text-center bg-transparent border border-slate-600 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors">
+                        Request USD Invoice
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -258,20 +302,32 @@ export default function DeveloperDocs() {
           <CodeBlock language="cURL" code={curlMix} />
         </section>
 
-        {/* NEW SUPPORT SECTION */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div>
-            <h2 className="text-xl font-bold text-white mb-2">Need Assistance?</h2>
-            <p className="text-sm text-slate-400">If you have questions about integration, billing, or custom volume pricing, contact our engineering team directly.</p>
-          </div>
-          <a 
-            href="https://wa.me/2347074216877?text=Hi,%20I%20need%20support%20with%20the%20WraGstudio%20API" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="whitespace-nowrap bg-white hover:bg-slate-200 text-black font-bold py-3 px-6 rounded-lg transition-colors"
-          >
-            Contact Support
-          </a>
+        {/* NATIVE PROFESSIONAL SUPPORT FORM */}
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+          <h2 className="text-2xl font-bold text-white mb-2">Developer Support</h2>
+          <p className="text-sm text-slate-400 mb-6">Need help with integration, billing, or enterprise volume pricing? Send our engineering team a message directly.</p>
+          
+          {supportStatus === "success" ? (
+            <div className="p-6 bg-green-500/10 border border-green-500/30 rounded-xl text-center">
+              <h3 className="text-green-400 font-bold mb-2">Message Sent Successfully!</h3>
+              <p className="text-sm text-green-200/70">Our team will reply to your registered email address shortly.</p>
+            </div>
+          ) : (
+            <form onSubmit={submitSupport} className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Subject</label>
+                <input type="text" value={supportSubject} onChange={(e) => setSupportSubject(e.target.value)} required className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500 transition-colors" placeholder="e.g. Integration issue with stems" />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Message</label>
+                <textarea value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} required rows={5} className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500 transition-colors resize-none" placeholder="Describe your issue or question in detail..."></textarea>
+              </div>
+              {supportStatus === "error" && <p className="text-red-400 text-sm">Failed to send message. Please try again.</p>}
+              <button type="submit" disabled={supportStatus === "loading"} className="bg-white hover:bg-slate-200 text-black font-bold py-3 px-8 rounded-lg transition-colors disabled:opacity-50">
+                {supportStatus === "loading" ? "Sending..." : "Submit Ticket"}
+              </button>
+            </form>
+          )}
         </section>
 
       </div>
