@@ -4,7 +4,6 @@ import { validateApiKey, deductCredit } from "@/lib/apiAuth";
 export async function POST(req: Request) {
   const auth = await validateApiKey(req);
   
-  // TypeScript strict fix: Ensure client exists before proceeding
   if (auth.error || !auth.client) {
     return NextResponse.json(
       { error: auth.error || "Invalid API Key" }, 
@@ -14,7 +13,12 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { stems, preset = "afrobeats", loudness = "HIGH" } = body;
+    const { 
+      stems, 
+      preset = "afrobeats", 
+      loudness = "HIGH",
+      mode = "mix" // "mix" for full stems, "master" for stereo
+    } = body;
 
     if (!Array.isArray(stems) || stems.length === 0) {
       return NextResponse.json({ error: "stems[] array is required" }, { status: 400 });
@@ -23,6 +27,7 @@ export async function POST(req: Request) {
     const modalUrl = process.env.MIX_API_URL || "https://wrattyg--wratty-mix-api.modal.run";
     const secret = process.env.FX_INTERNAL_SECRET || "";
 
+    // Send to Idan mix engine
     const response = await fetch(modalUrl, {
       method: "POST",
       headers: {
@@ -33,6 +38,7 @@ export async function POST(req: Request) {
         stems,
         preset,
         loudness,
+        mode, // Pass the mode to the engine
         maxSeconds: 300, 
       }),
     });
@@ -40,13 +46,16 @@ export async function POST(req: Request) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Failed to start mix");
 
-    // Safe to use auth.client here because we checked it above
-    await deductCredit(auth.client.apiKey);
+    // Deduct credit based on mode
+    // 1 Credit = Full Mix. 0.5 Credits = Master Only.
+    const cost = mode === "master" ? 0.5 : 1.0;
+    await deductCredit(auth.client.apiKey, cost);
 
     return NextResponse.json({
       success: true,
       jobId: data.job,
-      message: "Mix started successfully. Poll the status endpoint for updates."
+      mode: mode,
+      message: "Job started successfully. Poll the status endpoint for updates."
     });
 
   } catch (error: any) {

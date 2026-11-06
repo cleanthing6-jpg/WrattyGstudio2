@@ -36,6 +36,7 @@ export default function DeveloperDocs() {
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
+    "mode": "mix",
     "stems": [
       { "url": "https://your-s3-bucket.com/beat.wav", "role": "beat" },
       { "url": "https://your-s3-bucket.com/vocal.wav", "role": "lead" }
@@ -44,10 +45,22 @@ export default function DeveloperDocs() {
     "loudness": "HIGH"
   }'`;
 
+  const curlMaster = `curl -X POST https://wrattygstudio2.zevcloud.app/api/v1/mix \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "mode": "master",
+    "stems": [
+      { "url": "https://your-s3-bucket.com/finished-stereo-mix.wav", "role": "mix" }
+    ],
+    "loudness": "HIGH"
+  }'`;
+
   const resMix = `{
   "success": true,
   "jobId": "e8be217991d24ad1bc333d9a022140c9",
-  "message": "Mix started successfully. Poll the status endpoint."
+  "mode": "mix",
+  "message": "Job started successfully. Poll the status endpoint."
 }`;
 
   const curlStatus = `curl -X GET "https://wrattygstudio2.zevcloud.app/api/v1/status?id=YOUR_JOB_ID" \\
@@ -84,7 +97,7 @@ export default function DeveloperDocs() {
 
       <div className="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row gap-12">
         
-        {/* Sidebar Navigation (Desktop) */}
+        {/* Sidebar */}
         <aside className="hidden md:block w-64 shrink-0">
           <div className="sticky top-24 space-y-6">
             <div>
@@ -97,7 +110,8 @@ export default function DeveloperDocs() {
             <div>
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Endpoints</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#mix" className="hover:text-white transition-colors flex items-center gap-2"><span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-mono">POST</span> /mix</a></li>
+                <li><a href="#mix" className="hover:text-white transition-colors flex items-center gap-2"><span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-mono">POST</span> /mix (Stems)</a></li>
+                <li><a href="#master" className="hover:text-white transition-colors flex items-center gap-2"><span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-mono">POST</span> /mix (Master)</a></li>
                 <li><a href="#status" className="hover:text-white transition-colors flex items-center gap-2"><span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono">GET</span> /status</a></li>
               </ul>
             </div>
@@ -107,7 +121,6 @@ export default function DeveloperDocs() {
         {/* Main Content */}
         <main className="flex-1 max-w-3xl space-y-16">
           
-          {/* Intro */}
           <section id="intro">
             <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">WraGstudio Developer API</h1>
             <p className="text-lg text-slate-400 leading-relaxed">
@@ -116,58 +129,53 @@ export default function DeveloperDocs() {
             </p>
           </section>
 
-          {/* Authentication */}
           <section id="auth" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Authentication</h2>
             <p className="mb-4 text-slate-400">
-              The WraGstudio API uses Bearer tokens to authenticate requests. You must include your API key in the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">Authorization</code> header.
+              The WraGstudio API uses Bearer tokens. Include your API key in the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">Authorization</code> header.
             </p>
-            <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl text-yellow-200/80 text-sm mb-4">
-              <strong>⚠️ Security Warning:</strong> Never expose your API key in client-side code (browsers, mobile apps). Always make requests from your secure backend server.
-            </div>
             <CodeBlock language="HTTP Header" code={`Authorization: Bearer wratty_live_sk_your_secret_key`} />
           </section>
 
-          {/* Mix Endpoint */}
           <section id="mix" className="scroll-mt-24">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-2">
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded font-mono font-bold">POST</span>
               <h2 className="text-2xl font-bold text-white font-mono">/api/v1/mix</h2>
+              <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded font-medium">Full Mix + Master</span>
             </div>
             <p className="mb-4 text-slate-400">
-              Submits a new job to the Idan mix engine. You provide the URLs of the stems, and the engine handles the rest.
+              Submits a new job to mix multiple stems and master the result. <strong className="text-green-400">Costs 1 API Credit per track.</strong>
             </p>
-            
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-6">Request Body</h3>
-            <ul className="space-y-3 text-sm mb-6">
-              <li><strong className="text-white font-mono">stems</strong> <span className="text-slate-500">(Array, required)</span> - Array of objects containing the URL and role of each track.</li>
-              <li><strong className="text-white font-mono">preset</strong> <span className="text-slate-500">(String, optional)</span> - Genre preset. Default is "afrobeats".</li>
-              <li><strong className="text-white font-mono">loudness</strong> <span className="text-slate-500">(String, optional)</span> - Target loudness. Options: LOW, MEDIUM, HIGH.</li>
-            </ul>
-
             <CodeBlock language="cURL" code={curlMix} />
-            
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-8">Response</h3>
             <CodeBlock language="JSON" code={resMix} />
           </section>
 
-          {/* Status Endpoint */}
+          <section id="master" className="scroll-mt-24">
+            <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-2">
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded font-mono font-bold">POST</span>
+              <h2 className="text-2xl font-bold text-white font-mono">/api/v1/mix</h2>
+              <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded font-medium">Master Only</span>
+            </div>
+            <p className="mb-4 text-slate-400">
+              Submits a finished stereo mix for mastering only. <strong className="text-green-400">Costs 0.5 API Credits per track.</strong>
+            </p>
+            <CodeBlock language="cURL" code={curlMaster} />
+          </section>
+
           <section id="status" className="scroll-mt-24">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-2">
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded font-mono font-bold">GET</span>
               <h2 className="text-2xl font-bold text-white font-mono">/api/v1/status</h2>
             </div>
             <p className="mb-4 text-slate-400">
-              Checks the status of an ongoing mix job. Because rendering takes time, you should poll this endpoint every 5 seconds until the status is <code className="text-white bg-slate-800 px-1.5 rounded">done</code>.
+              Checks the status of an ongoing job. Poll every 5 seconds until status is <code className="text-white bg-slate-800 px-1.5 rounded">done</code>.
             </p>
-            
             <CodeBlock language="cURL" code={curlStatus} />
-            
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 mt-8">Response</h3>
             <CodeBlock language="JSON" code={resStatus} />
           </section>
 
-          {/* CTA */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 p-8 rounded-2xl text-center mt-12">
             <h3 className="text-2xl font-bold text-white mb-2">Ready to scale your platform?</h3>
             <p className="text-slate-400 mb-6">Get production API keys and start mixing tracks for your users today.</p>

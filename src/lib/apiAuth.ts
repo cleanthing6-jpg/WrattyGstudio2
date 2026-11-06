@@ -18,7 +18,7 @@ export async function validateApiKey(req: Request) {
       return { error: "Invalid API Key", status: 401 };
     }
 
-    if (apiClient.credits <= 0) {
+    if (apiClient.credits <= 0 && apiClient.credits !== -1) {
       return { error: "Insufficient credits. Please top up your account.", status: 402 };
     }
 
@@ -29,14 +29,20 @@ export async function validateApiKey(req: Request) {
   }
 }
 
-export async function deductCredit(apiKey: string) {
+export async function deductCredit(apiKey: string, cost: number = 1.0) {
   try {
     const client = await getMongoClient();
     const db = client.db();
-    await db.collection("api_clients").updateOne(
-      { apiKey },
-      { $inc: { credits: -1 } }
-    );
+    
+    const apiClient = await db.collection("api_clients").findOne({ apiKey });
+    
+    // If unlimited (-1), do nothing
+    if (apiClient && apiClient.credits !== -1) {
+      await db.collection("api_clients").updateOne(
+        { apiKey },
+        { $inc: { credits: -cost } } // Subtract 1 for mix, 0.5 for master
+      );
+    }
   } catch (error) {
     console.error("Failed to deduct credit:", error);
   }
