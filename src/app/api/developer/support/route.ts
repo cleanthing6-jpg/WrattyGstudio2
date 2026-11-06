@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const userName = user?.firstName || "Developer";
 
     // REPLACE THIS WITH YOUR ACTUAL EMAIL ADDRESS
-    const YOUR_EMAIL = "your-email@gmail.com"; 
+    const YOUR_EMAIL = "wrattyg@gmail.com"; 
 
     const { data, error } = await resend.emails.send({
       from: "WraGstudio API <onboarding@resend.dev>", // You can change this later to support@yourdomain.com
