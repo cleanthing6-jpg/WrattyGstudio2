@@ -29,34 +29,21 @@ const dollar = (n: number) => "$" + n;
 
 const TIERS = [
   {
-    id: "free",
-    name: "Free",
-    ngn: 0,
-    usd: 0,
-    period: "",
+    id: "free", name: "Free", ngn: 0, usd: 0, period: "",
     features: ["1 watermarked 30s preview", "Hear it before you pay"],
-    cta: "Start Free",
-    color: "gray",
+    cta: "Start Free", color: "gray",
   },
   ...PLANS.filter((p) => p.id !== "free").map((p) => ({
-    id: p.id,
-    name: p.name,
-    ngn: p.ngn,
-    usd: p.usd,
+    id: p.id, name: p.name, ngn: p.ngn, usd: p.usd,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
-    cta: CTA[p.id] ?? "Buy",
-    color: COLORS[p.id] ?? "green",
+    cta: CTA[p.id] ?? "Buy", color: COLORS[p.id] ?? "green",
   })),
   ...MASTER_PLANS.map((p) => ({
-    id: p.id,
-    name: p.name + " \u00b7 mastering only",
-    ngn: p.ngn,
-    usd: p.usd,
+    id: p.id, name: p.name + " \u00b7 mastering only", ngn: p.ngn, usd: p.usd,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
-    cta: CTA[p.id] ?? "Buy",
-    color: COLORS[p.id] ?? "green",
+    cta: CTA[p.id] ?? "Buy", color: COLORS[p.id] ?? "green",
   })),
 ];
 
@@ -67,37 +54,45 @@ export default function Pricing() {
       if (d.region === "INTL") setRegion("INTL");
     }).catch(() => {});
   }, []);
+  
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [loadingCrypto, setLoadingCrypto] = useState<string | null>(null);
 
   const startPayment = async (tierId: string) => {
-    if (tierId === "free") {
-      router.push("/dashboard");
-      return;
-    }
-
+    if (tierId === "free") { router.push("/dashboard"); return; }
     setLoadingTier(tierId);
-
     try {
       const res = await fetch("/api/paystack-init", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier: tierId }),
       });
-
       const data = await res.json();
-
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Unable to start payment");
-      }
-
+      if (!res.ok || !data.url) throw new Error(data.error || "Unable to start payment");
       window.open(data.url, "_self");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Payment failed");
       setLoadingTier(null);
+    }
+  };
+
+  const startCryptoPayment = async (tierId: string) => {
+    if (tierId === "free") { router.push("/dashboard"); return; }
+    setLoadingCrypto(tierId);
+    try {
+      const res = await fetch("/api/crypto-init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: tierId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || "Unable to start crypto payment");
+      window.open(data.url, "_self");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Crypto payment failed");
+      setLoadingCrypto(null);
     }
   };
 
@@ -110,52 +105,44 @@ export default function Pricing() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {TIERS.map((tier) => (
-          <div
-            key={tier.id}
-            className={`bg-white rounded-2xl p-6 border ${
-              tier.color === "green" ? "border-green-500" : "border-slate-200"
-            }`}
-          >
-            {tier.id === "starter" && (
-              <div className="text-xs text-green-400 font-bold mb-2">
-                MOST POPULAR
-              </div>
-            )}
-
+          <div key={tier.id} className={`bg-white rounded-2xl p-6 border ${tier.color === "green" ? "border-green-500" : "border-slate-200"} flex flex-col`}>
+            {tier.id === "starter" && <div className="text-xs text-green-400 font-bold mb-2">MOST POPULAR</div>}
             <h3 className="text-lg font-bold mb-1">{tier.name}</h3>
-
             <div className="text-3xl font-black mb-1">{tier.id === "free" ? "Free" : (region === "NG" ? naira(tier.ngn) : dollar(tier.usd))}</div>
-
-            {tier.period ? (
-              <div className="text-gray-700 text-sm mb-4">{tier.period}</div>
-            ) : (
-              <div className="mb-4">&nbsp;</div>
-            )}
-
-            <ul className="space-y-2 mb-6">
+            {tier.period ? <div className="text-gray-700 text-sm mb-4">{tier.period}</div> : <div className="mb-4">&nbsp;</div>}
+            
+            <ul className="space-y-2 mb-6 flex-1">
               {tier.features.map((feature, index) => (
-                <li
-                  key={index}
-                  className="text-sm text-gray-700 flex items-start gap-2"
-                >
-                  <span className="text-green-600 mt-0.5">✓</span>
-                  {feature}
+                <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>{feature}
                 </li>
               ))}
             </ul>
 
             {!isLoaded ? (
-              <div className="w-full text-center text-gray-500 py-3">
-                Loading...
-              </div>
+              <div className="w-full text-center text-gray-500 py-3">Loading...</div>
             ) : user ? (
-              <button
-                onClick={() => startPayment(tier.id)}
-                disabled={loadingTier !== null}
-                className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-700 font-bold py-3 rounded-xl transition"
-              >
-                {loadingTier === tier.id ? "Connecting to Paystack..." : tier.cta}
-              </button>
+              <div className="space-y-2">
+                {/* Paystack Button (NGN) */}
+                <button
+                  onClick={() => startPayment(tier.id)}
+                  disabled={loadingTier !== null || loadingCrypto !== null}
+                  className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-700 font-bold py-3 rounded-xl transition"
+                >
+                  {loadingTier === tier.id ? "Connecting..." : "Pay with Naira (Paystack)"}
+                </button>
+                
+                {/* Crypto Button (USDC) - Only show for non-free tiers */}
+                {tier.id !== "free" && (
+                  <button
+                    onClick={() => startCryptoPayment(tier.id)}
+                    disabled={loadingTier !== null || loadingCrypto !== null}
+                    className="w-full bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-50 text-blue-700 font-bold py-3 rounded-xl transition"
+                  >
+                    {loadingCrypto === tier.id ? "Connecting..." : "Pay with USDC (Crypto)"}
+                  </button>
+                )}
+              </div>
             ) : (
               <SignInButton mode="modal">
                 <button className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-700 font-bold py-3 rounded-xl transition">
