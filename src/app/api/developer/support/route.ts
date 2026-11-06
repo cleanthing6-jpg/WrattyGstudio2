@@ -13,20 +13,25 @@ export async function POST(req: Request) {
     }
 
     const user = await currentUser();
-    const userEmail = user?.primaryEmailAddress?.emailAddress || "Unknown Email";
+    const userEmail = user?.primaryEmailAddress?.emailAddress || "";
     const userName = user?.firstName || "Developer";
+
+    if (!userEmail) {
+      return NextResponse.json({ error: "Your account does not have an email address." }, { status: 400 });
+    }
 
     // REPLACE THIS WITH YOUR ACTUAL EMAIL ADDRESS
     const YOUR_EMAIL = "wrattyg@gmail.com"; 
 
     const { data, error } = await resend.emails.send({
-      from: "WraGstudio API <onboarding@resend.dev>", // You can change this later to support@yourdomain.com
+      from: "WraGstudio Support <onboarding@resend.dev>",
       to: [YOUR_EMAIL],
+      reply_to: userEmail, // <--- THIS IS THE MAGIC FIX
       subject: `[API Support] ${subject}`,
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #333;">
           <h2 style="color: #22c55e;">New Developer Support Request</h2>
-          <p><strong>From:</strong> ${userName} (${userEmail})</p>
+          <p><strong>From:</strong> ${userName} (<a href="mailto:${userEmail}">${userEmail}</a>)</p>
           <p><strong>Subject:</strong> ${subject}</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;" />
           <p style="white-space: pre-wrap;">${message}</p>
@@ -36,7 +41,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("Resend error:", error);
-      return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+      return NextResponse.json({ error: error.message || "Failed to send email" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
