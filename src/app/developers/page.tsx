@@ -208,7 +208,6 @@ export default function DeveloperDocs() {
               <div>
                 <h3 className="text-lg font-bold text-white mb-6">Production Packages</h3>
                 
-                {/* THE ERROR MESSAGE BOX */}
                 {errorMsg && (
                   <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center font-medium">
                     ⚠️ {errorMsg}
@@ -216,7 +215,6 @@ export default function DeveloperDocs() {
                 )}
 
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* MIX PACKAGE */}
                   <div className="p-6 rounded-2xl border border-green-500/30 bg-gradient-to-b from-slate-800 to-slate-900 relative shadow-xl">
                     <div className="absolute top-0 right-6 -translate-y-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">POPULAR</div>
                     <h4 className="text-lg font-bold text-white mb-2">Full Mix + Master</h4>
@@ -234,7 +232,6 @@ export default function DeveloperDocs() {
                     </button>
                   </div>
 
-                  {/* MASTER PACKAGE */}
                   <div className="p-6 rounded-2xl border border-slate-700 bg-slate-800/50 relative shadow-xl">
                     <h4 className="text-lg font-bold text-white mb-2">Master Only</h4>
                     <p className="text-slate-400 text-sm mb-6">For platforms with already mixed tracks.</p>
@@ -259,6 +256,22 @@ export default function DeveloperDocs() {
         <section>
           <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Make a Request</h2>
           <CodeBlock language="cURL" code={curlMix} />
+        </section>
+
+        {/* NEW SUPPORT SECTION */}
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <h2 className="text-xl font-bold text-white mb-2">Need Assistance?</h2>
+            <p className="text-sm text-slate-400">If you have questions about integration, billing, or custom volume pricing, contact our engineering team directly.</p>
+          </div>
+          <a 
+            href="https://wa.me/2347074216877?text=Hi,%20I%20need%20support%20with%20the%20WraGstudio%20API" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="whitespace-nowrap bg-white hover:bg-slate-200 text-black font-bold py-3 px-6 rounded-lg transition-colors"
+          >
+            Contact Support
+          </a>
         </section>
 
       </div>
