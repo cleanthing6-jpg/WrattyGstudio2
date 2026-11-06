@@ -149,7 +149,7 @@ export default function DeveloperDocs() {
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Company Website URL</label>
-                    <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} required className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" placeholder="https://wrattygstudio2.zevcloud.app" />
+                    <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} required className="w-full bg-[#0d1117] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" placeholder="e.g. wrattygstudio2.zevcloud.app" />
                   </div>
                   {formError && <p className="text-red-400 text-sm">{formError}</p>}
                   <button type="submit" className="bg-white text-black font-bold py-3 px-6 rounded-lg hover:bg-slate-200 transition-colors">

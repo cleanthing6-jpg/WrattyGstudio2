@@ -12,9 +12,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Company name and website are required" }, { status: 400 });
   }
 
-  // Basic validation: Website must look like a URL
-  if (!website.startsWith("http://") && !website.startsWith("https://")) {
-    return NextResponse.json({ error: "Website must be a valid URL starting with http" }, { status: 400 });
+  // Auto-prefix https:// if the user forgot it
+  let formattedWebsite = website.trim();
+  if (!formattedWebsite.startsWith("http://") && !formattedWebsite.startsWith("https://")) {
+    formattedWebsite = "https://" + formattedWebsite;
   }
 
   const client = await getMongoClient();
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     { 
       $set: { 
         companyName, 
-        website, 
+        website: formattedWebsite, 
         verifiedAt: new Date() 
       } 
     },
