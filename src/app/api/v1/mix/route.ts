@@ -3,8 +3,13 @@ import { validateApiKey, deductCredit } from "@/lib/apiAuth";
 
 export async function POST(req: Request) {
   const auth = await validateApiKey(req);
-  if (auth.error) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  
+  // TypeScript strict fix: Ensure client exists before proceeding
+  if (auth.error || !auth.client) {
+    return NextResponse.json(
+      { error: auth.error || "Invalid API Key" }, 
+      { status: auth.status || 401 }
+    );
   }
 
   try {
@@ -35,6 +40,7 @@ export async function POST(req: Request) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Failed to start mix");
 
+    // Safe to use auth.client here because we checked it above
     await deductCredit(auth.client.apiKey);
 
     return NextResponse.json({
