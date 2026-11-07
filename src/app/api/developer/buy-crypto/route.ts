@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NOWPAYMENTS_ENDPOINT = "https://api.nowpayments.io/v1/invoice";
+const NOWPAYMENTS_ENDPOINT = "https://api-sandbox.nowpayments.io/v1/invoice";
 
 type PackageType = "mix" | "master";
 
