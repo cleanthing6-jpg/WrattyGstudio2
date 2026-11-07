@@ -1,29 +1,33 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import getMongoClient from "@/lib/mongodb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MONEI_ENDPOINT = "https://api.monei.cc/api/v1/wallet/deposit/payment-link";
-const REDIRECT_URL = "https://wrattygstudio2.zevcloud.app/developers";
+
+type PackageType = "mix" | "master";
+
+const PACKAGES: Record<PackageType, { usd: number; credits: number }> = {
+  master: { usd: 1000, credits: 1000 },
+  mix: { usd: 2500, credits: 1000 },
+};
+
+interface MoneiPaymentLinkPayload {
+  amount: number;
+  currency: "USD";
+  narration: string;
+  redirectUrl: string;
+}
 
 type JsonObject = Record<string, unknown>;
 
 const isObject = (v: unknown): v is JsonObject =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// Candidate property names for the checkout link (unverified, checked in order)
 const LINK_KEYS = [
-  "paymentLink",
-  "payment_link",
-  "url",
-  "link",
-  "checkoutUrl",
-  "checkout_url",
-  "paymentUrl",
-  "payment_url",
-  "authorization_url",
+  "paymentLink", "payment_link", "url", "link",
+  "checkoutUrl", "checkout_url", "paymentUrl", "payment_url", "authorization_url",
 ] as const;
 
 function pickLink(obj: JsonObject): string | null {
@@ -36,54 +40,47 @@ function pickLink(obj: JsonObject): string | null {
 
 function extractCheckoutUrl(body: unknown): string | null {
   if (!isObject(body)) return null;
-
-  const topLevel = pickLink(body);
-  if (topLevel) return topLevel;
-
-  if (isObject(body.data)) {
-    const nested = pickLink(body.data);
-    if (nested) return nested;
-  }
+  const top = pickLink(body);
+  if (top) return top;
+  if (isObject(body.data)) return pickLink(body.data);
   return null;
 }
 
 export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const apiKey = process.env.MONEI_API_KEY;
+  const secretKey = process.env.MONEI_SECRET_KEY;
+  if (!apiKey || !secretKey) {
+    console.error("[buy-crypto] Missing MONEI_API_KEY or MONEI_SECRET_KEY");
+    return NextResponse.json({ error: "Payment provider not configured" }, { status: 500 });
+  }
+
+  let packageType: unknown;
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    ({ packageType } = (await req.json()) as { packageType?: unknown });
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
-    // 1. Verify the developer has a profile
-    const client = await getMongoClient();
-    const db = client.db();
-    const profile = await db.collection("developer_profiles").findOne({ clerkUserId: userId });
-    if (!profile) {
-      return NextResponse.json({ error: "Please verify your company first." }, { status: 403 });
-    }
+  if (packageType !== "mix" && packageType !== "master") {
+    return NextResponse.json({ error: "Invalid package type" }, { status: 400 });
+  }
 
-    // 2. Get packageType from frontend and calculate amount
-    const body = await req.json();
-    const packageType = body.packageType || "mix";
-    const amount = packageType === "master" ? 1000 : 2500;
+  const pkg = PACKAGES[packageType];
+  const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
 
-    const apiKey = process.env.MONEI_API_KEY;
-    const secretKey = process.env.MONEI_SECRET_KEY;
-    if (!apiKey || !secretKey) {
-      console.error("[buy-crypto] Missing MONEI_API_KEY or MONEI_SECRET_KEY");
-      return NextResponse.json({ error: "Payment provider not configured" }, { status: 500 });
-    }
+  const payload: MoneiPaymentLinkPayload = {
+    amount: pkg.usd,
+    currency: "USD",
+    narration: `api_credits|user:${userId}|pkg:${packageType}|credits:${pkg.credits}`,
+    redirectUrl: new URL("/developers", appUrl).toString(),
+  };
 
-    // 3. Format narration so the webhook can parse it later
-    const narration = `b2b_${userId}_${packageType}_${Date.now()}`;
-
-    const payload = {
-      amount,
-      currency: "USD",
-      narration,
-      redirectUrl: REDIRECT_URL,
-    };
-
+  try {
     const res = await fetch(MONEI_ENDPOINT, {
       method: "POST",
       headers: {
@@ -96,6 +93,11 @@ export async function POST(req: Request) {
     });
 
     const raw = await res.text();
+    
+    // --- ADDED THIS LOG ---
+    console.log("[buy-crypto] Monei raw response:", raw);
+    // ----------------------
+
     let data: unknown = null;
     try {
       data = raw ? JSON.parse(raw) : null;
@@ -105,12 +107,11 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       console.error("[buy-crypto] Monei error", res.status, raw);
-      const message =
-        isObject(data) && typeof data.message === "string"
-          ? data.message
-          : Array.isArray((data as JsonObject | null)?.message)
-            ? ((data as JsonObject).message as string[]).join(", ")
-            : "Failed to create payment link";
+      let message = "Failed to create payment link";
+      if (isObject(data)) {
+        if (typeof data.message === "string") message = data.message;
+        else if (Array.isArray(data.message)) message = data.message.join(", ");
+      }
       return NextResponse.json({ error: message }, { status: res.status });
     }
 
@@ -124,8 +125,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ url });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[buy-crypto] Request failed", err);
-    return NextResponse.json({ error: err.message || "Could not reach payment provider" }, { status: 502 });
+    return NextResponse.json({ error: "Could not reach payment provider" }, { status: 502 });
   }
 }
