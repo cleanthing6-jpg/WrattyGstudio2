@@ -79,7 +79,7 @@ export default function DeveloperDocs() {
         body: JSON.stringify({ packageType })
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) alert("Redirecting to: " + data.url); // window.location.href = data.url;
       else {
         setErrorMsg(data.error || "Failed to connect to Paystack.");
         setBuying(null);
@@ -100,7 +100,7 @@ export default function DeveloperDocs() {
         body: JSON.stringify({ packageType })
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) alert("Redirecting to: " + data.url); // window.location.href = data.url;
       else {
         setErrorMsg(data.error || "Failed to connect to Crypto Provider.");
         setBuyingCrypto(null);
