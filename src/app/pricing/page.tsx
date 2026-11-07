@@ -123,25 +123,29 @@ export default function Pricing() {
               <div className="w-full text-center text-gray-500 py-3">Loading...</div>
             ) : user ? (
               <div className="space-y-2">
-                {/* Paystack Button (NGN) */}
-                <button
-                  onClick={() => startPayment(tier.id)}
-                  disabled={loadingTier !== null || loadingCrypto !== null}
-                  className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-700 font-bold py-3 rounded-xl transition"
-                >
-                  {loadingTier === tier.id ? "Connecting..." : "Pay with Naira (Paystack)"}
-                </button>
                 
-                {/* Crypto Button (USDC) - Only show for non-free tiers */}
-                {tier.id !== "free" && (
+                {/* PAYSTACK: ONLY SHOW FOR NIGERIAN USERS (or Free Tier) */}
+                {region === "NG" || tier.id === "free" ? (
+                  <button
+                    onClick={() => startPayment(tier.id)}
+                    disabled={loadingTier !== null || loadingCrypto !== null}
+                    className="w-full bg-green-500/10 hover:bg-green-500/20 disabled:opacity-50 text-green-700 font-bold py-3 rounded-xl transition"
+                  >
+                    {loadingTier === tier.id ? "Connecting..." : (tier.id === "free" ? tier.cta : "Pay with Naira (Paystack)")}
+                  </button>
+                ) : null}
+                
+                {/* CRYPTO: ONLY SHOW FOR INTERNATIONAL USERS (Non-Free Tiers) */}
+                {region === "INTL" && tier.id !== "free" && (
                   <button
                     onClick={() => startCryptoPayment(tier.id)}
                     disabled={loadingTier !== null || loadingCrypto !== null}
-                    className="w-full bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-50 text-blue-700 font-bold py-3 rounded-xl transition"
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition"
                   >
                     {loadingCrypto === tier.id ? "Connecting..." : "Pay with USDC (Crypto)"}
                   </button>
                 )}
+
               </div>
             ) : (
               <SignInButton mode="modal">
