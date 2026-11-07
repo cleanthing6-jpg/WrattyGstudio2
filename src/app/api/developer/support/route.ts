@@ -20,13 +20,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Your account does not have an email address." }, { status: 400 });
     }
 
-    // REPLACE THIS WITH YOUR ACTUAL EMAIL ADDRESS
     const YOUR_EMAIL = "wrattyg@gmail.com"; 
 
     const { data, error } = await resend.emails.send({
       from: "WraGstudio Support <onboarding@resend.dev>",
       to: [YOUR_EMAIL],
-      reply_to: userEmail, // <--- THIS IS THE MAGIC FIX
+      replyTo: userEmail, // <--- FIXED: Changed reply_to to replyTo
       subject: `[API Support] ${subject}`,
       html: `
         <div style="font-family: sans-serif; padding: 20px; color: #333;">
