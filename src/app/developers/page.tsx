@@ -158,6 +158,7 @@ export default function DeveloperDocs() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-300 font-sans selection:bg-green-500/30">
+      
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -175,6 +176,7 @@ export default function DeveloperDocs() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-16">
+        
         <section>
           <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Developer API</h1>
           <p className="text-lg text-slate-400 leading-relaxed">Automate commercial-grade mixing and mastering with the Idan mix Engine.</p>
@@ -302,6 +304,40 @@ export default function DeveloperDocs() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* NEW SUPPORTED GENRES TABLE */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Supported Genres</h2>
+          <p className="mb-4 text-slate-400">
+            Pass the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">preset</code> parameter in your JSON body to change how the Idan mix engine processes the audio.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-slate-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-900 text-slate-400">
+                <tr>
+                  <th className="p-4 font-medium">Preset ID (API Value)</th>
+                  <th className="p-4 font-medium">Genre / Style</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {[
+                  { id: "afrobeats", desc: "Afrobeats (Recommended)" },
+                  { id: "rap", desc: "Hip-Hop / Rap" },
+                  { id: "rnb", desc: "R&B" },
+                  { id: "amapiano", desc: "Electronic / Amapiano" },
+                  { id: "dancehall", desc: "Reggae / Dancehall" },
+                  { id: "gospel", desc: "Gospel" },
+                  { id: "pop", desc: "Pop" },
+                ].map((g) => (
+                  <tr key={g.id} className="hover:bg-slate-900/50">
+                    <td className="p-4 font-mono text-green-400">{g.id}</td>
+                    <td className="p-4 text-slate-300">{g.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section>
