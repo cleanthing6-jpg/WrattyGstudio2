@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
     
-    // CORRECTED ENDPOINT FOR MONEI GATEWAY
+    // Corrected payload: use "narration" instead of "description", remove "metadata"
     const moneiRes = await fetch("https://api.monei.cc/api/v1/wallet/deposit/payment-link", {
       method: "POST",
       headers: {
@@ -29,11 +29,8 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         amount: amount,
         currency: "USD",
-        description: `WraGstudio API - ${packageType === "master" ? "Master" : "Mix"} Package`,
+        narration: `WraGstudio API - ${packageType === "master" ? "Master" : "Mix"} Package - User: ${userId}`,
         redirectUrl: `${appUrl}/developers`,
-        metadata: {
-          orderId: `b2b_${userId}_${packageType}_${Date.now()}`
-        }
       }),
     });
 
