@@ -13,37 +13,15 @@ const PACKAGES: Record<PackageType, { usd: number; credits: number }> = {
   mix: { usd: 2500, credits: 1000 },
 };
 
-interface MoneiPaymentLinkPayload {
-  amount: number;
-  currency: "USD";
-  narration: string;
-  redirectUrl: string;
-}
-
 type JsonObject = Record<string, unknown>;
 
 const isObject = (v: unknown): v is JsonObject =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-const LINK_KEYS = [
-  "paymentLink", "payment_link", "url", "link",
-  "checkoutUrl", "checkout_url", "paymentUrl", "payment_url", "authorization_url",
-] as const;
-
-function pickLink(obj: JsonObject): string | null {
-  for (const key of LINK_KEYS) {
-    const value = obj[key];
-    if (typeof value === "string" && value.startsWith("http")) return value;
-  }
-  return null;
-}
-
 function extractCheckoutUrl(body: unknown): string | null {
-  if (!isObject(body)) return null;
-  const top = pickLink(body);
-  if (top) return top;
-  if (isObject(body.data)) return pickLink(body.data);
-  return null;
+  if (!isObject(body) || !isObject(body.data)) return null;
+  const link = body.data.link;
+  return typeof link === "string" && link.startsWith("https://") ? link : null;
 }
 
 export async function POST(req: Request) {
@@ -55,7 +33,6 @@ export async function POST(req: Request) {
   const apiKey = process.env.MONEI_API_KEY;
   const secretKey = process.env.MONEI_SECRET_KEY;
   if (!apiKey || !secretKey) {
-    console.error("[buy-crypto] Missing MONEI_API_KEY or MONEI_SECRET_KEY");
     return NextResponse.json({ error: "Payment provider not configured" }, { status: 500 });
   }
 
@@ -73,7 +50,7 @@ export async function POST(req: Request) {
   const pkg = PACKAGES[packageType];
   const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
 
-  const payload: MoneiPaymentLinkPayload = {
+  const payload = {
     amount: pkg.usd,
     currency: "USD",
     narration: `api_credits|user:${userId}|pkg:${packageType}|credits:${pkg.credits}`,
@@ -93,11 +70,6 @@ export async function POST(req: Request) {
     });
 
     const raw = await res.text();
-    
-    // --- ADDED THIS LOG ---
-    console.log("[buy-crypto] Monei raw response:", raw);
-    // ----------------------
-
     let data: unknown = null;
     try {
       data = raw ? JSON.parse(raw) : null;
@@ -106,27 +78,17 @@ export async function POST(req: Request) {
     }
 
     if (!res.ok) {
-      console.error("[buy-crypto] Monei error", res.status, raw);
-      let message = "Failed to create payment link";
-      if (isObject(data)) {
-        if (typeof data.message === "string") message = data.message;
-        else if (Array.isArray(data.message)) message = data.message.join(", ");
-      }
-      return NextResponse.json({ error: message }, { status: res.status });
+      return NextResponse.json({ error: "Failed to create payment link" }, { status: res.status });
     }
 
     const url = extractCheckoutUrl(data);
+    
     if (!url) {
-      console.error("[buy-crypto] No checkout URL found in Monei response:", raw);
-      return NextResponse.json(
-        { error: "Payment provider returned an unexpected response" },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "Payment provider returned an unexpected response" }, { status: 502 });
     }
 
     return NextResponse.json({ url });
   } catch (err) {
-    console.error("[buy-crypto] Request failed", err);
     return NextResponse.json({ error: "Could not reach payment provider" }, { status: 502 });
   }
 }
