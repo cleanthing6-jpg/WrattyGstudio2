@@ -25,6 +25,9 @@ export default function DeveloperDocs() {
   const [keys, setKeys] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   
+  // Region state
+  const [region, setRegion] = useState<"NG" | "INTL">("NG");
+
   const [buying, setBuying] = useState<"mix" | "master" | null>(null);
   const [buyingCrypto, setBuyingCrypto] = useState<"mix" | "master" | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -41,6 +44,11 @@ export default function DeveloperDocs() {
   const [supportError, setSupportError] = useState("");
 
   useEffect(() => {
+    // Fetch region
+    fetch("/api/region").then((r) => r.json()).then((d) => {
+      if (d.region === "INTL") setRegion("INTL");
+    }).catch(() => {});
+
     if (isSignedIn) {
       fetch("/api/developer/keys").then((res) => res.json()).then((data) => setKeys(data.keys));
       fetch("/api/developer/profile").then((res) => res.json()).then((data) => {
@@ -264,10 +272,14 @@ export default function DeveloperDocs() {
                       </ul>
                     </div>
                     <div className="space-y-2">
-                       <button onClick={() => buyCredits("mix")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buying === "mix" ? "Redirecting..." : "Pay via Paystack (NGN)"}
-                      </button>
-                      <button onClick={() => buyCrypto("mix")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                       {/* PAYSTACK: ONLY FOR NIGERIAN DEVELOPERS */}
+                       {region === "NG" && (
+                         <button onClick={() => buyCredits("mix")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-xl disabled:opacity-50">
+                          {buying === "mix" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                        </button>
+                       )}
+                       {/* CRYPTO: FOR EVERYONE */}
+                       <button onClick={() => buyCrypto("mix")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                         {buyingCrypto === "mix" ? "Redirecting..." : "Pay with USDC (Crypto)"}
                       </button>
                       <a href="mailto:wrattyg@gmail.com?subject=Enterprise%20API%20Invoice%20Request%20-%20Mix" className="w-full block text-center bg-transparent border border-slate-600 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors">
@@ -289,9 +301,13 @@ export default function DeveloperDocs() {
                       </ul>
                     </div>
                     <div className="space-y-2">
-                      <button onClick={() => buyCredits("master")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buying === "master" ? "Redirecting..." : "Pay via Paystack (NGN)"}
-                      </button>
+                      {/* PAYSTACK: ONLY FOR NIGERIAN DEVELOPERS */}
+                      {region === "NG" && (
+                        <button onClick={() => buyCredits("master")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                          {buying === "master" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                        </button>
+                      )}
+                      {/* CRYPTO: FOR EVERYONE */}
                       <button onClick={() => buyCrypto("master")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                         {buyingCrypto === "master" ? "Redirecting..." : "Pay with USDC (Crypto)"}
                       </button>
@@ -306,7 +322,7 @@ export default function DeveloperDocs() {
           )}
         </section>
 
-        {/* NEW SUPPORTED GENRES TABLE */}
+        {/* SUPPORTED GENRES TABLE */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Supported Genres</h2>
           <p className="mb-4 text-slate-400">
