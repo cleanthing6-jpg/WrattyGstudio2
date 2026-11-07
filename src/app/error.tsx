@@ -12,7 +12,7 @@ export default function Error({
       <h1 className="text-lg font-bold">Something went wrong</h1>
       <p className="mt-2 text-sm text-gray-600">
         Please try again. If it keeps happening, message us on WhatsApp or email
-        wrattyg@gmail.com.
+        support.wrattygstudio@gmail.com.
       </p>
       <button
         onClick={() => reset()}

@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Your account does not have an email address." }, { status: 400 });
     }
 
-    const YOUR_EMAIL = "wrattyg@gmail.com"; 
+    const YOUR_EMAIL = "support.wrattygstudio@gmail.com"; 
 
     const { data, error } = await resend.emails.send({
       from: "WraGstudio Support <onboarding@resend.dev>",
