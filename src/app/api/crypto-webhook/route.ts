@@ -1,49 +1,69 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
-import { grantCredits } from "@/lib/credits";
 import getMongoClient from "@/lib/mongodb";
+import { grantCredits } from "@/lib/credits";
+import crypto from "crypto";
+
+// Exact recursive sorting function from NOWPayments docs
+function sortObject(obj: any): any {
+  if (typeof obj !== "object" || obj === null) return obj;
+  if (Array.isArray(obj)) return obj.map(sortObject);
+  
+  return Object.keys(obj)
+    .sort()
+    .reduce((result: any, key: string) => {
+      result[key] = sortObject(obj[key]);
+      return result;
+    }, {});
+}
 
 export async function POST(req: Request) {
   try {
-    const body = await req.text();
-    const signature = req.headers.get("x-crypto-signature") || ""; // Change based on provider
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-nowpayments-sig");
+    const ipnSecret = process.env.NOWPAYMENTS_IPN_SECRET;
 
-    // 1. Verify Signature (IMPORTANT: Change hash based on your provider's docs)
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.CRYPTO_WEBHOOK_SECRET!)
-      .update(body)
-      .digest("hex");
+    if (!signature || !ipnSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const parsedBody = JSON.parse(rawBody);
+    const sortedBody = sortObject(parsedBody);
+
+    const hmac = crypto.createHmac("sha512", ipnSecret);
+    hmac.update(JSON.stringify(sortedBody));
+    const expectedSignature = hmac.digest("hex");
 
     if (signature !== expectedSignature) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    const event = JSON.parse(body);
+    const { payment_status, order_id } = parsedBody;
 
-    // 2. Check if payment was successful
-    if (event.status === "success" || event.event === "charge.success") {
-      const { reference } = event.data;
+    if (payment_status === "finished" || payment_status === "confirmed") {
+      if (!order_id) return NextResponse.json({ received: true });
 
-      // 3. Parse the reference to know if it's B2B or B2C
-      // Example B2C Ref: "b2c_user_123_pro_123456789"
-      // Example B2B Ref: "b2b_user_123_mix_123456789"
-      const parts = reference.split("_");
-      const type = parts[0];
-      const userId = parts[1];
-      const packageOrTier = parts[2];
+      // --- HANDLE B2C (Main App Users) ---
+      if (order_id.startsWith("b2c_")) {
+        // Format: b2c_${userId}_${tier}_${timestamp}
+        const parts = order_id.split("_");
+        const userId = parts[1];
+        const tier = parts[2];
 
-      if (type === "b2c") {
-        // Grant User Credits
-        await grantCredits(userId, packageOrTier);
-        console.log(`[Crypto Webhook] Granted ${packageOrTier} to User ${userId}`);
-      } 
-      else if (type === "b2b") {
-        // Grant API Credits
+        await grantCredits(userId, tier);
+        console.log(`[crypto-webhook] Granted B2C credits: ${tier} to user ${userId}`);
+      }
+
+      // --- HANDLE B2B (Developer API) ---
+      else if (order_id.startsWith("b2b_")) {
+        // Format: b2b_${userId}_${packageType}_${timestamp}
+        const parts = order_id.split("_");
+        const userId = parts[1];
+        const packageType = parts[2];
+
         const client = await getMongoClient();
         const db = client.db();
-        const creditsToAdd = packageOrTier === "master" ? 1000 : 1000;
-        
-        // Find their existing key and top up, or create a new one
+        const creditsToAdd = 1000;
+
         const existing = await db.collection("api_clients").findOne({ clerkUserId: userId });
         if (existing) {
           await db.collection("api_clients").updateOne(
@@ -54,19 +74,19 @@ export async function POST(req: Request) {
           const apiKey = "wratty_live_sk_" + crypto.randomBytes(16).toString("hex");
           await db.collection("api_clients").insertOne({
             clerkUserId: userId,
-            name: "Crypto Purchaser",
+            name: "NOWPayments Purchaser",
             apiKey: apiKey,
             credits: creditsToAdd,
             createdAt: new Date()
           });
         }
-        console.log(`[Crypto Webhook] Granted ${creditsToAdd} API credits to ${userId}`);
+        console.log(`[crypto-webhook] Granted B2B credits: ${creditsToAdd} to dev ${userId}`);
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error("Crypto Webhook Error:", error);
+    console.error("[crypto-webhook] Error:", error);
     return NextResponse.json({ error: "Webhook error" }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { findPlanById } from "@/lib/pricing";
+
+const NOWPAYMENTS_ENDPOINT = "https://api.nowpayments.io/v1/invoice";
 
 export async function POST(req: Request) {
   try {
@@ -12,39 +14,40 @@ export async function POST(req: Request) {
     
     if (!plan) return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
 
-    // Get the USD price from your pricing.ts
     const amountUSD = plan.usd;
     if (amountUSD === 0) return NextResponse.json({ error: "Free tier cannot be purchased" }, { status: 400 });
 
-    const user = await currentUser();
-    const email = user?.primaryEmailAddress?.emailAddress || "unknown@email.com";
+    const apiKey = process.env.NOWPAYMENTS_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "Payment provider not configured" }, { status: 500 });
 
     const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
-    
-    // --- REPLACE THIS SECTION WITH YOUR PROVIDER'S API ---
-    // Example using a generic crypto provider API structure:
-    
-    // const providerRes = await fetch("https://api.stableflow.com/v1/payment-links", {
-    //   method: "POST",
-    //   headers: {
-    //     "Authorization": `Bearer ${process.env.CRYPTO_API_KEY}`,
-    //     "Content-Type": "application/json"
-    //   },
-    //   body: JSON.stringify({
-    //     amount: amountUSD,
-    //     currency: "USDC",
-    //     reference: `b2c_${userId}_${tier}_${Date.now()}`,
-    //     customer_email: email,
-    //     redirect_url: `${appUrl}/dashboard?payment=success`
-    //   })
-    // });
-    // const providerData = await providerRes.json();
-    
-    // For now, returning a mock URL so you can test the UI flow.
-    // Replace this with the real URL from your provider.
-    const mockCheckoutUrl = `https://checkout.your-crypto-provider.com/pay?amount=${amountUSD}&ref=b2c_${userId}_${tier}`;
+    const orderId = `b2c_${userId}_${tier}_${Date.now()}`;
 
-    return NextResponse.json({ url: mockCheckoutUrl });
+    const res = await fetch(NOWPAYMENTS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        price_amount: amountUSD,
+        price_currency: "usd",
+        order_id: orderId,
+        order_description: `WraGstudio B2C - ${tier} package`,
+        ipn_callback_url: new URL("/api/crypto-webhook", appUrl).toString(),
+        success_url: new URL("/dashboard", appUrl).toString(),
+        cancel_url: new URL("/pricing", appUrl).toString(),
+      }),
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.invoice_url) {
+      console.error("NOWPayments B2C Error:", data);
+      return NextResponse.json({ error: "Failed to create crypto invoice" }, { status: 502 });
+    }
+
+    return NextResponse.json({ url: data.invoice_url });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
