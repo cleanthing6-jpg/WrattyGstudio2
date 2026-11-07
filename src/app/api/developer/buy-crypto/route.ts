@@ -14,40 +14,40 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const packageType = body.packageType || "mix";
-    const amountInCents = packageType === "master" ? 100000 : 250000; // $1000 or $2500 in cents
+    const amount = packageType === "master" ? 1000 : 2500;
 
     const appUrl = process.env.APP_URL || "https://wrattygstudio2.zevcloud.app";
     
-    // Call Monei API to create a payment session
-    const moneiRes = await fetch("https://api.monei.com/v1/payments", {
+    // Using the exact headers from your screenshot
+    const moneiRes = await fetch("https://api.monei.cc/api/v1/deposit/generate-payment-link", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.MONEI_API_KEY}`,
+        "X-API-KEY": process.env.MONEI_API_KEY!,
+        "X-API-SECRET": process.env.MONEI_SECRET_KEY!,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: amountInCents,
+        amount: amount,
         currency: "USD",
-        orderId: `b2b_${userId}_${packageType}_${Date.now()}`,
         description: `WraGstudio API - ${packageType === "master" ? "Master" : "Mix"} Package`,
-        callbackUrl: `${appUrl}/developers`,
-        completeUrl: `${appUrl}/developers`,
-        cancelUrl: `${appUrl}/developers`,
+        redirectUrl: `${appUrl}/developers`,
+        metadata: {
+          orderId: `b2b_${userId}_${packageType}_${Date.now()}`
+        }
       }),
     });
 
     const moneiData = await moneiRes.json();
 
     if (!moneiRes.ok) {
-      console.error("Monei Error:", moneiData);
-      return NextResponse.json({ error: moneiData.message || "Failed to create payment" }, { status: 500 });
+      console.error("Monei Gateway Error:", moneiData);
+      return NextResponse.json({ error: moneiData.message || "Failed to create payment link" }, { status: 500 });
     }
 
-    // Monei returns a redirectUrl for the checkout page
-    const checkoutUrl = moneiData.redirectUrl || moneiData.nextAction?.redirectUrl;
+    const checkoutUrl = moneiData.paymentLink || moneiData.url || moneiData.data?.paymentLink;
 
     if (!checkoutUrl) {
-      return NextResponse.json({ error: "Monei did not return a checkout URL" }, { status: 500 });
+      return NextResponse.json({ error: "Monei did not return a payment link" }, { status: 500 });
     }
 
     return NextResponse.json({ url: checkoutUrl });
