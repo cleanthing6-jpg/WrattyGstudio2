@@ -88,7 +88,7 @@ YES - full refund if a payment succeeded but the plan never activated, or a
 render failed and the user was actually charged. Must be reported within 7 days.
 NO - change of mind after using render credits, or dissatisfaction with a mix
 they could have previewed free first. Unused credits stay on the account.
-HOW - email support.wrattygstudio@gmail.com with the Paystack reference. Money returns to
+HOW - email wrattyg@gmail.com with the Paystack reference. Money returns to
 the original payment method.
 
 ## Rights and data
@@ -102,6 +102,6 @@ copyright clearance, uninterrupted uptime, unlimited free retries, instant
 human support, or a refund you are not authorised to give.
 
 ## Contact
-Refunds and account issues: email support.wrattygstudio@gmail.com
+Refunds and account issues: email wrattyg@gmail.com
 Everything else, or a requested human: https://wa.me/2347074216877
 `;

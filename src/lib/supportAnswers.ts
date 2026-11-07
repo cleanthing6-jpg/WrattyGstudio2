@@ -12,10 +12,10 @@ export const HANDOFF_REPLY =
   "No wahala - reach the team on WhatsApp at https://wa.me/2347074216877 and they'll take it from there.";
 
 export const PAID_NO_CREDIT_REPLY =
-  "Sorry about that. Please refresh the dashboard first - credits usually appear on their own. If they are still missing, email support.wrattygstudio@gmail.com with your Paystack reference and the team will fix it.";
+  "Sorry about that. Please refresh the dashboard first - credits usually appear on their own. If they are still missing, email wrattyg@gmail.com with your Paystack reference and the team will fix it.";
 
 export const REFUND_REPLY =
-  "Refunds are handled by the team, not by me. Email support.wrattygstudio@gmail.com with your Paystack reference - if the plan never activated, or a render failed and you were charged, you get a full refund within 7 days.";
+  "Refunds are handled by the team, not by me. Email wrattyg@gmail.com with your Paystack reference - if the plan never activated, or a render failed and you were charged, you get a full refund within 7 days.";
 
 const PRICE_INTENT =
   /\b(price|prices|pricing|cost|costs|charge|charges|fee|fees|package|packages|packs?|rates?|how\s+much)\b/i;
