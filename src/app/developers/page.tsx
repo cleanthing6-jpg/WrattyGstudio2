@@ -467,7 +467,10 @@ if voiced_conf_mean < 0.75:
               <h3 className="text-lg font-bold text-green-400 mb-2">2. The Adaptive Vocal Chain</h3>
               <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
                 <li><strong>adaptive_tone.py:</strong> Analyzes the vocal against commercial references to apply surgical dynamic EQ cuts (e.g., cutting "mud" at 320Hz and "boxiness" at 600Hz only when needed).</li>
+                <li><strong>vocal_polish.py (The Vocal Rider):</strong> Rides the vocal fader dynamically (averaging ~1.48dB of movement) to lock it at the target loudness. It also cleans the gaps between phrases by ducking the noise floor by ~6.9dB.</li>
                 <li><strong>adaptive_ambience.py:</strong> Measures the crest factor to set compressor thresholds and makeup gain dynamically.</li>
+                <li><strong>vocal_fix.py:</strong> Forwardness Guard. Measures masking at 500Hz-2kHz to prevent the vocal from being pushed so far above the beat that it sounds disconnected.</li>
+                <li><strong>polish.py:</strong> Dynamic EQ that tracks harshness (2.5k-4k) and sibilance (5.5k-9k) in real-time.</li>
                 <li><strong>opto_comp.py:</strong> Emulates the Teletronix LA-2A optical compressor (EL panel model) for smooth, program-dependent vocal glue.</li>
                 <li><strong>vocal_sat.py:</strong> Applies 4x oversampled tube-style saturation based on measured vocal brightness, adding even and odd harmonics without aliasing.</li>
                 <li><strong>dsp_tier1.py (ADT):</strong> Generates an Automatic Double Track using a 14ms/22ms delay, LFO modulation, and ±0.30 pan to widen the lead vocal without phase cancellation.</li>
@@ -490,7 +493,7 @@ if voiced_conf_mean < 0.75:
               <h3 className="text-lg font-bold text-green-400 mb-2">4. Beat Interaction & Dynamic Carving</h3>
               <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
                 <li><strong>Dynamic Beat Carving (vocal_polish.py):</strong> Instead of just turning the beat down, the engine dynamically carves a 2dB to 4dB pocket in the beat's 2kHz-4kHz range only when the vocal is active. The beat literally opens up to surround the vocal.</li>
-                <li><strong>beat_punch.py:</strong> Measures the kick's crest factor before applying transient punch. It never alters the tone of the beat; it only enhances the attack of the kick drum (0-3dB).</li>
+                <li><strong>beat_punch.py (Kick Transient Punch Preserve):</strong> Measures the kick's crest factor and the beat's low-end share before applying punch. It adds 0-3dB of punch and uses a peak guard to ensure the kick peak never rises more than +0.3dB. If it detects no real kicks or too much noise, it adds nothing.</li>
                 <li><strong>song_sections.py:</strong> Analyzes the energy of the beat and vocals to map out Intro/Verse/Chorus. It applies volume automation curves to ride the vocal based on the section's intensity.</li>
               </ul>
             </div>
@@ -511,6 +514,8 @@ if voiced_conf_mean < 0.75:
               <h3 className="text-lg font-bold text-green-400 mb-2">6. Adaptive Mastering Bus & PLR Guard</h3>
               <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
                 <li><strong>Adaptive EQ (master_bus.py):</strong> Measures the tonal gaps against commercial references and applies surgical EQ (e.g., cutting sub-bass at 31Hz while boosting the kick at 80Hz).</li>
+                <li><strong>mix_balance.py:</strong> Low-Mid Stereo Trims. Applies adaptive Low Shelf (80Hz) and Peak Filter (125Hz) on the Mid channel, while trimming high-frequency Side energy (5.5k-16kHz) to prevent harsh stereo sibilance.</li>
+                <li><strong>mix_tone_guard.py:</strong> Dull/Bright Guard. Cuts harsh 6kHz and boosts dull 2kHz using precise FFT band trims against reference profiles.</li>
                 <li><strong>Multiband & Glue:</strong> Splits the mix into low, mid, and high bands to apply transparent compression, followed by a gentle glue compressor.</li>
                 <li><strong>PLR Guard (Peak-to-Loudness Ratio):</strong> The engine's ultimate safety net. If pushing the loudness to a target like -9 LUFS would crush the transients (dropping the PLR below 9.0), the engine refuses. It backs off the loudness to protect the kick drum's punch and the song's groove.</li>
                 <li><strong>True-Peak Clipper:</strong> Before the limiter, the engine catches inter-sample peaks (e.g., 6dB of them) and shaves them off smoothly to prevent distortion.</li>
