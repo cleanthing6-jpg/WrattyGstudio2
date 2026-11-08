@@ -6,14 +6,14 @@ import { PLANS, MASTER_PLANS } from "@/lib/pricing";
 const FEATURES = [
   {
     icon: "🎛️",
-    title: "Mix & Master",
-    desc: "Upload your stems or a rough phone recording and get a finished, release-ready mix and master.",
+    title: "Pro Stem Mixing",
+    desc: "Upload your raw beat and vocal stems. Our engine applies surgical EQ, multiband compression, and 3D spatial effects to every individual track.",
     chip: "bg-red-100",
   },
   {
     icon: "🎚️",
-    title: "Master only",
-    desc: "Already mixed? Send a finished stereo track straight through the mastering chain - no stems needed.",
+    title: "Intelligent Mastering",
+    desc: "Already mixed? Send a finished stereo track through our adaptive PLR Guard. We protect your groove and transients while making it loud.",
     chip: "bg-yellow-100",
   },
 ];

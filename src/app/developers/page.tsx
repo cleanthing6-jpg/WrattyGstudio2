@@ -187,7 +187,7 @@ export default function DeveloperDocs() {
         
         <section>
           <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Developer API</h1>
-          <p className="text-lg text-slate-400 leading-relaxed">Automate commercial-grade mixing and mastering with the Idan mix Engine.</p>
+          <p className="text-lg text-slate-400 leading-relaxed">Integrate commercial-grade, adaptive mixing and mastering directly into your platform, DAW, or application. Send raw stems or a finished 2-track, and receive a release-ready mix in under 3 minutes.</p>
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
@@ -267,8 +267,8 @@ export default function DeveloperDocs() {
                       <div className="flex items-baseline gap-1 mb-6"><span className="text-4xl font-black text-white">$2,500</span></div>
                       <ul className="text-sm text-slate-300 space-y-3 mb-8">
                         <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Full Mixes</li>
-                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Stem alignment & cleanup</li>
-                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Up to 12 tracks per render</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Detailed JSON telemetry report</li>
                       </ul>
                     </div>
                     <div className="space-y-2">
@@ -296,8 +296,8 @@ export default function DeveloperDocs() {
                       <div className="flex items-baseline gap-1 mb-6"><span className="text-4xl font-black text-white">$1,000</span></div>
                       <ul className="text-sm text-slate-300 space-y-3 mb-8">
                         <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 1,000 Masters</li>
-                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Loudness & tone matching</li>
-                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Commercial Master</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Adaptive PLR & transient guard</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Detailed JSON telemetry report</li>
                       </ul>
                     </div>
                     <div className="space-y-2">
@@ -334,21 +334,23 @@ export default function DeveloperDocs() {
                 <tr>
                   <th className="p-4 font-medium">Preset ID (API Value)</th>
                   <th className="p-4 font-medium">Genre / Style</th>
+                  <th className="p-4 font-medium">DSP Profile</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {[
-                  { id: "afrobeats", desc: "Afrobeats (Recommended)" },
-                  { id: "rap", desc: "Hip-Hop / Rap" },
-                  { id: "rnb", desc: "R&B" },
-                  { id: "amapiano", desc: "Electronic / Amapiano" },
-                  { id: "dancehall", desc: "Reggae / Dancehall" },
-                  { id: "gospel", desc: "Gospel" },
-                  { id: "pop", desc: "Pop" },
+                  { id: "afrobeats", desc: "Afrobeats", detail: "Warm body EQ + 0.95s plate reverb + dynamic beat carving" },
+                  { id: "rap", desc: "Hip-Hop / Rap", detail: "Multiband compression + 0.70s room + aggressive slap delay" },
+                  { id: "rnb", desc: "R&B", detail: "Silky air boost (+4.0dB) + 1.30s lush plate reverb" },
+                  { id: "amapiano", desc: "Electronic / Amapiano", detail: "Heavy sub mono (100Hz) + long 1.20s reverb tails" },
+                  { id: "dancehall", desc: "Reggae / Dancehall", detail: "Punchy compression + fast 0.85s tempo-synced delay" },
+                  { id: "gospel", desc: "Gospel", detail: "Massive 1.50s cathedral reverb + slow optical compression" },
+                  { id: "pop", desc: "Pop", detail: "Maximum air (+5.0dB) + radio-ready 3.5:1 compression" },
                 ].map((g) => (
                   <tr key={g.id} className="hover:bg-slate-900/50">
                     <td className="p-4 font-mono text-green-400">{g.id}</td>
                     <td className="p-4 text-slate-300">{g.desc}</td>
+                    <td className="p-4 text-slate-500 text-xs">{g.detail}</td>
                   </tr>
                 ))}
               </tbody>
@@ -359,6 +361,10 @@ export default function DeveloperDocs() {
         <section>
           <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Make a Request</h2>
           <CodeBlock language="cURL" code={curlMix} />
+          <p className="mt-4 text-sm text-slate-400">
+            <strong className="text-white">Featured Artist Routing:</strong> If your track has a featured rapper, set their role to <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">"feature"</code>. 
+            The engine automatically routes their vocals through the Rap preset (slap delay, heavy saturation) while keeping the main singer on the original genre preset.
+          </p>
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
