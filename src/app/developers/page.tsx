@@ -443,6 +443,86 @@ if voiced_conf_mean < 0.75:
           </div>
         </section>
 
+        
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Under the Hood: The Adaptive DSP Architecture</h2>
+          <p className="mb-6 text-slate-400">
+            Unlike commercial AI mastering tools that use static, black-box neural networks, WrattyGstudio is a <strong>Deterministic Adaptive Expert System</strong>. It measures the source audio and makes real-time engineering decisions. Here is the complete list of live, active modules running in our engine:
+          </p>
+
+          <div className="space-y-8">
+            
+            {/* 1. Ingestion & Repair */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">1. Ingestion, Alignment & Repair</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>declip.py:</strong> Analyzes waveforms at the sample level. If it detects digital clipping (e.g., flat-topped peaks), it mathematically reconstructs the missing waveform to prevent harsh distortion.</li>
+                <li><strong>vocal_align.py:</strong> Uses transient detection to align vocal timing to the beat. It has a confidence gate: if the alignment confidence is too low, it aborts the shift to protect the groove.</li>
+                <li><strong>noise_clean.py:</strong> A Wiener-filter based noise gate. It features a "Flutter Guard" that measures artifact distortion. If noise reduction causes robotic fluttering, it automatically backs off the reduction to keep the vocal natural.</li>
+              </ul>
+            </div>
+
+            {/* 2. Vocal Chain */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">2. The Adaptive Vocal Chain</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>adaptive_tone.py:</strong> Analyzes the vocal against commercial references to apply surgical dynamic EQ cuts (e.g., cutting "mud" at 320Hz and "boxiness" at 600Hz only when needed).</li>
+                <li><strong>adaptive_ambience.py:</strong> Measures the crest factor to set compressor thresholds and makeup gain dynamically.</li>
+                <li><strong>opto_comp.py:</strong> Emulates the Teletronix LA-2A optical compressor (EL panel model) for smooth, program-dependent vocal glue.</li>
+                <li><strong>vocal_sat.py:</strong> Applies 4x oversampled tube-style saturation based on measured vocal brightness, adding even and odd harmonics without aliasing.</li>
+                <li><strong>dsp_tier1.py (ADT):</strong> Generates an Automatic Double Track using a 14ms/22ms delay, LFO modulation, and ±0.30 pan to widen the lead vocal without phase cancellation.</li>
+              </ul>
+            </div>
+
+            {/* 3. Spatial Engine */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">3. The 3D Spatial Engine (vocal_space.py)</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>The "Tiny Room" (Early Reflections):</strong> Generates ultra-short reflections to simulate the acoustic shadow of the human head. This creates a psychoacoustic 3D effect designed specifically for headphone intimacy, keeping the vocal close to the ear.</li>
+                <li><strong>Adaptive Ducking (Sidechain):</strong> The reverb and delay are sidechained to the vocal. While the singer is active, the space is ducked by up to 10.6dB. The moment they stop, the space swells back up.</li>
+                <li><strong>Fragment Delay:</strong> A tempo-synced delay that does not echo the whole vocal. It analyzes the syllables, finds the last word of a phrase, and throws only that fragment onto the 1/8 or 1/16 note grid (e.g., 309.3ms).</li>
+                <li><strong>Tempo-Synced Reverb:</strong> Generates a stereo plate reverb dynamically, with a low-pass filter that gets darker on every delay repeat to push the echo further into the background.</li>
+              </ul>
+            </div>
+
+            {/* 4. Beat Interaction */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">4. Beat Interaction & Dynamic Carving</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>Dynamic Beat Carving (vocal_polish.py):</strong> Instead of just turning the beat down, the engine dynamically carves a 2dB to 4dB pocket in the beat's 2kHz-4kHz range only when the vocal is active. The beat literally opens up to surround the vocal.</li>
+                <li><strong>beat_punch.py:</strong> Measures the kick's crest factor before applying transient punch. It never alters the tone of the beat; it only enhances the attack of the kick drum (0-3dB).</li>
+                <li><strong>song_sections.py:</strong> Analyzes the energy of the beat and vocals to map out Intro/Verse/Chorus. It applies volume automation curves to ride the vocal based on the section's intensity.</li>
+              </ul>
+            </div>
+
+            {/* 5. Autotune */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">5. Hybrid PSOLA Autotune (vocaltune/)</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>Hybrid Algorithm:</strong> Uses <strong>Resplice</strong> for shifts under 160 cents (ultra-transparent), and <strong>PSOLA</strong> (Pitch Synchronous Overlap and Add) for massive shifts to prevent robotic artifacts.</li>
+                <li><strong>Adaptive Blue Notes:</strong> Analyzes the vocal's pitch class. If the artist intentionally bends a note outside the scale and holds it steady, the engine allows it (preserving emotion).</li>
+                <li><strong>Confidence Gating:</strong> If the pitch tracker detects whispers or breath (low confidence), it holds back the correction to prevent warbling.</li>
+                <li><strong>Spectral Restoration:</strong> Calculates the spectral difference (via Welch's method) between the original and tuned audio, and restores lost breath and high-frequency air via FIR convolution.</li>
+              </ul>
+            </div>
+
+            {/* 6. Mastering Stages */}
+            <div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">6. Adaptive Mastering Bus & PLR Guard</h3>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+                <li><strong>Adaptive EQ (master_bus.py):</strong> Measures the tonal gaps against commercial references and applies surgical EQ (e.g., cutting sub-bass at 31Hz while boosting the kick at 80Hz).</li>
+                <li><strong>Multiband & Glue:</strong> Splits the mix into low, mid, and high bands to apply transparent compression, followed by a gentle glue compressor.</li>
+                <li><strong>PLR Guard (Peak-to-Loudness Ratio):</strong> The engine's ultimate safety net. If pushing the loudness to a target like -9 LUFS would crush the transients (dropping the PLR below 9.0), the engine refuses. It backs off the loudness to protect the kick drum's punch and the song's groove.</li>
+                <li><strong>True-Peak Clipper:</strong> Before the limiter, the engine catches inter-sample peaks (e.g., 6dB of them) and shaves them off smoothly to prevent distortion.</li>
+                <li><strong>Brickwall Limiter & Mono-Bass:</strong> The final limiter hits the target ceiling, while the engine forces everything below 120Hz to mono, ensuring the bass and kick are dead center and punchy.</li>
+                <li><strong>Stereo Correlation Guard:</strong> Monitors the phase of the final mix. If the mix is out of phase, it collapses the sides to protect mono compatibility.</li>
+              </ul>
+            </div>
+
+          </div>
+        </section>
+
+
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
           <h2 className="text-2xl font-bold text-white mb-2">Developer Support</h2>
           <div className="grid md:grid-cols-2 gap-8 mt-6">
