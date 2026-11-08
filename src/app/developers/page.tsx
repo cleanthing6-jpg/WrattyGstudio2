@@ -444,6 +444,47 @@ if voiced_conf_mean < 0.75:
         </section>
 
         
+        
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">JSON Telemetry & Mix Reports</h2>
+          <p className="mb-4 text-slate-400">
+            Unlike black-box AI tools, we don't hide our processing. Every render generates a detailed JSON telemetry report. Once a mix is complete, you can fetch the exact engineering decisions our engine made by calling the report endpoint:
+          </p>
+          <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4 mb-6">
+            <code className="text-green-400 font-mono text-sm break-all">
+              GET /api/v1/report?id=YOUR_JOB_ID
+            </code>
+          </div>
+          <p className="mb-4 text-slate-400">
+            The response includes the full DSP chain, allowing you to display exactly what was done to the user's track (e.g., <em>"The engine cut 2dB at 2500Hz to remove harshness and backed off the loudness to protect your transients"</em>).
+          </p>
+          <CodeBlock language="JSON" code={`{
+  "plr_guard": {
+    "requested_lufs": -9.9,
+    "applied_lufs": -10.2,
+    "reason": "transient_protection"
+  },
+  "eq_db": {
+    "31": -3.0,
+    "80": 1.27,
+    "4000": 1.55
+  },
+  "vocal_chain": {
+    "lead": [
+      ["highpass", 85.0],
+      ["body-mud 320", -3.69],
+      ["compress", "opto 2.5:1 @ -20.8"],
+      ["saturate", 3.38]
+    ]
+  },
+  "space": {
+    "plate": { "rt60": 0.78, "predelay_ms": 38.7 },
+    "ducking": { "while_singing_db": 10.6 }
+  }
+}`} />
+        </section>
+
+
         <section>
           <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Under the Hood: The Adaptive DSP Architecture</h2>
           <p className="mb-6 text-slate-400">
