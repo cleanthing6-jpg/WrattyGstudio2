@@ -398,6 +398,21 @@ export default function DeveloperDocs() {
             Our pitch correction engine uses a hybrid <strong>Resplice/PSOLA</strong> approach. It automatically detects the song key and preserves formants so the vocal never sounds robotic. 
             You can trigger it via the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">/api/tune</code> endpoint.
           </p>
+
+          <CodeBlock language="Python" code={`# Internal Adaptive Logic (engine.py)
+if q.profile == "poor":
+    # Protect bad recordings from robotic artifacts
+    s.amount *= 0.70
+    s.retune_ms = max(s.retune_ms, 45) 
+
+if singer_err < 10:
+    # Singer is already in tune, let them keep their natural vibrato
+    s.flex_cents = max(s.flex_cents, 14.0)
+
+if voiced_conf_mean < 0.75:
+    # Pitch tracker is unsure (whispers/breath), hold back tuning
+    s.conf_gate = (s.conf_gate[0] + 0.06, s.conf_gate[1] + 0.04)`} />
+
           <div className="overflow-hidden rounded-xl border border-slate-800">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-900 text-slate-400">
