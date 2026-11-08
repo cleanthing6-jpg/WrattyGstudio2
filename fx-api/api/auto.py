@@ -454,6 +454,8 @@ def role_of(role):
     r = str(role or "").lower().strip()
     if r == "response" and __import__("os").environ.get("WRATTY_ROLES", "1") != "0":
         return r
+    if r == "feature" and __import__("os").environ.get("WRATTY_FEATURE", "1") != "0":
+        return r
     for t in BEAT_ROLES:
         if t in r:
             return "beat"
@@ -468,12 +470,12 @@ def role_of(role):
 
 def bucket(role):
     r = role_of(role)
-    return r if r in ("beat", "lead", "adlib", "backing", "response", "intro", "outro") else "other"
+    return r if r in ("beat", "lead", "adlib", "backing", "response", "intro", "outro", "feature") else "other"
 
 
 def kind_of(role):
     r = role_of(role)
-    return "vocal" if r in ("lead", "adlib", "backing", "response", "intro", "outro") else r
+    return "vocal" if r in ("lead", "adlib", "backing", "response", "intro", "outro", "feature") else r
 
 
 def _opt(chain, cls, **kw):
@@ -514,7 +516,7 @@ def _sum(arrays):
 
 def plain_sum(groups):
     out = np.zeros((2, 0), dtype=np.float32)
-    for kind in ("beat", "lead", "adlib", "backing", "other"):
+    for kind in ("beat", "lead", "adlib", "backing", "response", "intro", "outro", "feature", "other"):
         for a in groups.get(kind) or []:
             if out.shape[1] < a.shape[1]:
                 g = np.zeros((2, a.shape[1]), dtype=np.float32)
@@ -1400,7 +1402,7 @@ def _role_buses(pre, sr, bpm, raised, beat=None):
             # TRY NEW vocal_space PATCH
             try:
                 import vocal_space
-                _bus, _vs_rep = vocal_space.build(y, sr, bpm=bpm, genre=_PRESET.get("_name", "afrobeats"), role=r, beat=beat, space=_pl)
+                _bus, _vs_rep = vocal_space.build(y, sr, bpm=bpm, genre=("rap" if r == "feature" else _PRESET.get("_name", "afrobeats")), role=("lead" if r == "feature" else r), beat=beat, space=_pl)
                 y = y + _bus  # Additive bus: dry vocal + wet space
                 _ms, _kind = 0, "vocal_space"
                 _PRESET["_vocal_space_used"] = True
@@ -1577,21 +1579,21 @@ def _role_chain(voc, sr, st, role):
     from pedalboard import Pedalboard  # MUST be before first use (fixes UnboundLocalError)
     t = _treat_for(role)
     _tone_plan = None
-    if role == "lead":
+    if role in ("lead", "feature"):
         try:
             import adaptive_tone as _at
             voc, _tone_plan = _at.tone_correct(voc, sr, return_plan=True)
         except Exception:
             _tone_plan = None
     _comp = None
-    if role == "lead":
+    if role in ("lead", "feature"):
         try:
             import adaptive_ambience as _aa_c
             _comp = _aa_c.tune_compressors(voc, sr)
         except Exception:
             _comp = None
     # Adaptive vocal tone — measure lowmid, adjust body_db / mud cap per user
-    if role == "lead":
+    if role in ("lead", "feature"):
         try:
             import adaptive_ambience as _aa
             _vt = _aa.tune_vocal(voc, sr, role)
@@ -1601,7 +1603,7 @@ def _role_chain(voc, sr, st, role):
                 t["mud"] = _vt["mud_cap"]
         except Exception:
             pass
-    if role in ("lead", "response", "intro", "outro"):
+    if role in ("lead", "feature", "response", "intro", "outro"):
         _h = _adaptive_hpf(voc, sr, float(t["hpf"]))
         if _h > 0:
             t["hpf"] = _h
@@ -1836,7 +1838,7 @@ def _role_chain(voc, sr, st, role):
     moves.append(["role gain", t["gain"]])
 
     # -1 dBFS true-peak guard on the vocal bus (Claude fix 4b)
-    if role == "lead":
+    if role in ("lead", "feature"):
         try:
             out = _headroom(out, -1.0).astype(np.float32)
             moves.append(["peak-guard", -1.0])
@@ -1859,7 +1861,7 @@ def _role_chain(voc, sr, st, role):
         pass
 
     # --- 3D head-wrap on lead only (stereo out)
-    if _NEW["wrap3d"] and role == "lead":
+    if _NEW["wrap3d"] and role in ("lead", "feature"):
         try:
             import wrap3d
             out = wrap3d.apply_wrap(_mono(out), int(sr), instrumental_rms=-14.0)
@@ -2041,7 +2043,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep = {"sr": int(sr)}
     try:
         rep["arrived"] = {}
-        for _k in ("beat", "lead", "adlib", "backing", "other"):
+        for _k in ("beat", "lead", "adlib", "backing", "response", "intro", "outro", "feature", "other"):
             _g = groups.get(_k) or []
             if _g:
                 _s = _sum(_g)
