@@ -452,6 +452,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
             setMsg("Preview ready — listen below 🎧");
             break;
           }
+          if (i > 5) setMsg("Mixing your stems… attempt " + (i + 1) + " of 120 (server: " + String(sd.status || "no status") + ")");
           if (i === 29) setMsg("Still working - don't resubmit, it can take a few minutes.");
         }
       }

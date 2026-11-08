@@ -275,7 +275,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
         except Exception:
             _qc = None
         sr = None
-        groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "response": [], "intro": [], "outro": [], "other": []}
+        groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "response": [], "intro": [], "outro": [], "feature": [], "other": []}
         _qc_in = {}
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
