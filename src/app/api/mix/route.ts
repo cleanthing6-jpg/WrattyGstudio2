@@ -458,8 +458,13 @@ export async function GET(req: NextRequest) {
   }
   const r = await mixer("/?id=" + encodeURIComponent(row.runner_job || ""), { method: "GET" }, 1, [502, 503, 504], 20000);
   const d = r.ok ? r.data : null;
+  if (!r.ok) console.error("[mix] status check to Modal failed", id, r.status, r.error);
+  else if (d && d.status === "done" && !(d.url || d.files?.mp3 || d.result?.files?.mp3 || d.files?.flac || d.result?.files?.flac)) console.error("[mix] Modal says done but returned no file url", id, JSON.stringify(d).slice(0, 400));
   let dashboardSave: { saved: boolean; name: string } = { saved: false, name: "" };
 
+  if (d && d.status === "done" && !d.url) {
+    d.url = String(d.files?.mp3 || d.result?.files?.mp3 || d.files?.flac || d.result?.files?.flac || "");
+  }
   if (d && d.status === "done" && d.url) {
     const flacU = String(d.files?.flac || d.result?.files?.flac || "");
     const mp3U = String(d.files?.mp3 || d.result?.files?.mp3 || "");
