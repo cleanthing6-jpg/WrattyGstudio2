@@ -187,7 +187,7 @@ export default function DeveloperDocs() {
         
         <section>
           <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Developer API</h1>
-          <p className="text-lg text-slate-400 leading-relaxed">Integrate commercial-grade, adaptive mixing and mastering directly into your platform, DAW, or application. Send raw stems or a finished 2-track, and receive a release-ready mix in under 3 minutes.</p>
+          <p className="text-lg text-slate-400 leading-relaxed">Integrate a commercial-grade, adaptive mixing engine into your platform. Unlike static AI black-boxes, our deterministic DSP measures the audio (Crest Factor, SNR, PLR) and makes real-time engineering decisions to protect your user's groove and dynamics.</p>
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
@@ -365,6 +365,67 @@ export default function DeveloperDocs() {
             <strong className="text-white">Featured Artist Routing:</strong> If your track has a featured rapper, set their role to <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">"feature"</code>. 
             The engine automatically routes their vocals through the Rap preset (slap delay, heavy saturation) while keeping the main singer on the original genre preset.
           </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Why Adaptive DSP beats Black-Box AI</h2>
+          <p className="mb-4 text-slate-400">
+            Neural-network mastering tools blindly force an EQ curve onto your audio. Our engine acts like a human engineer: it measures the source and makes logical decisions.
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
+              <h4 className="font-bold text-white mb-2 text-sm">🎚️ Transient Protection (PLR Guard)</h4>
+              <p className="text-xs text-slate-400">If the requested LUFS target will crush the Peak-to-Loudness Ratio below 9.0, the engine refuses to destroy the kick drum's punch. It backs off the loudness to save the groove.</p>
+            </div>
+            <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
+              <h4 className="font-bold text-white mb-2 text-sm">🎛️ Dynamic Beat Carving</h4>
+              <p className="text-xs text-slate-400">It doesn't just turn the beat down. It analyzes the vocal's frequency range and applies a dynamic 2dB to 4dB dip in the beat only when the singer is active.</p>
+            </div>
+            <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
+              <h4 className="font-bold text-white mb-2 text-sm">🎤 Smart Noise Gating</h4>
+              <p className="text-xs text-slate-400">The denoiser measures artifact distortion (flutter). If a noise reduction level causes robotic artifacts, it automatically backs off the amount of reduction to keep the vocal natural.</p>
+            </div>
+            <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
+              <h4 className="font-bold text-white mb-2 text-sm">🎼 Confidence-Gated Autotune</h4>
+              <p className="text-xs text-slate-400">If the pitch tracker isn't confident in a note, the autotune doesn't guess. It holds back the correction to prevent warbling and unnatural glitches.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-4 border-b border-slate-800 pb-2">Vocal Tuning API</h2>
+          <p className="text-slate-400 mb-4">
+            Our pitch correction engine uses a hybrid <strong>Resplice/PSOLA</strong> approach. It automatically detects the song key and preserves formants so the vocal never sounds robotic. 
+            You can trigger it via the <code className="text-green-400 bg-slate-900 px-1.5 py-0.5 rounded">/api/tune</code> endpoint.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-slate-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-900 text-slate-400">
+                <tr>
+                  <th className="p-4 font-medium">Feature</th>
+                  <th className="p-4 font-medium">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                <tr className="hover:bg-slate-900/50">
+                  <td className="p-4 text-slate-300 font-bold">Engine Type</td>
+                  <td className="p-4 text-slate-500 text-xs">Hybrid Resplice + PSOLA (Pitch Synchronous Overlap and Add)</td>
+                </tr>
+                <tr className="hover:bg-slate-900/50">
+                  <td className="p-4 text-slate-300 font-bold">Formant Preservation</td>
+                  <td className="p-4 text-slate-500 text-xs">Yes (prevents the "chipmunk" effect during large pitch shifts)</td>
+                </tr>
+                <tr className="hover:bg-slate-900/50">
+                  <td className="p-4 text-slate-300 font-bold">Spectral Restoration</td>
+                  <td className="p-4 text-slate-500 text-xs">Restores lost breath and high-frequency air after processing</td>
+                </tr>
+                <tr className="hover:bg-slate-900/50">
+                  <td className="p-4 text-slate-300 font-bold">Key Detection</td>
+                  <td className="p-4 text-slate-500 text-xs">Analyzes both the vocal and the beat to snap to the correct scale</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">

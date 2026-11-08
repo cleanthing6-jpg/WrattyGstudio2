@@ -16,6 +16,12 @@ const FEATURES = [
     desc: "Already mixed? Send a finished stereo track through our adaptive PLR Guard. We protect your groove and transients while making it loud.",
     chip: "bg-yellow-100",
   },
+  {
+    icon: "🎤",
+    title: "Studio Pitch Correction",
+    desc: "Built-in PSOLA Autotune with formant preservation. It detects the song key, preserves natural breath, and restores lost high frequencies—no robotic artifacts.",
+    chip: "bg-green-100",
+  },
 ];
 
 const ITEMS: Record<string, string[]> = {
