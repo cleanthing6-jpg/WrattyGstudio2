@@ -63,10 +63,19 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
                 print("REPORT_SAVE_ERR " + str(_re)[:200], flush=True)
         except Exception:
             pass
+        import math as _m
+        def _clean(o):
+            if isinstance(o, float) and (_m.isnan(o) or _m.isinf(o)):
+                return None
+            if isinstance(o, dict):
+                return {k: _clean(v) for k, v in o.items()}
+            if isinstance(o, (list, tuple)):
+                return [_clean(v) for v in o]
+            return o
         jobs[job_id] = {
             "status": "done",
             "url": res.get("url", ""),
-            "result": res,
+            "result": _clean(res),
         }
     except Exception as e:
         traceback.print_exc()
@@ -101,7 +110,16 @@ def api():
             return {"ok": True}
         if not key or request.headers.get("authorization") != "Bearer " + key:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
-        return (await jobs.get.aio(jid)) or {"status": "none"}
+        import math as _m
+        def _cl(o):
+            if isinstance(o, float) and (_m.isnan(o) or _m.isinf(o)):
+                return None
+            if isinstance(o, dict):
+                return {k: _cl(v) for k, v in o.items()}
+            if isinstance(o, (list, tuple)):
+                return [_cl(v) for v in o]
+            return o
+        return JSONResponse(_cl((await jobs.get.aio(jid)) or {"status": "none"}))
 
     @web.post("/")
     async def start(request: Request):
