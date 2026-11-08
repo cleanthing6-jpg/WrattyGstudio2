@@ -248,7 +248,7 @@ PAN_VALUES = {
     "outro":   (0.0,),
 }
 _PAN_N = {"backing": 0, "adlib": 0, "response": 0, "intro": 0, "outro": 0}
-_PAN_REPORT = {"backing": [], "adlib": []}
+_PAN_REPORT = {"backing": [], "adlib": [], "response": []}
 
 def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
     # Reset per-render state so a previous job in this warm container
@@ -301,8 +301,8 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral"):
                 except Exception:
                     pass
             if i == 0:
-                _PAN_N.update({"backing": 0, "adlib": 0})
-                _PAN_REPORT.update({"backing": [], "adlib": []})
+                _PAN_N.update({"backing": 0, "adlib": 0, "response": 0})
+                _PAN_REPORT.update({"backing": [], "adlib": [], "response": []})
                 _PAN_NB = sum(1 for _s in stems if auto.bucket(_s.get("role") or _s.get("name") or "stem") == "backing")
             bucket = auto.bucket(role)
             if PAN_ENABLED and bucket in PAN_VALUES:

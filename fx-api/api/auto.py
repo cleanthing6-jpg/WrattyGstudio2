@@ -452,6 +452,8 @@ _DBL = {"kind": ""}
 
 def role_of(role):
     r = str(role or "").lower().strip()
+    if r == "response" and __import__("os").environ.get("WRATTY_ROLES", "1") != "0":
+        return r
     for t in BEAT_ROLES:
         if t in r:
             return "beat"
