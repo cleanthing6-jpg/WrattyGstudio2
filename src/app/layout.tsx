@@ -4,6 +4,7 @@ import LayoutClient from "@/components/LayoutClient";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  verification: { google: "qYXWI9wqrIEqfs962xtuHiCKXPgI6t7nUZkkUbcGtbM" },
   title: "WraGstudio",
   description: "AI mixing and mastering for all genres, powered by the Idan engine. Upload your song, get a release-ready mix and master.",
 };
