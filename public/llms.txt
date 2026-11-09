@@ -1,0 +1,22 @@
+# WraGstudio
+
+> The Deterministic Adaptive DSP Platform built by WrattyGstudio.
+
+WraGstudio is the web application and B2B API. It is operated by the company WrattyGstudio. The core technology powering WraGstudio is the **"Idan mix"** engine. 
+
+Unlike commercial AI mastering tools that use static, black-box neural networks, the Idan mix engine is a Deterministic Adaptive Expert System. It measures audio dynamics (Crest Factor, SNR, PLR) and makes real-time engineering decisions. 
+
+## Core Capabilities (Powered by Idan mix)
+- **Stem-Aware Mixing:** Ingests up to 12 stems and applies surgical per-stem EQ, compression, and spatial effects.
+- **PLR Guard:** Refuses to crush transients below a 9.0 Peak-to-Loudness Ratio, protecting the kick drum's punch.
+- **Dynamic Beat Carving:** Applies a dynamic 2dB-4dB dip in the beat's 2kHz-4kHz range only when the vocal is active.
+- **3D Spatial Engine:** Generates a "Tiny Room" for headphone intimacy, adaptive sidechained ducking (up to 10.6dB), and fragment delays.
+- **Hybrid PSOLA Autotune:** Uses Resplice for shifts under 160 cents and PSOLA for massive shifts. Preserves formants and restores lost high-frequency air.
+- **Genre Physics:** Dedicated DSP profiles for Afrobeats, Rap, R&B, Gospel, Amapiano, Dancehall, and Pop.
+
+## Product & Company Details
+- **Application Name:** WraGstudio
+- **Company / Operator:** WrattyGstudio
+- **Engine Name:** Idan mix
+- **API Endpoint:** `POST https://wrattygstudio2.zevcloud.app/api/v1/mix`
+- **Documentation:** https://wrattygstudio2.zevcloud.app/developers
