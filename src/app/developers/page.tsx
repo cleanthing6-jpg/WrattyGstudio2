@@ -166,6 +166,31 @@ export default function DeveloperDocs() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-300 font-sans selection:bg-green-500/30">
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "WraGstudio API",
+            "alternateName": "Idan mix API",
+            "operatingSystem": "Cloud / API",
+            "applicationCategory": "MultimediaApplication",
+            "description": "WraGstudio is a product by WrattyGstudio. The API is powered by the Idan mix engine, an adaptive DSP system for stem mixing, mastering, and hybrid PSOLA autotune.",
+            "creator": {
+              "@type": "Organization",
+              "name": "WrattyGstudio"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "2500.00",
+              "priceCurrency": "USD"
+            }
+          })
+        }}
+      />
+
       
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
