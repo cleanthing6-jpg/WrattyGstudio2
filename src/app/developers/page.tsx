@@ -450,11 +450,7 @@ if voiced_conf_mean < 0.75:
           <p className="mb-4 text-slate-400">
             Unlike black-box AI tools, we don't hide our processing. Every render generates a detailed JSON telemetry report. Once a mix is complete, you can fetch the exact engineering decisions our engine made by calling the report endpoint:
           </p>
-          <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4 mb-6">
-            <code className="text-green-400 font-mono text-sm break-all">
-              GET /api/v1/report?id=YOUR_JOB_ID
-            </code>
-          </div>
+          <CodeBlock language="HTTP" code={`GET /api/v1/report?id=YOUR_JOB_ID`} />
           <p className="mb-4 text-slate-400">
             The response includes the full DSP chain, allowing you to display exactly what was done to the user's track (e.g., <em>"The engine cut 2dB at 2500Hz to remove harshness and backed off the loudness to protect your transients"</em>).
           </p>
