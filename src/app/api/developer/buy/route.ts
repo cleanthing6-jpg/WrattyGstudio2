@@ -62,9 +62,19 @@ export async function POST(req: Request) {
 
     let usdAmount = 0;
     let credits = 0;
+    let usdAmount = 0;
 
     if (packageType === "master") {
       usdAmount = 1000;
+      credits = 1000;
+    } else if (packageType === "starter") {
+      usdAmount = 50;
+      credits = 20;
+    } else if (packageType === "growth") {
+      usdAmount = 250;
+      credits = 100;
+    } else {
+      usdAmount = 2500;
       credits = 1000;
     } else {
       usdAmount = 2500;

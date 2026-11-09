@@ -8,9 +8,11 @@ const NOWPAYMENTS_ENDPOINT = "https://api.nowpayments.io/v1/invoice";
 
 type PackageType = "mix" | "master";
 
-const PACKAGES: Record<PackageType, { usd: number; credits: number }> = {
+const PACKAGES: Record<string, { usd: number; credits: number }> = {
   master: { usd: 1000, credits: 1000 },
   mix: { usd: 2500, credits: 1000 },
+  starter: { usd: 50, credits: 20 },
+  growth: { usd: 250, credits: 100 },
 };
 
 interface InvoiceResponse {
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  if (packageType !== "mix" && packageType !== "master") {
+  if (packageType !== "mix" && packageType !== "master" && packageType !== "starter" && packageType !== "growth") {
     return NextResponse.json({ error: "Invalid package type" }, { status: 400 });
   }
 
