@@ -76,9 +76,6 @@ export async function POST(req: Request) {
     } else {
       usdAmount = 2500;
       credits = 1000;
-    } else {
-      usdAmount = 2500;
-      credits = 1000;
     }
 
     // Convert to NGN using the live rate + buffer
