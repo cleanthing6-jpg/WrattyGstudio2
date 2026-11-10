@@ -374,7 +374,7 @@ function StudioInner() {
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-6 border border-slate-200">
             <h2 className="text-xl font-bold mb-4">Mix & Master</h2>
-            <p className="text-gray-500 text-sm mb-6">Upload your stems one by one for the best result. Only use the Splitter if you don't have stems.</p>
+            <p className="text-gray-500 text-sm mb-6">Upload your stems one by one for the best result.</p>
 
             <div className="space-y-4">
               <div className="flex gap-2">
@@ -388,13 +388,9 @@ function StudioInner() {
                 </label>
                 
 
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => setMixMode("split")}
-                  className={"flex-1 py-3 rounded-xl font-semibold transition border " + (mixMode === "split" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
-                  ✂️ Splitter (only if you don&apos;t have stems)
-                </button>
+              <div className="mb-4">
                 <button onClick={() => setMixMode("mix")}
-                  className={"flex-1 py-3 rounded-xl font-semibold transition border " + (mixMode === "mix" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
+                  className={"w-full py-3 rounded-xl font-semibold transition border " + (mixMode === "mix" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
                   🎚️ Mix &amp; master preset
                 </button>
               </div>

@@ -27,7 +27,7 @@ function ensureTable() {
   return ready;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST_ORIGINAL(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -95,4 +95,11 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Stem split failed" }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  return NextResponse.json(
+    { error: "Stem separation is disabled. Please upload your raw stems." }, 
+    { status: 403 }
+  );
 }
