@@ -5,7 +5,6 @@ mix cannot come out harsh, phasing or clipping.
 
 import os
 import numpy as np
-import vocal_fx_detect
 try:
     import declip as _declip
 except ImportError:
@@ -1367,7 +1366,7 @@ def _role_space(voc, sr, scale):
         return voc
 
 
-def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None):
+def _role_buses(pre, sr, bpm, raised, beat=None):
     """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
     No cross-role compression: the lead is never glued to backing or adlib.
     Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
@@ -1397,9 +1396,6 @@ def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None):
             y = _exciter(y, sr)
         _pl = float(cfg.get("plate", cfg.get("space", 1.0)))
         _dl = float(cfg.get("delay", _pl))
-        if fx_plans and r in fx_plans:
-            _pl *= fx_plans[r].get("reverb_send_scale", 1.0)
-            _dl *= fx_plans[r].get("delay_send_scale", 1.0)
         _pfd = bool(cfg.get("plate_from_delay", False))
         if _pl or _dl or _pfd:
             _nt = float(cfg.get("note", 0.75))
@@ -2243,20 +2239,7 @@ def mix(groups, sr, loud="MEDIUM"):
     rep["level_passes"] = level_passes
 
     _dry_voc = core.copy()
-    # --- Smart FX Detector ---
-    _fx_plans = {}
-    try:
-        for _r, _audio in ro_map.items():
-            if _audio is not None and len(_audio) > sr * 12:
-                _plan = vocal_fx_detect.engine_plan(vocal_fx_detect.analyze(_audio, sr, bpm))
-                if _plan.get("reasons"):
-                    _fx_plans[_r] = _plan
-        if _fx_plans:
-            rep["fx_detect"] = _fx_plans
-    except Exception as _e:
-        rep["fx_detect_error"] = str(_e)
-    # -------------------------
-    core, _info = _role_buses(_pre, sr, bpm, raised, beat=beat, fx_plans=_fx_plans)
+    core, _info = _role_buses(_pre, sr, bpm, raised, beat=beat)
 
     # --- LIVE SONG SECTION DETECTION ---
     try:
@@ -2304,9 +2287,6 @@ def mix(groups, sr, loud="MEDIUM"):
         pass
 
     _DOUBLE_ON = True    # ADT detune copy — widens the vocal (refs sit corr 0.85-0.92)
-    if _fx_plans.get("lead", {}).get("skip_adt") or _fx_plans.get("feature", {}).get("skip_adt"):
-        _DOUBLE_ON = False
-        rep["fx_detect_adt"] = "skipped (vocal already wide/doubled)"
     side_ids = [r for r in ("lead", "adlib") if r in ro_map] if _DOUBLE_ON else []
     if side_ids:
         dbl = _double(_sum([ro_map[r] for r in side_ids]), sr)
