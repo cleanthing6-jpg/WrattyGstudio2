@@ -58,7 +58,10 @@ export default function Home() {
             <Link href="/pricing">Pricing</Link>
             <Link href="/developers">API</Link>
           </nav>
-          <div>
+          <div className="flex items-center gap-3">
+            <Link href="/developers" className="text-sm font-bold text-slate-600 md:hidden hover:text-green-600">
+              API
+            </Link>
             {isLoaded && isSignedIn ? (
               <Link href="/studio" className="px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold">Open Studio</Link>
             ) : (
