@@ -282,7 +282,56 @@ export default function DeveloperDocs() {
                 <h3 className="text-lg font-bold text-white mb-6">Production Packages</h3>
                 {errorMsg && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center font-medium">⚠️ {errorMsg}</div>}
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+                  {/* STARTER PACK */}
+                  <div className="p-6 rounded-2xl border border-slate-700 bg-slate-800/50 relative shadow-xl flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-white mb-2">Starter Pack</h4>
+                      <p className="text-slate-400 text-sm mb-6">For indie developers testing the waters.</p>
+                      <div className="flex items-baseline gap-1 mb-6"><span className="text-4xl font-black text-white">$50</span></div>
+                      <ul className="text-sm text-slate-300 space-y-3 mb-8">
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 20 Full Mixes</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Pay-as-you-go credits</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Full JSON telemetry</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-2">
+                      {region === "NG" && (
+                        <button onClick={() => buyCredits("starter")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                          {buying === "starter" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                        </button>
+                      )}
+                      <button onClick={() => buyCrypto("starter")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                        {buyingCrypto === "starter" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* GROWTH PACK */}
+                  <div className="p-6 rounded-2xl border border-slate-700 bg-slate-800/50 relative shadow-xl flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-white mb-2">Growth Pack</h4>
+                      <p className="text-slate-400 text-sm mb-6">For scaling apps and studios.</p>
+                      <div className="flex items-baseline gap-1 mb-6"><span className="text-4xl font-black text-white">$250</span></div>
+                      <ul className="text-sm text-slate-300 space-y-3 mb-8">
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 100 Full Mixes</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Priority processing</li>
+                        <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Full JSON telemetry</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-2">
+                      {region === "NG" && (
+                        <button onClick={() => buyCredits("growth")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                          {buying === "growth" ? "Redirecting..." : "Pay via Paystack (NGN)"}
+                        </button>
+                      )}
+                      <button onClick={() => buyCrypto("growth")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                        {buyingCrypto === "growth" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* MIX PACKAGE */}
                   <div className="p-6 rounded-2xl border border-green-500/30 bg-gradient-to-b from-slate-800 to-slate-900 relative shadow-xl flex flex-col justify-between">
                     <div>
