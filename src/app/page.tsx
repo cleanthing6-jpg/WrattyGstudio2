@@ -56,6 +56,7 @@ export default function Home() {
             <Link href="/studio">Studio</Link>
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/pricing">Pricing</Link>
+            <Link href="/developers">API</Link>
           </nav>
           <div>
             {isLoaded && isSignedIn ? (
