@@ -14,11 +14,18 @@ export async function fulfilPaystackReference(reference: string) {
   if (!data.status || data.data.status !== "success") return;
 
   const metadata = data.data.metadata;
+  const client = await getMongoClient();
+  const db = client.db();
+
+  // --- IDEMPOTENCY CHECK ---
+  const alreadyProcessed = await db.collection("processed_webhooks").findOne({ reference });
+  if (alreadyProcessed) {
+    console.log(`[paystack-fulfil] Reference ${reference} already processed. Ignoring.`);
+    return;
+  }
 
   // 2. Handle B2B API Purchases
   if (metadata?.type === "api_credits") {
-    const client = await getMongoClient();
-    const db = client.db();
     
     // Check if they already have a key
     const existing = await db.collection("api_clients").findOne({ clerkUserId: metadata.userId });
@@ -46,4 +53,7 @@ export async function fulfilPaystackReference(reference: string) {
   if (metadata?.userId && metadata?.tier) {
     await grantCredits(metadata.userId, metadata.tier);
   }
+
+  // --- MARK AS PROCESSED ---
+  await db.collection("processed_webhooks").insertOne({ reference, date: new Date() });
 }

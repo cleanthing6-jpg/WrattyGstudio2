@@ -42,6 +42,16 @@ export async function POST(req: Request) {
     if (payment_status === "finished" || payment_status === "confirmed") {
       if (!order_id) return NextResponse.json({ received: true });
 
+      const client = await getMongoClient();
+      const db = client.db();
+
+      // --- IDEMPOTENCY CHECK ---
+      const alreadyProcessed = await db.collection("processed_webhooks").findOne({ order_id });
+      if (alreadyProcessed) {
+        console.log(`[crypto-webhook] Order ${order_id} already processed. Ignoring.`);
+        return NextResponse.json({ received: true });
+      }
+
       // --- HANDLE B2C (Main App Users) ---
       if (order_id.startsWith("b2c_")) {
         // Format: b2c_${userId}_${tier}_${timestamp}
@@ -60,8 +70,6 @@ export async function POST(req: Request) {
         const userId = parts[1];
         const packageType = parts[2];
 
-        const client = await getMongoClient();
-        const db = client.db();
         const creditsToAdd = 1000;
 
         const existing = await db.collection("api_clients").findOne({ clerkUserId: userId });
@@ -82,6 +90,9 @@ export async function POST(req: Request) {
         }
         console.log(`[crypto-webhook] Granted B2B credits: ${creditsToAdd} to dev ${userId}`);
       }
+
+      // --- MARK AS PROCESSED ---
+      await db.collection("processed_webhooks").insertOne({ order_id, date: new Date() });
     }
 
     return NextResponse.json({ received: true });
