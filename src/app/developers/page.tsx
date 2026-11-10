@@ -28,8 +28,8 @@ export default function DeveloperDocs() {
   // Region state
   const [region, setRegion] = useState<"NG" | "INTL">("NG");
 
-  const [buying, setBuying] = useState<"mix" | "master" | null>(null);
-  const [buyingCrypto, setBuyingCrypto] = useState<"mix" | "master" | null>(null);
+  const [buying, setBuying] = useState<"mix" | "master" | "starter" | "growth" | null>(null);
+  const [buyingCrypto, setBuyingCrypto] = useState<"mix" | "master" | "starter" | "growth" | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedKey, setCopiedKey] = useState(false);
   
@@ -77,7 +77,7 @@ export default function DeveloperDocs() {
     }
   };
 
-  const buyCredits = async (packageType: "mix" | "master") => {
+  const buyCredits = async (packageType: "mix" | "master" | "starter" | "growth") => {
     setBuying(packageType);
     setErrorMsg("");
     try {
@@ -98,7 +98,7 @@ export default function DeveloperDocs() {
     }
   };
 
-  const buyCrypto = async (packageType: "mix" | "master") => {
+  const buyCrypto = async (packageType: "mix" | "master" | "starter" | "growth") => {
     setBuyingCrypto(packageType);
     setErrorMsg("");
     try {
