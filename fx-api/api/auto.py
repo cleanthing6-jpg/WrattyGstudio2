@@ -2129,9 +2129,8 @@ def mix(groups, sr, loud="MEDIUM"):
                 if len(ro_map[r]) > sr * 12:
                     _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
                     _plan = vocal_fx_detect.engine_plan(_det)
-                    if _plan.get("reasons"):
-                        _fx_plans[r] = _plan
-                        rep.setdefault("fx_detect", {})[r] = _plan
+                    _fx_plans[r] = _plan
+                    rep.setdefault("fx_detect", {})[r] = _plan
             except Exception as _fx_e:
                 rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
             # --------------------------
