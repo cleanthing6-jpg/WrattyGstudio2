@@ -2045,6 +2045,8 @@ def mix(groups, sr, loud="MEDIUM"):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
     rep = {"sr": int(sr)}
+    _fx_plans = {}
+    _fx_plans = {}
     try:
         rep["arrived"] = {}
         for _k in ("beat", "lead", "adlib", "backing", "response", "intro", "outro", "feature", "other"):
@@ -2124,16 +2126,6 @@ def mix(groups, sr, loud="MEDIUM"):
         st, _f = analyze(voc, voc, sr)
         parts, moves = [], {}
         for r in list(ro_map.keys()):
-            # --- SMART FX DETECTOR ---
-            try:
-                if len(ro_map[r]) > sr * 12:
-                    _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
-                    _plan = vocal_fx_detect.engine_plan(_det)
-                    _fx_plans[r] = _plan
-                    rep.setdefault("fx_detect", {})[r] = _plan
-            except Exception as _fx_e:
-                rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
-            # --------------------------
             y, mv = _role_chain(ro_map[r], sr, st, r)
             parts.append(y); moves[r] = mv
         core = _sum(parts)
@@ -2208,6 +2200,16 @@ def mix(groups, sr, loud="MEDIUM"):
     parts, moves, _pre = [], {}, {}
     _fx_plans = {}
     for r in list(ro_map.keys()):
+        # --- SMART FX DETECTOR ---
+        try:
+            if len(ro_map[r]) > sr * 12:
+                _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
+                _plan = vocal_fx_detect.engine_plan(_det)
+                _fx_plans[r] = _plan
+                rep.setdefault("fx_detect", {})[r] = _plan
+        except Exception as _fx_e:
+            rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
+        # --------------------------
         # ── V2 NOISE CLEANER ──
         try:
             import noise_clean
@@ -2216,17 +2218,6 @@ def mix(groups, sr, loud="MEDIUM"):
         except Exception as _e:
             rep.setdefault('noise_clean', {})[r] = 'failed: ' + str(_e)[:80]
         # ──────────────────────
-        # --- SMART FX DETECTOR ---
-        try:
-            if len(ro_map[r]) > sr * 12:
-                _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
-                _plan = vocal_fx_detect.engine_plan(_det)
-                if _plan.get("reasons"):
-                    _fx_plans[r] = _plan
-                    rep.setdefault("fx_detect", {})[r] = _plan
-        except Exception as _fx_e:
-            rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
-        # --------------------------
         y, mv = _role_chain(ro_map[r], sr, st, r)
         if r == "lead":
             pass  # dry lead stays mono/centered. Width lives on the wet return.
