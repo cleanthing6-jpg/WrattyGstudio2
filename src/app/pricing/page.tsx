@@ -29,18 +29,18 @@ const dollar = (n: number) => "$" + n;
 
 const TIERS = [
   {
-    id: "free", name: "Free", ngn: 0, usd: 0, period: "",
+    id: "free", name: "Free", ngn: 0, usd: 0, period: "", tracks: 0,
     features: ["1 watermarked 30s preview", "Hear it before you pay"],
     cta: "Start Free", color: "gray",
   },
   ...PLANS.filter((p) => p.id !== "free").map((p) => ({
-    id: p.id, name: p.name, ngn: p.ngn, usd: p.usd,
+    id: p.id, name: p.name, ngn: p.ngn, usd: p.usd, tracks: p.tracks,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
     cta: CTA[p.id] ?? "Buy", color: COLORS[p.id] ?? "green",
   })),
   ...MASTER_PLANS.map((p) => ({
-    id: p.id, name: p.name + " \u00b7 mastering only", ngn: p.ngn, usd: p.usd,
+    id: p.id, name: p.name + " \u00b7 mastering only", ngn: p.ngn, usd: p.usd, tracks: p.tracks,
     period: "one-off \u00b7 credits never expire",
     features: FEATURES[p.id] ?? [p.tagline],
     cta: CTA[p.id] ?? "Buy", color: COLORS[p.id] ?? "green",
@@ -108,7 +108,14 @@ export default function Pricing() {
           <div key={tier.id} className={`bg-white rounded-2xl p-6 border ${tier.color === "green" ? "border-green-500" : "border-slate-200"} flex flex-col`}>
             {tier.id === "starter" && <div className="text-xs text-green-400 font-bold mb-2">MOST POPULAR</div>}
             <h3 className="text-lg font-bold mb-1">{tier.name}</h3>
-            <div className="text-3xl font-black mb-1">{tier.id === "free" ? "Free" : (region === "NG" ? naira(tier.ngn) : dollar(tier.usd))}</div>
+            <div className="text-3xl font-black mb-1">
+              {tier.id === "free" ? "Free" : (region === "NG" ? naira(tier.ngn) : dollar(tier.usd))}
+            </div>
+            {tier.tracks > 1 && (
+              <div className="text-xs font-bold text-green-600 mb-1">
+                ({region === "NG" ? naira(Math.round(tier.ngn / tier.tracks)) : dollar(Math.round(tier.usd / tier.tracks))} / track)
+              </div>
+            )}
             {tier.period ? <div className="text-gray-700 text-sm mb-4">{tier.period}</div> : <div className="mb-4">&nbsp;</div>}
             
             <ul className="space-y-2 mb-6 flex-1">
