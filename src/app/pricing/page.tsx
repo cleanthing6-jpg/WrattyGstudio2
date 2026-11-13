@@ -149,7 +149,7 @@ export default function Pricing() {
                     disabled={loadingTier !== null || loadingCrypto !== null}
                     className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition"
                   >
-                    {loadingCrypto === tier.id ? "Connecting..." : "Pay with USDC (Crypto)"}
+                    {loadingCrypto === tier.id ? "Connecting..." : "Pay with Crypto"}
                   </button>
                 )}
 

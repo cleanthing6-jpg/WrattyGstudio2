@@ -303,7 +303,7 @@ export default function DeveloperDocs() {
                         </button>
                       )}
                       <button onClick={() => buyCrypto("starter")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buyingCrypto === "starter" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                        {buyingCrypto === "starter" ? "Redirecting..." : "Pay with Crypto"}
                       </button>
                     </div>
                   </div>
@@ -327,7 +327,7 @@ export default function DeveloperDocs() {
                         </button>
                       )}
                       <button onClick={() => buyCrypto("growth")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buyingCrypto === "growth" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                        {buyingCrypto === "growth" ? "Redirecting..." : "Pay with Crypto"}
                       </button>
                     </div>
                   </div>
@@ -354,7 +354,7 @@ export default function DeveloperDocs() {
                        )}
                        {/* CRYPTO: FOR EVERYONE */}
                        <button onClick={() => buyCrypto("mix")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buyingCrypto === "mix" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                        {buyingCrypto === "mix" ? "Redirecting..." : "Pay with Crypto"}
                       </button>
                       <a href="mailto:wrattyg@gmail.com?subject=Enterprise%20API%20Invoice%20Request%20-%20Mix" className="w-full block text-center bg-transparent border border-slate-600 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors">
                         Request USD Invoice
@@ -383,7 +383,7 @@ export default function DeveloperDocs() {
                       )}
                       {/* CRYPTO: FOR EVERYONE */}
                       <button onClick={() => buyCrypto("master")} disabled={buying !== null || buyingCrypto !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-50">
-                        {buyingCrypto === "master" ? "Redirecting..." : "Pay with USDC (Crypto)"}
+                        {buyingCrypto === "master" ? "Redirecting..." : "Pay with Crypto"}
                       </button>
                       <a href="mailto:wrattyg@gmail.com?subject=Enterprise%20API%20Invoice%20Request%20-%20Master" className="w-full block text-center bg-transparent border border-slate-600 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors">
                         Request USD Invoice
