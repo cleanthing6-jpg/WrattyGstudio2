@@ -388,20 +388,22 @@ function StudioInner() {
                 </label>
                 
 
-              <div className="mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <button onClick={() => setMixMode("mix")}
-                  className={"w-full py-3 rounded-xl font-semibold transition border " + (mixMode === "mix" ? "bg-green-500/10 border-green-500 text-slate-900" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900")}>
-                  🎚️ Mix &amp; master preset
+                  className={"py-4 rounded-xl font-semibold transition border text-left p-4 " + (mixMode === "mix" ? "bg-green-500/10 border-green-500 text-slate-900 ring-2 ring-green-500" : "bg-white border-slate-200 text-gray-500 hover:text-slate-900 hover:border-slate-300")}>
+                  <div className="text-lg font-bold text-green-700 mb-1">🎚️ Mix &amp; Master</div>
+                  <div className="text-sm text-slate-500 font-normal">Upload separate stems (vocals, beat) for the engine to mix from scratch.</div>
                 </button>
+                <Link
+                  href="/master"
+                  className="block py-4 rounded-xl font-semibold transition border bg-white border-slate-200 p-4 hover:border-green-500 hover:shadow-md"
+                >
+                  <div className="text-lg font-bold text-slate-900 mb-1">🎧 Master Only</div>
+                  <div className="text-sm text-slate-500 font-normal">Already mixed? Upload 1 stereo file for mastering and loudness.</div>
+                </Link>
               </div>
-              <MixUploader onReady={addFile} />
-              <Link
-                href="/master"
-                className="block mb-4 bg-white border border-slate-200 rounded-2xl p-4 hover:border-green-500 transition"
-              >
-                <span className="font-bold text-green-700">Master only</span>
-                <span className="block text-slate-500 text-sm">Already mixed? Send it straight to the mastering chain - no stems needed.</span>
-              </Link>
+              
+              {mixMode === "mix" && <MixUploader onReady={addFile} />}
 
               <AiMixer stems={readyStems.length ? readyStems : files} />
 

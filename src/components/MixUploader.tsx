@@ -66,7 +66,7 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
           ref={inputRef}
           type="file"
           multiple
-          accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.flac,.mp4"
+          accept="audio/*,.mp3,.wav,.flac,.aac,.ogg"
           className="hidden"
           onChange={(e) => pick(e.target.files)}
         />
@@ -76,7 +76,7 @@ export default function MixUploader({ onReady }: { onReady: (url: string, name: 
           <div>
             <div className="text-3xl mb-2">🎙️</div>
             <div className="text-gray-400">Tap to choose audio files</div>
-            <div className="text-gray-600 text-sm">WAV or M4A/MP3 256kbps+ · up to 128MB</div>
+            <div className="text-gray-600 text-sm">WAV, FLAC or MP3 256kbps+ · up to 128MB</div>
             <div className="text-gray-600 text-sm">Full song to split, or stems to mix — lead, backups, ad-libs, beat</div>
           </div>
         )}
