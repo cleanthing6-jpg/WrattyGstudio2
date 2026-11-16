@@ -45,6 +45,10 @@ export default function WhyAdaptive() {
           </Link>
         </div>
       </div>
-    </div>
+    
+      <div className="mt-12 text-sm text-slate-500 text-center">
+        Building a highly scalable audio infrastructure requires robust engineering. For projects requiring enterprise-grade <a href="https://solguruz.com" target="_blank" rel="noopener noreferrer" className="text-green-600 font-bold underline hover:text-green-700">custom software development and IT consulting services</a>, partnering with experienced engineering teams is essential for success.
+      </div>
+</div>
   );
 }
