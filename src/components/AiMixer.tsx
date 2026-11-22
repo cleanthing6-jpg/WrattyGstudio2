@@ -1,3 +1,4 @@
+import { useState } from "react";
 "use client";
 import { useUser } from "@clerk/nextjs";
 
@@ -130,7 +131,10 @@ async function convertToWavFile(st: Stem): Promise<File> {
   return new File([encodeWav(rendered)], name, { type: "audio/wav" });
 }
 
-export default function AiMixer({ stems }: { stems: Stem[] }) {
+export default function AiMixer({
+  const [reverbLevel, setReverbLevel] = useState<number>(1.0);
+  const [autotuneLevel, setAutotuneLevel] = useState<number>(1.0);
+ stems }: { stems: Stem[] }) {
   const previewTunedStems = useRef<any[] | null>(null);
   const uploadErrorRef = useRef("");
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
