@@ -26,7 +26,7 @@ export function useAutoTune() {
   }, [state]);
 
   const applyToStems = useCallback(
-    async (stems: Stem[]): Promise<Stem[]> => {
+    async (stems: Stem[], autotuneLevel: number = 1.0): Promise<Stem[]> => {
       const lead = stems.find((s) => s.role === "lead");
       if (!enabled || !lead) return stems;
       const beat = stems.find((s) => s.role === "beat" || s.role === "instrumental");
@@ -36,7 +36,7 @@ export function useAutoTune() {
         const start = await fetch("/api/tune", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ url: lead.url, beatUrl: beat?.url, preset }),
+          body: JSON.stringify({ url: lead.url, beatUrl: beat?.url, preset, autotuneLevel }),
         });
         if (!start.ok) throw new Error("start failed");
         const { jobId } = await start.json();
