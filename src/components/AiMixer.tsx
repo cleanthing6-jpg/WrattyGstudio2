@@ -146,6 +146,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [bpm, setBpm] = useState(100);
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
+  const [reverbLevel, setReverbLevel] = useState<number>(1.0);
+  const [autotuneLevel, setAutotuneLevel] = useState<number>(1.0);
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [rawUrl, setRawUrl] = useState("");
