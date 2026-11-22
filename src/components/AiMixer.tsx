@@ -146,8 +146,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [bpm, setBpm] = useState(100);
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
-  const [reverbLevel, setReverbLevel] = useState<number>(1.0);
-  const [autotuneLevel, setAutotuneLevel] = useState<number>(1.0);
+  const [reverbLevel, setReverbLevel] = useState<number>(0);
+  const [autotuneLevel, setAutotuneLevel] = useState<number>(0);
   const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [rawUrl, setRawUrl] = useState("");
@@ -488,7 +488,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist, title: songTitle, stems: stemsToMix, loudness: masterLoudness, preset: style, reverb_level: reverbLevel, autotune_level: autotuneLevel }),
+        body: JSON.stringify({ artist, title: songTitle, stems: stemsToMix, loudness: masterLoudness, preset: style, reverb_level: 1.0 + (reverbLevel / 100), autotune_level: 1.0 + (autotuneLevel / 100) }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
