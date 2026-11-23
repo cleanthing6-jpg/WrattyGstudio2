@@ -147,7 +147,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [reverbLevel, setReverbLevel] = useState<number>(0);
-    const [prepared, setPrepared] = useState<Stem[]>([]);
+  const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [rawUrl, setRawUrl] = useState("");
   const [finalUrl, setFinalUrl] = useState("");
@@ -483,7 +483,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
-      const stemsToMix = previewTunedStems.current || (await tune.applyToStems(prepared));
+      const stemsToMix = previewTunedStems.current || await tune.applyToStems(prepared);
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -610,25 +610,23 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         Protect my beat - vocals only go to the mixer
       </label>
       <AutoTuneToggle tune={tune} />
-      <div className="space-y-4 mb-4 p-4 border border-slate-200 rounded-xl bg-slate-50">
+      <details className="mb-6 border border-slate-200 rounded-xl bg-slate-50 shadow-sm group">
+      <summary className="p-4 font-bold text-sm text-slate-700 cursor-pointer list-none flex justify-between items-center hover:bg-slate-100 transition-colors rounded-xl">
+        <span>⚙️ Advanced Tweaks (Optional)</span>
+      </summary>
+      <div className="p-5 border-t border-slate-200 space-y-5">
+        <p className="text-sm text-slate-600 mb-2">The engine automatically calculates the perfect adaptive mix. Use this slider if you want to <b>add extra</b> space on top of the default.</p>
         <div>
-          <div className="flex justify-between text-sm font-bold text-slate-700 mb-1">
-            <span>Reverb & Space</span>
-            <span>{Math.round(reverbLevel * 100)}%</span>
+          <div className="flex justify-between text-sm font-bold text-slate-700 mb-2">
+            <span>Add Extra Reverb & Space</span>
+            <span className="text-green-600 font-mono">+{reverbLevel}%</span>
           </div>
-          <input type="range" min="0" max="1.5" step="0.1" value={reverbLevel} onChange={(e) => setReverbLevel(parseFloat(e.target.value))} className="w-full accent-green-500" />
-          <p className="text-xs text-slate-400 mt-1">100% = Engine default. 0% = Completely dry. 150% = Extra wet.</p>
-        </div>
-        <div>
-          <div className="flex justify-between text-sm font-bold text-slate-700 mb-1">
-            <span>Autotune Strength</span>
-            <span>+{autotuneLevel}%</span>
-          </div>
-          <input type="range" min="0" max="100" step="1" value={autotuneLevel} onChange={(e) => setAutotuneLevel(parseFloat(e.target.value))} className="w-full accent-green-500" />
-          <p className="text-xs text-slate-400 mt-1">0% = Engine Adaptive Default. 100% = Extra tight snap.</p>
+          <input type="range" min="0" max="100" step="1" value={reverbLevel} onChange={(e) => setReverbLevel(parseInt(e.target.value))} className="w-full accent-green-500 cursor-pointer" />
+          <p className="text-xs text-slate-500 mt-2">0% = Engine Adaptive Default. 100% = Double the engine's calculated reverb.</p>
         </div>
       </div>
-      <button
+    </details>
+    <button
         onClick={generate}
         disabled={!ready || busy}
         className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
