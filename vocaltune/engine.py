@@ -64,7 +64,7 @@ class VocalTuner:
         return mono, qual, track
 
     def process(self, audio, sr, genre="afrobeats", beat=None, beat_sr=None, key=None, mode=None, scale=None,
-                tuning_cents=None, adaptive=True, key_map=None, restore_spectrum=False, shifter='resplice', autotune_level: float = 1.0, **overrides) -> TuneResult:
+                tuning_cents=None, adaptive=True, key_map=None, restore_spectrum=False, shifter='resplice', **overrides) -> TuneResult:
         warnings: list = []
         x = np.asarray(audio, dtype=np.float64)
         mono, qual, track = self.analyze(audio, sr)

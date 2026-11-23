@@ -425,7 +425,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setMsg("Done - Beat-Lock mastered & saved: " + label);
       } else {
         setMsg("Sending stems to your engine…");
-        const stemsToPreview = autotuneLevel > 0 ? await tune.applyToStems(done, autotuneLevel) : done;
+        const stemsToPreview = await tune.applyToStems(done);
         previewTunedStems.current = stemsToPreview;
         const post = await withTimeout(fetch("/api/mix-preview", {
           method: "POST",
