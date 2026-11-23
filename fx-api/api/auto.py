@@ -5,7 +5,12 @@ mix cannot come out harsh, phasing or clipping.
 
 import os
 import numpy as np
-import vocal_fx_detect
+try:
+    import vocal_fx_detect
+except Exception as _fxd_e:
+    vocal_fx_detect = None
+    print('[vocal_fx_detect] unavailable:', _fxd_e)
+_FX_DETECT_APPLY = True
 try:
     import declip as _declip
 except ImportError:
@@ -1367,7 +1372,7 @@ def _role_space(voc, sr, scale):
         return voc
 
 
-def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None):
+def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None, reverb_level=1.0, autotune_level=1.0):
     """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
     No cross-role compression: the lead is never glued to backing or adlib.
     Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
@@ -1400,6 +1405,10 @@ def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None):
         if fx_plans and r in fx_plans:
             _pl *= fx_plans[r].get("reverb_send_scale", 1.0)
             _dl *= fx_plans[r].get("delay_send_scale", 1.0)
+        
+        # USER TOGGLE: Apply the user's reverb multiplier safely here
+        _pl *= reverb_level
+        # _dl *= reverb_level  # LOCKED: Delay is 100% controlled by adaptive_ambience.py
         _pfd = bool(cfg.get("plate_from_delay", False))
         if _pl or _dl or _pfd:
             _nt = float(cfg.get("note", 0.75))
@@ -2041,7 +2050,7 @@ def _band_carve(beat, lead, sr):
     ducked, _ = wratty_fix_v2.carve_beat(beat.T, lead.T, sr, fallback=False)
     return ducked.T
 
-def mix(groups, sr, loud="MEDIUM"):
+def mix(groups, sr, loud="MEDIUM", reverb_level=1.0, autotune_level=1.0):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
     rep = {"sr": int(sr)}
@@ -2125,15 +2134,21 @@ def mix(groups, sr, loud="MEDIUM"):
         st, _f = analyze(voc, voc, sr)
         parts, moves = [], {}
         for r in list(ro_map.keys()):
-            # --- SMART FX DETECTOR ---
+            # --- SMART FX DETECTOR (report-only unless FX_DETECT_APPLY=1) ---
             try:
-                if len(ro_map[r]) > sr * 12:
-                    _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
+                _fx_x = np.asarray(ro_map[r])
+                if _fx_x.ndim == 2 and _fx_x.shape[0] > _fx_x.shape[1]:
+                    _fx_x = _fx_x.T   # (N,C) -> (C,N): what vocal_fx_detect expects
+                if vocal_fx_detect is not None and _fx_x.shape[-1] > sr * 12:
+                    _det = vocal_fx_detect.analyze(_fx_x, sr, bpm=bpm)
                     _plan = vocal_fx_detect.engine_plan(_det)
-                    _fx_plans[r] = _plan
-                    rep.setdefault("fx_detect", {})[r] = _plan
+                    rep.setdefault('fx_detect', {})[r] = _plan
+                    rep.setdefault('fx_detect_raw', {})[r] = __import__('json').loads(__import__('json').dumps({k: _det.get(k) for k in ('reverb','delay','stereo','pitch','extra')}, default=str))
+                    rep.setdefault('fx_detect_verdict', {})[r] = str(_det.get('verdict'))
+                    if _FX_DETECT_APPLY:
+                        _fx_plans[r] = _plan
             except Exception as _fx_e:
-                rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
+                rep.setdefault('fx_detect_error', {})[r] = str(_fx_e)[:80]
             # --------------------------
             y, mv = _role_chain(ro_map[r], sr, st, r)
             parts.append(y); moves[r] = mv
@@ -2208,15 +2223,21 @@ def mix(groups, sr, loud="MEDIUM"):
 
     parts, moves, _pre = [], {}, {}
     for r in list(ro_map.keys()):
-        # --- SMART FX DETECTOR ---
+        # --- SMART FX DETECTOR (report-only unless FX_DETECT_APPLY=1) ---
         try:
-            if len(ro_map[r]) > sr * 12:
-                _det = vocal_fx_detect.analyze(ro_map[r], sr, bpm=bpm)
+            _fx_x = np.asarray(ro_map[r])
+            if _fx_x.ndim == 2 and _fx_x.shape[0] > _fx_x.shape[1]:
+                _fx_x = _fx_x.T   # (N,C) -> (C,N): what vocal_fx_detect expects
+            if vocal_fx_detect is not None and _fx_x.shape[-1] > sr * 12:
+                _det = vocal_fx_detect.analyze(_fx_x, sr, bpm=bpm)
                 _plan = vocal_fx_detect.engine_plan(_det)
-                _fx_plans[r] = _plan
-                rep.setdefault("fx_detect", {})[r] = _plan
+                rep.setdefault('fx_detect', {})[r] = _plan
+                rep.setdefault('fx_detect_raw', {})[r] = __import__('json').loads(__import__('json').dumps({k: _det.get(k) for k in ('reverb','delay','stereo','pitch','extra')}, default=str))
+                rep.setdefault('fx_detect_verdict', {})[r] = str(_det.get('verdict'))
+                if _FX_DETECT_APPLY:
+                    _fx_plans[r] = _plan
         except Exception as _fx_e:
-            rep.setdefault("fx_detect_error", {})[r] = str(_fx_e)[:80]
+            rep.setdefault('fx_detect_error', {})[r] = str(_fx_e)[:80]
         # --------------------------
         # ── V2 NOISE CLEANER ──
         try:

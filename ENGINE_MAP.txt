@@ -1,0 +1,2618 @@
+========================================================
+WRATTY GSTUDIO — FULL ENGINE MAP
+========================================================
+
+--- DIRECTORY TREE ---
+./
+  .gitignore
+  Build
+  README.md
+  modal_tune.py
+  modal_mix.py
+  test_mongo.js
+  package-lock.json
+  apply_air_boost.py
+  apply_backing_fix.py
+  apply_beat_dynamics.py
+  apply_deess_duck.py
+  apply_full_master_ui.py
+  apply_full_master_ui2.py
+  apply_genre_picker3.py
+  apply_genre_picker4.py
+  apply_glue_master.py
+  apply_glue_tune.py
+  apply_lowmid_mono.py
+  apply_master_fix.py
+  apply_master_full.py
+  apply_master_path.py
+  apply_master_target.py
+  apply_master_width.py
+  apply_more_presets.py
+  apply_polish_wire.py
+  apply_preset.py
+  apply_preset_amb.py
+  apply_preview_final.py
+  apply_preview_final2.py
+  apply_rap_clip.py
+  dyn_probe.py
+  eslint.config.mjs
+  apply_round.py
+  apply_timeout_fix.py
+  audit_backing.py
+  master-latest.sh
+  cleanup-ut.mjs
+  measure_all.py
+  cleanup-ut2.mjs
+  next.config.ts
+  package.json
+  server.js
+  postcss.config.mjs
+  el_test.py
+  stereo_probe.py
+  tfx
+  tsconfig.json
+  vercel.json
+  vocal_probe.py
+  .env.local
+  next-env.d.ts
+  check_env.mjs
+  modal_files.py
+  tsconfig.tsbuildinfo
+  fix_deltas.py
+  fix_env.py
+  fix_treat_for.py
+  render.yaml
+  .env.production.local
+  getmaster.mjs
+  ENGINE_A.flac
+  84c65e102086-complete-inst.wav
+  gpu_probe.py
+  ENGINE_B.flac
+  master.mjs
+  install_delay.py
+  modal_cleanup.py
+  wragstudio-logo.svg
+  out.mp3
+  modal_app.py
+  ref.wav
+  patch_blob.py
+  run.log
+  strip_vocal.py
+  ref_perc.wav
+  test_api_client.mjs
+  patch_reports.py
+  probe.mjs
+  setdelay.py
+  last_report.json
+  treblo_api.py
+  treblo_cli.py
+  r2_test.mjs
+  treblo_genre.py
+  treblo_tasks.py
+  treblo_test.py
+  install_reverb.py
+  pull_report.sh
+  summary.py
+  measure_refs.py
+  new_report.json
+  ALL_LIVE_MODULES.txt
+  ENGINE_MAP.txt
+  detect_effects.py
+  fx-api/
+    .gitignore
+    .python-version
+    Dockerfile
+    requirements.txt
+    api/
+      auto.py
+      mix.py
+      auto.py.bak
+      apply_tone.py
+      fx.py
+      auto.py.bak15
+      polish.py
+      apply_adaptive_comp.py
+      apply_adaptive_vocal.py
+      apply_ambience.py
+      auto.py.bak16
+      auto.py.bak19
+      auto.py.bak20
+      auto.py.bak21
+      auto.py.bak25
+      auto.py.bak26
+      auto.py.bak27
+      auto.py.bak28
+      auto.py.bak29
+      auto.py.bak31
+      auto.py.bak34
+      auto.py.bak36
+      auto.py.bak37
+      auto.py.bak38
+      auto.py.bak39
+      auto.py.bak40
+      auto.py.bak41
+      auto.py.bak42
+      auto.py.bak43
+      auto.py.bak44
+      auto.py.bak45
+      auto.py.bak46
+      auto.py.bak47
+      auto.py.bak48
+      auto.py.bak49
+      master_bus.py
+      qc.py
+      pro_touch.py
+      vocal_space.py
+      vocal_sat.py
+      chains.py
+      declip.py
+      delay_fx.py
+      beat_punch.py
+      clip_gain.py
+      reverb_fx.py
+      delay_spec.py.bak23
+      delay_spec.py.bak24
+      vocal_polish.py
+      dynamics.py
+      fet_comp.py
+      gate_new_engines.py
+      patch_corr_guard.py
+      mix.py.bak26
+      mix.py.bak27
+      mix.py.bak36
+      mix.py.bak37
+      blobstore.py
+      mix.py.bak43
+      mix.py.bak48
+      mix.py.bak50
+      mix.py.bak51
+      master_bus.py.bak
+      measure_only.py
+      noise_clean.py
+      vocal_align.py
+      mix_tone_guard.py
+      parallel_comp.py
+      delay_spec.py
+      patch_body.py
+      patch_both.py
+      patch_clip_gain.py
+      patch_delay_level.py
+      patch_delay_spec.py
+      patch_delay_wire.py
+      patch_double_swap.py
+      patch_dsp_tier1.py
+      patch_exciter.py
+      patch_exclude_beat.py
+      patch_fet.py
+      patch_fet_thr.py
+      patch_final.py
+      patch_follow_list.py
+      patch_hpf.py
+      patch_missing.py
+      patch_par_log.py
+      patch_parallel_swap.py
+      patch_plate_tier1.py
+      patch_reverb_report.py
+      patch_reverb_wire.py
+      patch_script.py
+      patch_spec.py
+      patch_tune.py
+      patch_two.py
+      patch_wire_pro.py
+      qc.py.bak35
+      restore_and_test_duck.py
+      reverb_fx.py.bak18
+      wire_spec_delay.py
+      wrap3d.py
+      song_sections.py
+      ab_preview.py
+      adaptive_ambience.py
+      auto.py.bak_roles
+      mix.py.bak_roles
+      auto.py.bak_move
+      auto.py.bak_cleanup
+      vocal_fx_detect.py
+      auto.py.bak_final_fix
+      auto.py.bak_loops
+      vocal_fx_detect.py.bak.20261111_102928
+      opto_comp.py
+      auto.py.bak.20261111_104245
+      auto.py.bak.20261111_104534
+      auto.py.bak.20261111_110637
+      auto.py.bak.20261111_130148
+      mix.py.bak.20261111_130222
+      dsp_tier1.py
+      dsp_pro.py
+      fix_dupes.py
+      dsp_delay.py
+      fix_double_send.py
+      add_delay_debug.py
+      fix_sends.py
+      fix_duck_sends.py
+      test_engines.py
+      fix_hpf_coeff.py
+      fix_ir_norm.py
+      fix_mod_phase.py
+      align_reverb_spec.py
+      measure_delay_level.py
+      adaptive_tone.py
+      mix_balance.py
+      measure_refs.py
+      measure_reverb_level.py
+      measure_delay_feedback.py
+      measure_ref_crest.py
+      limiter.py
+      vocal_fix.py
+      wratty_fix_v2.py
+      irs/
+        plate_L.wav
+        plate_R.wav
+        bright_L.wav
+        bright_R.wav
+      refs/
+        vocals/
+          Shallipopi vocal.mp3
+          Rema vocal.mp3
+          Boi chase vocal.mp3
+          Davido vocal.mp3
+          Fola vocal.mp3
+          Burna boy vocal.mp3
+          Wratty G vocal .mp3
+          _mine_vocal.mp3
+          mine_vocal.mp3
+  vocaltune/
+    __init__.py
+    control.py
+    dsp.py
+    engine.py
+    io_utils.py
+    pitch.py
+    presets.py
+    psola.py
+    quality.py
+    rescue.py
+    resplice.py
+    theory.py
+  public/
+    file.svg
+    globe.svg
+    next.svg
+    vercel.svg
+    window.svg
+    icon-512.png
+    icon-192.png
+    llms.txt
+    ir/
+      cathedral.wav
+      hall.wav
+      plate.wav
+      room.wav
+      studio.wav
+    .well-known/
+      assetlinks.json
+  src/
+    middleware.ts
+    app/
+      favicon.ico
+      globals.css
+      layout.tsx
+      page.tsx
+      robots.ts
+      sitemap.ts
+      error.tsx
+      manifest.ts
+      apple-icon.png
+      icon.png
+      api/
+        automix/
+          route.ts
+        me/
+          route.ts
+        paystack-webhook/
+          route.ts
+        upload-url/
+          route.ts
+        credits/
+          route.ts
+        file/
+          route.ts
+        support/
+          route.ts
+        region/
+          route.ts
+        history/
+          route.ts
+        mix-status/
+          route.ts
+        mix-stems/
+          route.ts
+        mix/
+          route.ts
+          [id]/
+            download/
+              route.ts
+        mixes/
+          route.ts
+        owner-check/
+          route.ts
+        paystack-init/
+          route.ts
+        paystack-verify/
+          route.ts
+        process/
+          route.ts
+        mix-preview/
+          route.ts
+        f/
+          route.ts
+        master-render/
+          route.ts
+        setup/
+          route.ts
+        stem-file/
+          route.ts
+        stem-upload/
+          route.ts
+        retention/
+          sweep/
+            route.ts
+        tune/
+          route.ts
+          [id]/
+            route.ts
+        upload-audio/
+          route.ts
+        download/
+          route.ts
+        v1/
+          mix/
+            route.ts
+          status/
+            route.ts
+          usage/
+            route.ts
+          report/
+            route.ts
+        vocal-fx/
+          route.ts
+        warm/
+          route.ts
+        assist/
+          route.ts
+        stem-ticket/
+          route.ts
+        admin/
+          keys/
+            route.ts
+        developer/
+          buy/
+            route.ts
+          keys/
+            route.ts
+          verify/
+            route.ts
+          profile/
+            route.ts
+          support/
+            route.ts
+          buy-crypto/
+            route.ts
+        crypto-init/
+          route.ts
+        crypto-webhook/
+          route.ts
+      beatlock/
+        page.tsx
+      dashboard/
+        page.tsx
+      history/
+        page.tsx
+      master/
+        page.tsx
+      pricing/
+        page.tsx
+        layout.tsx
+      sign-in/
+        [[...sign-in]]/
+          page.tsx
+      sign-up/
+        [[...sign-up]]/
+          page.tsx
+      studio/
+        page.tsx
+      privacy/
+        page.tsx
+      terms/
+        page.tsx
+      refund/
+        page.tsx
+      support/
+        page.tsx
+      admin/
+        page.tsx
+      developers/
+        page.tsx
+      why-adaptive/
+        page.tsx
+    components/
+      AiMixer.tsx
+      MixUploader.tsx
+      MixesList.tsx
+      AutoTuneToggle.tsx
+      PianoRollConsole.tsx
+      LayoutClient.tsx
+      SupportChat.tsx
+      ABPreview.tsx
+    lib/
+      beatLock.ts
+      credits.ts
+      db.ts
+      freeUpload.ts
+      masterStage.ts
+      mongodb.ts
+      r2.ts
+      email.ts
+      abPlayer.ts
+      apiAuth.ts
+      mail.ts
+      paystack-fulfil.ts
+      studioKnowledge.ts
+      supportAnswers.ts
+      pricing.ts
+      fxTicket.ts
+      alert.ts
+      tuner/
+        pitch.ts
+        shift.ts
+    types/
+      signalsmith-stretch.d.ts
+    hooks/
+      useAutoTune.ts
+  .next/
+    package.json
+    trace
+    react-loadable-manifest.json
+    build-manifest.json
+    required-server-files.json
+    required-server-files.js
+    app-path-routes-manifest.json
+    routes-manifest.json
+    BUILD_ID
+    next-server.js.nft.json
+    prerender-manifest.json
+    images-manifest.json
+    export-marker.json
+    next-minimal-server.js.nft.json
+    trace-build
+    cache/
+      .rscinfo
+      .previewinfo
+      .tsbuildinfo
+      webpack/
+        server-production/
+          index.pack
+          0.pack
+        edge-server-production/
+          index.pack
+          0.pack
+        client-production/
+          index.pack
+          0.pack
+    types/
+      routes.d.ts
+      validator.ts
+      cache-life.d.ts
+      root-params.d.ts
+      package.json
+      app/
+        page.ts
+        layout.ts
+        api/
+          paystack-verify/
+            route.ts
+          process/
+            route.ts
+          paystack-init/
+            route.ts
+          setup/
+            route.ts
+          tune/
+            route.ts
+            [id]/
+              route.ts
+          automix/
+            route.ts
+          mix-status/
+            route.ts
+          credits/
+            route.ts
+          history/
+            route.ts
+          upload-audio/
+            route.ts
+          mix-stems/
+            route.ts
+          mixes/
+            route.ts
+          assist/
+            route.ts
+          download/
+            route.ts
+          f/
+            route.ts
+          file/
+            route.ts
+          master-render/
+            route.ts
+          me/
+            route.ts
+          mix-preview/
+            route.ts
+          owner-check/
+            route.ts
+          paystack-webhook/
+            route.ts
+          region/
+            route.ts
+          stem-file/
+            route.ts
+          stem-ticket/
+            route.ts
+          stem-upload/
+            route.ts
+          support/
+            route.ts
+          retention/
+            sweep/
+              route.ts
+          mix/
+            [id]/
+              download/
+                route.ts
+          upload-url/
+            route.ts
+          vocal-fx/
+            route.ts
+          warm/
+            route.ts
+        beatlock/
+          page.ts
+        dashboard/
+          page.ts
+        history/
+          page.ts
+        master/
+          page.ts
+        studio/
+          page.ts
+        privacy/
+          page.ts
+        refund/
+          page.ts
+        sign-in/
+          [[...sign-in]]/
+            page.ts
+        sign-up/
+          [[...sign-up]]/
+            page.ts
+        support/
+          page.ts
+        terms/
+          page.ts
+        pricing/
+          page.ts
+          layout.ts
+    diagnostics/
+      framework.json
+      build-diagnostics.json
+    server/
+      pages-manifest.json
+      app-paths-manifest.json
+      webpack-runtime.js
+      server-reference-manifest.js
+      server-reference-manifest.json
+      edge-runtime-webpack.js
+      interception-route-rewrite-manifest.js
+      middleware-manifest.json
+      edge-runtime-webpack.js.map
+      middleware-react-loadable-manifest.js
+      middleware-build-manifest.js
+      next-font-manifest.js
+      next-font-manifest.json
+      functions-config-manifest.json
+      prefetch-hints.json
+      chunks/
+        294.js
+        1441.js
+        3975.js
+        1762.js
+        3002.js
+        7266.js
+        5592.js
+        2597.js
+        774.js
+        6989.js
+        2430.js
+        5573.js
+        3305.js
+        4857.js
+        5754.js
+        6657.js
+        3944.js
+      app/
+        page.js
+        page.js.nft.json
+        page_client-reference-manifest.js
+        _not-found.rsc
+        _not-found.html
+        _not-found.meta
+        _global-error.rsc
+        _global-error.html
+        _global-error.meta
+        apple-icon.png.body
+        apple-icon.png.meta
+        favicon.ico.body
+        favicon.ico.meta
+        icon.png.body
+        icon.png.meta
+        manifest.webmanifest.body
+        manifest.webmanifest.meta
+        dashboard.html
+        dashboard.meta
+        dashboard.rsc
+        beatlock.rsc
+        beatlock.html
+        beatlock.meta
+        history.rsc
+        history.html
+        history.meta
+        master.rsc
+        master.html
+        master.meta
+        robots.txt.body
+        robots.txt.meta
+        sitemap.xml.body
+        sitemap.xml.meta
+        index.rsc
+        index.html
+        index.meta
+        pricing.rsc
+        pricing.html
+        pricing.meta
+        privacy.meta
+        privacy.rsc
+        refund.rsc
+        refund.html
+        refund.meta
+        privacy.html
+        studio.rsc
+        studio.html
+        studio.meta
+        support.rsc
+        support.html
+        support.meta
+        terms.rsc
+        terms.meta
+        terms.html
+        api/
+          tune/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+            [id]/
+              route.js
+              route.js.nft.json
+              route_client-reference-manifest.js
+          mix-stems/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          mixes/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          process/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          setup/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          upload-audio/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          paystack-init/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          paystack-verify/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          credits/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          automix/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          history/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          mix-status/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          assist/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          download/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          f/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          file/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          master-render/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          me/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          mix-preview/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          mix/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+            [id]/
+              download/
+                route.js
+                route.js.nft.json
+                route_client-reference-manifest.js
+          owner-check/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          paystack-webhook/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          region/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          stem-file/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          stem-ticket/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          stem-upload/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          support/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          upload-url/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          vocal-fx/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          warm/
+            route.js
+            route.js.nft.json
+            route_client-reference-manifest.js
+          retention/
+            sweep/
+              route.js
+              route.js.nft.json
+              route_client-reference-manifest.js
+        _not-found/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        _global-error/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        apple-icon.png/
+          route.js
+          route.js.nft.json
+        favicon.ico/
+          route.js
+          route.js.nft.json
+        icon.png/
+          route.js
+          route.js.nft.json
+        manifest.webmanifest/
+          route.js
+          route.js.nft.json
+          route_client-reference-manifest.js
+        robots.txt/
+          route.js
+          route.js.nft.json
+          route_client-reference-manifest.js
+        sitemap.xml/
+          route.js
+          route.js.nft.json
+          route_client-reference-manifest.js
+        beatlock/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        dashboard/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        history/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        master/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        studio/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        privacy/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        refund/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        support/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        terms/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        sign-in/
+          [[...sign-in]]/
+            page.js
+            page.js.nft.json
+            page_client-reference-manifest.js
+        pricing/
+          page.js
+          page.js.nft.json
+          page_client-reference-manifest.js
+        sign-up/
+          [[...sign-up]]/
+            page.js
+            page.js.nft.json
+            page_client-reference-manifest.js
+        _not-found.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          _not-found/
+            __PAGE__.segment.rsc
+        _global-error.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          _global-error/
+            __PAGE__.segment.rsc
+        dashboard.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          dashboard/
+            __PAGE__.segment.rsc
+        beatlock.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          beatlock/
+            __PAGE__.segment.rsc
+        history.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          history/
+            __PAGE__.segment.rsc
+        master.segments/
+          _full.segment.rsc
+          _tree.segment.rsc
+          master/
+            __PAGE__.segment.rsc
+        index.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          __PAGE__.segment.rsc
+        pricing.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          pricing/
+            __PAGE__.segment.rsc
+        privacy.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          privacy/
+            __PAGE__.segment.rsc
+        refund.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          refund/
+            __PAGE__.segment.rsc
+        studio.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          studio/
+            __PAGE__.segment.rsc
+        support.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          support/
+            __PAGE__.segment.rsc
+        terms.segments/
+          _tree.segment.rsc
+          _full.segment.rsc
+          terms/
+            __PAGE__.segment.rsc
+      src/
+        middleware.js
+        middleware.js.map
+      pages/
+        404.html
+        500.html
+    static/
+      chunks/
+        polyfills-42372ed130431b0a.js
+        main-d91631c8268f2300.js
+        main-app-6428e18688ee5d65.js
+        webpack-c87f39a7b95cb33c.js
+        3899.55a0943bf5e7fec7.js
+        1966.1560d0f43ac9a41a.js
+        framework-82def0d08ade2173.js
+        4bd1b696-93bf506b236d6248.js
+        2741-265907b8bc238e76.js
+        8500-f4d7bfbe7500f274.js
+        3794-4e3500efc893e566.js
+        app/
+          layout-20b030f609c48de4.js
+          error-a344efe54b9e6eb2.js
+          page-879b62cfe0c3698b.js
+          _not-found/
+            page-6a2c7a2cfdb36b1c.js
+          _global-error/
+            page-681c8338f737eeea.js
+          api/
+            credits/
+              route-681c8338f737eeea.js
+            history/
+              route-681c8338f737eeea.js
+            mix-status/
+              route-681c8338f737eeea.js
+            automix/
+              route-681c8338f737eeea.js
+            mix-stems/
+              route-681c8338f737eeea.js
+            mixes/
+              route-681c8338f737eeea.js
+            paystack-init/
+              route-681c8338f737eeea.js
+            paystack-verify/
+              route-681c8338f737eeea.js
+            process/
+              route-681c8338f737eeea.js
+            setup/
+              route-681c8338f737eeea.js
+            tune/
+              route-681c8338f737eeea.js
+              [id]/
+                route-681c8338f737eeea.js
+            upload-audio/
+              route-681c8338f737eeea.js
+            assist/
+              route-681c8338f737eeea.js
+            download/
+              route-681c8338f737eeea.js
+            f/
+              route-681c8338f737eeea.js
+            file/
+              route-681c8338f737eeea.js
+            master-render/
+              route-681c8338f737eeea.js
+            me/
+              route-681c8338f737eeea.js
+            mix-preview/
+              route-681c8338f737eeea.js
+            mix/
+              route-681c8338f737eeea.js
+              [id]/
+                download/
+                  route-681c8338f737eeea.js
+            owner-check/
+              route-681c8338f737eeea.js
+            paystack-webhook/
+              route-681c8338f737eeea.js
+            region/
+              route-681c8338f737eeea.js
+            stem-file/
+              route-681c8338f737eeea.js
+            stem-ticket/
+              route-681c8338f737eeea.js
+            stem-upload/
+              route-681c8338f737eeea.js
+            support/
+              route-681c8338f737eeea.js
+            upload-url/
+              route-681c8338f737eeea.js
+            retention/
+              sweep/
+                route-681c8338f737eeea.js
+            vocal-fx/
+              route-681c8338f737eeea.js
+            warm/
+              route-681c8338f737eeea.js
+          manifest.webmanifest/
+            route-681c8338f737eeea.js
+          robots.txt/
+            route-681c8338f737eeea.js
+          sitemap.xml/
+            route-681c8338f737eeea.js
+          beatlock/
+            page-d1fe8f06da152d0d.js
+          dashboard/
+            page-05defcf788de6f25.js
+          history/
+            page-a0d8921811bdc49b.js
+          master/
+            page-dc4e73de5b4beb53.js
+          studio/
+            page-701318a45b34ee81.js
+          privacy/
+            page-681c8338f737eeea.js
+          refund/
+            page-681c8338f737eeea.js
+          support/
+            page-681c8338f737eeea.js
+          sign-in/
+            [[...sign-in]]/
+              page-ca20617be64876b3.js
+          terms/
+            page-681c8338f737eeea.js
+          sign-up/
+            [[...sign-up]]/
+              page-0397edc4707f55cb.js
+          pricing/
+            layout-681c8338f737eeea.js
+            page-ce5ed9f4f9284d59.js
+        next/
+          dist/
+            client/
+              components/
+                builtin/
+                  unauthorized-681c8338f737eeea.js
+                  app-error-681c8338f737eeea.js
+                  global-error-bd9978b037d07630.js
+                  not-found-681c8338f737eeea.js
+                  forbidden-681c8338f737eeea.js
+      ReVXj3b8BK7L48HqSqxB_/
+        _ssgManifest.js
+        _buildManifest.js
+      css/
+        e344def50e15abab.css
+    dev/
+      package.json
+      react-loadable-manifest.json
+      build-manifest.json
+      trace
+      routes-manifest.json
+      prerender-manifest.json
+      cache/
+        .rscinfo
+        next-devtools-config.json
+        webpack/
+          client-development/
+            1.pack.gz
+            2.pack.gz
+            0.pack.gz
+            3.pack.gz
+            index.pack.gz.old
+            4.pack.gz
+            index.pack.gz
+          edge-server-development/
+            1.pack.gz
+            index.pack.gz
+            0.pack.gz
+            index.pack.gz.old
+          server-development/
+            1.pack.gz
+            2.pack.gz
+            0.pack.gz
+            3.pack.gz
+            index.pack.gz
+            index.pack.gz.old
+      server/
+        middleware-react-loadable-manifest.js
+        middleware-build-manifest.js
+        next-font-manifest.js
+        next-font-manifest.json
+        pages-manifest.json
+        app-paths-manifest.json
+        server-reference-manifest.js
+        server-reference-manifest.json
+        interception-route-rewrite-manifest.js
+        middleware-manifest.json
+        middleware.js
+        edge-runtime-webpack.js
+        webpack-runtime.js
+        static/
+          webpack/
+            633457081244afec._.hot-update.json
+        vendor-chunks/
+          next.js
+        app/
+          api/
+            v1/
+              mix/
+                route.js
+                route_client-reference-manifest.js
+              status/
+                route.js
+                route_client-reference-manifest.js
+      static/
+        chunks/
+          polyfills.js
+          webpack.js
+          _app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js
+          main-app.js
+          app/
+            api/
+              v1/
+                mix/
+                  route.js
+                status/
+                  route.js
+        development/
+          _ssgManifest.js
+          _buildManifest.js
+        webpack/
+          633457081244afec._.hot-update.json
+          webpack.e3c61f52aed5d524.hot-update.js
+          e3c61f52aed5d524.webpack.hot-update.json
+      types/
+        package.json
+        routes.d.ts
+        validator.ts
+        cache-life.d.ts
+        root-params.d.ts
+        app/
+          api/
+            v1/
+              mix/
+                route.ts
+              status/
+                route.ts
+      logs/
+        next-development.log
+  .vercel/
+    repo.json
+    README.txt
+  gbedu/
+    .gitignore
+    README.md
+    gbedu_ace.py
+    requirements.txt
+    backend/
+      analyze.py
+      analyze_np.py
+      brain.py
+      generate.py
+      make_beat.py
+      match.py
+  beats/
+    treblo_s1.0.json
+    SWEEP_2.5.wav
+    treblo_s2.5.json
+    SWEEP_5.0.wav
+    treblo_s5.0.json
+    A_one_tag.json
+    SWEEP_1.0.wav
+    B_full_prompt.json
+    A_ONE_TAG.wav
+    C_no_ref.json
+    C_no_ref.wav
+    324075be-c798-4300-b2dc-65494505e926.json
+    last30_bleed.wav
+    TEXTONLY_CLEAN.wav
+    last30_refperc.wav
+    last30_textonly.wav
+    v5_tail.wav
+    REFPERC_NEW.wav
+    45295657-f6d6-4e6d-b9dd-589ffe0f98b6.json
+    reference_matched_20260929_105638_45295657.wav
+    854bad5a-147e-46a7-99c6-5f506ac8c5c4.json
+    text_only_20260929_105749_854bad5a.wav
+  wragstudio-whatsapp-bot/
+  www/
+  android/
+    .gitignore
+    build.gradle
+    gradle.properties
+    gradlew
+    gradlew.bat
+    settings.gradle
+    variables.gradle
+    capacitor.settings.gradle
+    app/
+      .gitignore
+      build.gradle
+      proguard-rules.pro
+      capacitor.build.gradle
+      build/
+        .npmkeep
+      src/
+        androidTest/
+          java/
+            com/
+              getcapacitor/
+                myapp/
+                  ExampleInstrumentedTest.java
+        main/
+          AndroidManifest.xml
+          java/
+            app/
+              zevcloud/
+                wrattygstudio/
+                  MainActivity.java
+          res/
+            drawable-land-hdpi/
+              splash.png
+            drawable-land-mdpi/
+              splash.png
+            drawable-land-xhdpi/
+              splash.png
+            drawable-land-xxhdpi/
+              splash.png
+            drawable-land-xxxhdpi/
+              splash.png
+            drawable-port-hdpi/
+              splash.png
+            drawable-port-mdpi/
+              splash.png
+            drawable-port-xhdpi/
+              splash.png
+            drawable-port-xxhdpi/
+              splash.png
+            drawable-port-xxxhdpi/
+              splash.png
+            drawable-v24/
+              ic_launcher_foreground.xml
+            drawable/
+              ic_launcher_background.xml
+              splash.png
+            layout/
+              activity_main.xml
+            mipmap-anydpi-v26/
+              ic_launcher.xml
+              ic_launcher_round.xml
+            mipmap-hdpi/
+              ic_launcher.png
+              ic_launcher_foreground.png
+              ic_launcher_round.png
+            mipmap-mdpi/
+              ic_launcher.png
+              ic_launcher_foreground.png
+              ic_launcher_round.png
+            mipmap-xhdpi/
+              ic_launcher.png
+              ic_launcher_foreground.png
+              ic_launcher_round.png
+            mipmap-xxhdpi/
+              ic_launcher.png
+              ic_launcher_foreground.png
+              ic_launcher_round.png
+            mipmap-xxxhdpi/
+              ic_launcher.png
+              ic_launcher_foreground.png
+              ic_launcher_round.png
+            values/
+              ic_launcher_background.xml
+              strings.xml
+              styles.xml
+            xml/
+              file_paths.xml
+              config.xml
+          assets/
+            capacitor.config.json
+            capacitor.plugins.json
+            public/
+              cordova.js
+              cordova_plugins.js
+        test/
+          java/
+            com/
+              getcapacitor/
+                myapp/
+                  ExampleUnitTest.java
+    gradle/
+      wrapper/
+        gradle-wrapper.jar
+        gradle-wrapper.properties
+    capacitor-cordova-android-plugins/
+      build.gradle
+      cordova.variables.gradle
+      src/
+        main/
+          AndroidManifest.xml
+          java/
+            .gitkeep
+          res/
+            .gitkeep
+  .github/
+    workflows/
+      build-apk.yml
+  bench/
+    studio-01.json
+    slap-116.json
+    slap-116.flac
+    slap-116.mp3
+    batch1.json
+    check-new.json
+    check-2track.json
+    live.json
+    live2.json
+    post-fix-a.json
+    post-fix-b.json
+    check-pro.json
+    trace.json
+    par-live.json
+    air-chain.json
+    today-a.json
+    today-b.json
+    limiter-check.json
+    opto-check.json
+    opto-v2a.json
+    opto-v2b.json
+    opto-v3.json
+    converge.json
+    predict.json
+    final.json
+    adaptive.json
+    schpf.json
+    afro-tune.json
+    clarity.json
+    diag.json
+    latest.json
+    r1.json
+    r2.json
+    r3.json
+    r4.json
+    r5.json
+    full.json
+    latest2.json
+    check1.json
+    now.json
+    la2a.json
+    fullabort.json
+    r-bf0576a18496488dbd98647d08c00f42.json
+    r-c51ea6286f6c4cdaa26e3fd980f1e3d9.json
+    r-1a9eb432f0274c599feedcc5ba7a3930.json
+    r-f92d830bc0214e5d914ded24766c5235.json
+    r-43112450753548a49a1c8e835fe590ae.json
+    full-la2a.json
+    r-601cd31cab7b4274a7f0528a8e410940.json
+    r-7ad734b828fd4aafa75cf6aed97dc17b.json
+    r-e2f308733aff4d4580c1307a084844d7.json
+    r-b3d2efadbb044be3a3893a2c59892a12.json
+    r-0ba0f159ed954cb2a7256b8f5d39ef8a.json
+    latest-mix.json
+    check.json
+    script-check.json
+    r-87a911cfe40041229700c364638a6874.json
+    r-b30ac296db14437dab341a9708f5d0e1.json
+    air-check.json
+    r-bbb6d1ee07fd4f9cbe045f6ced6adfcc.json
+    r-6d17163d24d6403cb37b45ee5b05199b.json
+    aud.json
+    rb.json
+    sends.json
+    wet.json
+    now2.json
+    baseline.json
+    rev.json
+    rev2.json
+    check3.json
+    delay-check.json
+    adt.json
+    pan.json
+    pan2.json
+    pan3.json
+    r-273194beb08547418b66eab44ec2a437.json
+    r-289b9ce742104e00be0246a1d4ea4c10.json
+    t.json
+    m.json
+    duck.json
+    r-028d1db4131a47aea9c657e1cf1eb7c9.json
+    dly.json
+    adapt.json
+    church.json
+    pres.json
+    melt.json
+    ad.json
+    gv.json
+    rec.json
+    snd.json
+    par.json
+    crest.json
+    mst.json
+    x.json
+    master.json
+    c.json
+    reports/
+      c51ea6286f6c4cdaa26e3fd980f1e3d9.json
+      1a9eb432f0274c599feedcc5ba7a3930.json
+      f92d830bc0214e5d914ded24766c5235.json
+      43112450753548a49a1c8e835fe590ae.json
+      534ce23e77344529b19d435c992be69f.json
+      f012c9a3522641c182eb6c5b8734230b.json
+      55cd4e1c8af0482cb741a935c5a0bdf2.json
+      0af4b1e282224f83a15995b7e86c4e39.json
+      d0491d399078426b8aa4ba66a668971c.json
+  refs/
+    fola.mp3
+    burna-common.mp3
+    boi-chase.mp3
+    rema-calm.mp3
+    davido-unavail.mp3
+    _mix15_master.mp3
+    _mix16.mp3
+    _mix17.mp3
+    vocals/
+      fola.mp3
+      burna.mp3
+      rema.mp3
+      davido.mp3
+      boi-chase.mp3
+      Fola_vocals.mp3
+      _mine-now.wav
+      _mine-now.mp3
+      Wratty G vocal .mp3
+      _mine_latest.mp3
+      mine_vocal.mp3
+      Wratty G - Yewande (8) (Vocals) (MDX v2 Voc FT).mp3
+
+--- PYTHON MODULES (Apps, Imports, Defs) ---
+
+FILE: ./modal_tune.py (113 lines)
+  IMPORTS: io, modal, numpy, os, requests, soundfile, traceback, uuid, vocaltune.engine, vocaltune.io_utils
+  [MODAL APP DECLARATION]
+  def midi_to_name()
+  def tune_job()
+  def start()
+  def status()
+
+FILE: ./modal_mix.py (230 lines)
+  IMPORTS: dsp_delay, dsp_pro, fastapi, fastapi.responses, json, math, mix, modal, numpy, os, sys, time, traceback, uuid
+  [MODAL APP DECLARATION]
+  def run_mix()
+  def api()
+  def engine_probe()
+
+FILE: ./apply_air_boost.py (19 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_backing_fix.py (25 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep1()
+
+FILE: ./apply_beat_dynamics.py (52 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_deess_duck.py (85 lines)
+  IMPORTS: ast, pathlib, re, sys
+  def rep1()
+
+FILE: ./apply_full_master_ui.py (54 lines)
+  IMPORTS: pathlib, sys
+  def rep1()
+
+FILE: ./apply_full_master_ui2.py (65 lines)
+  IMPORTS: pathlib, sys
+  def swap()
+
+FILE: ./apply_genre_picker3.py (70 lines)
+  IMPORTS: ast, pathlib, re, sys
+  def slug_of()
+
+FILE: ./apply_genre_picker4.py (71 lines)
+  IMPORTS: ast, pathlib, re, sys
+  def slug_of()
+
+FILE: ./apply_glue_master.py (22 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_glue_tune.py (35 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./apply_lowmid_mono.py (31 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_master_fix.py (37 lines)
+  IMPORTS: ast, pathlib, re, sys
+  def rep()
+
+FILE: ./apply_master_full.py (20 lines)
+  IMPORTS: pathlib, sys
+
+FILE: ./apply_master_path.py (63 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_master_target.py (21 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_master_width.py (19 lines)
+  IMPORTS: ast, pathlib, re, sys
+
+FILE: ./apply_more_presets.py (49 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./apply_polish_wire.py (44 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_preset.py (122 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./apply_preset_amb.py (26 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./apply_preview_final.py (42 lines)
+  IMPORTS: pathlib, re, sys
+  def load()
+  def rep()
+  def resub()
+
+FILE: ./apply_preview_final2.py (37 lines)
+  IMPORTS: pathlib, sys
+  def load()
+  def rep()
+
+FILE: ./apply_rap_clip.py (32 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./dyn_probe.py (33 lines)
+  IMPORTS: numpy, os, sys, vocal_probe
+  def probe()
+
+FILE: ./apply_round.py (67 lines)
+  IMPORTS: ast, pathlib
+  def swap()
+
+FILE: ./apply_timeout_fix.py (25 lines)
+  IMPORTS: pathlib, sys
+  def rep()
+
+FILE: ./audit_backing.py (36 lines)
+  IMPORTS: json, pathlib, re
+  def block()
+
+FILE: ./measure_all.py (208 lines)
+  IMPORTS: numpy, pathlib, re, subprocess, sys, wave
+  def mask()
+  def lg()
+  def ensure_wav()
+  def ff_loudness()
+  def read_wav()
+  def overs_count()
+  def measure()
+  def fmt()
+  def main()
+
+FILE: ./el_test.py (77 lines)
+  IMPORTS: json, os, pathlib, requests, sys, time
+  def die()
+
+FILE: ./stereo_probe.py (46 lines)
+  IMPORTS: numpy, os, sys, vocal_probe
+  def bp()
+  def probe()
+
+FILE: ./vocal_probe.py (73 lines)
+  IMPORTS: glob, numpy, os, shutil, subprocess, sys, tempfile, wave
+  def load()
+  def db()
+  def rms()
+  def bd()
+  def probe()
+
+FILE: ./modal_files.py (169 lines)
+  IMPORTS: fastapi, fastapi.middleware.cors, fastapi.responses, hashlib, hmac, modal, os, pathlib, threading, time, urllib.parse
+  [MODAL APP DECLARATION]
+  def web()
+
+FILE: ./fix_deltas.py (24 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fix_env.py (51 lines)
+  IMPORTS: json, os, urllib.error, urllib.request
+  def local()
+  def call()
+
+FILE: ./fix_treat_for.py (14 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./gpu_probe.py (14 lines)
+  IMPORTS: modal, subprocess
+  [MODAL APP DECLARATION]
+  def probe()
+  def main()
+
+FILE: ./install_delay.py (117 lines)
+  IMPORTS: os, py_compile, shutil, sys, time
+  def write_checked()
+  def main()
+
+FILE: ./modal_cleanup.py (83 lines)
+  IMPORTS: fastapi, fastapi.responses, hmac, json, modal, os, urllib.request
+  [MODAL APP DECLARATION]
+  def api()
+  def retention_sweep()
+
+FILE: ./modal_app.py (93 lines)
+  IMPORTS: auto, modal, numpy, sys, threading, time
+  [MODAL APP DECLARATION]
+  def _rss()
+  def mixer_mem()
+  def main()
+
+FILE: ./patch_blob.py (109 lines)
+  IMPORTS: datetime, pathlib, py_compile, shutil, sys
+  def edit()
+
+FILE: ./strip_vocal.py (77 lines)
+  IMPORTS: numpy, sys, wave
+  def read_wav()
+  def write_wav()
+  def medfilt()
+  def stft()
+  def istft()
+
+FILE: ./patch_reports.py (40 lines)
+  IMPORTS: pathlib, sys
+
+FILE: ./setdelay.py (10 lines)
+  IMPORTS: pathlib, re, sys
+
+FILE: ./treblo_api.py (27 lines)
+  IMPORTS: json, os, pathlib, requests, sys
+  def show()
+
+FILE: ./treblo_cli.py (452 lines)
+  IMPORTS: datetime, io, json, os, pathlib, re, requests, shutil, sys, time, urllib.parse, wave
+  class JobFailed
+  class RecoverLater
+  def safe_id()
+  def response_error()
+  def validate_wav_file()
+  def validate_wav_bytes()
+  def ask_yes()
+  def upload_reference()
+  def save_task()
+  def poll_task()
+  def get_with_retries()
+  def result_urls()
+  def absolute_audio_url()
+  def download_result()
+  def generate()
+  def offer_text_fallback()
+  def run_reference()
+  def usage()
+  def main()
+
+FILE: ./treblo_genre.py (105 lines)
+  IMPORTS: json, os, pathlib, requests, sys, time
+  def show()
+
+FILE: ./treblo_tasks.py (32 lines)
+  IMPORTS: os, pathlib, requests, sys
+
+FILE: ./treblo_test.py (102 lines)
+  IMPORTS: json, os, pathlib, requests, sys, time
+  def die()
+
+FILE: ./install_reverb.py (140 lines)
+  IMPORTS: os, py_compile, shutil, sys, time
+  def write_checked()
+  def main()
+
+FILE: ./summary.py (17 lines)
+  IMPORTS: glob, json
+
+FILE: ./measure_refs.py (76 lines)
+  IMPORTS: glob, json, numpy, os, subprocess
+  def decode_mono()
+  def lufs_tp()
+  def bands_db()
+
+FILE: ./detect_effects.py (142 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def decode_stereo()
+  def reverb_tail()
+  def delay_detect()
+  def saturation_ratio()
+  def compression_crest_dist()
+  def stereo_width()
+  def adt_check()
+
+FILE: ./fx-api/api/auto.py (2653 lines)
+  IMPORTS: adaptive_ambience, adaptive_tone, beat_punch, clip_gain, declip, delay_fx, delay_spec, dsp_delay, dsp_pro, dsp_tier1, fet_comp, limiter, math, noise_clean, numpy, opto_comp, os, parallel_comp, pedalboard, pedalboard.io, polish, qc, reverb_fx, scipy.signal, song_sections, soundfile, tempfile, traceback, vocal_align, vocal_fix, vocal_fx_detect, vocal_polish, vocal_sat, vocal_space, wrap3d, wratty_fix_v2
+  def normalize_preset()
+  def preset_config()
+  def apply_preset()
+  def _treat_for()
+  def role_of()
+  def bucket()
+  def kind_of()
+  def _opt()
+  def _win()
+  def _mono()
+  def _pad()
+  def _sum()
+  def plain_sum()
+  def _rms_db()
+  def _peak_db()
+  def _true_peak_db()
+  def _headroom()
+  def _level_db()
+  def _avg()
+  def _smooth()
+  def _activity()
+  def _stft()
+  def _istft()
+  def _measures()
+  def _k_weighting()
+  def _biq()
+  def _fast_loudness_ir()
+  def _fast_loudness_kernel()
+  def _fast_loudness_chunks()
+  def _fast_loudness_energy()
+  def integrated_lufs()
+  def lra_lu()
+  def analyze()
+  def detect_tempo()
+  def plate_ir()
+  def plate_error()
+  def _plate()
+  def _send_sum()
+  def _saturate()
+  def _headphone_wrap()
+  def _deess()
+  def _delay_tree()
+  def _h3000_widen()
+  def _hall_ir()
+  def _hall()
+  def _pingpong()
+  def _parallel_distort()
+  def _ambience()
+  def _role_space()
+  def _role_buses()
+  def _transient()
+  def _kick_punch()
+  def _double()
+  def _noise_gate()
+  def _adaptive_hpf()
+  def _role_chain()
+  def vocal_process()
+  def _plan()
+  def _duck()
+  def _widen()
+  def verify()
+  def clip()
+  def _brick()
+  def limit()
+  def _band_carve()
+  def mix()
+  def _glue()
+  def _master()
+  def _parallel()
+  def _exciter()
+  def _match_role_levels()
+  def soft_clip()
+
+FILE: ./fx-api/api/mix.py (804 lines)
+  IMPORTS: ab_preview, auto, blobstore, gc, hashlib, hmac, http.server, ipaddress, json, limiter, master_bus, math, mix_balance, numpy, os, pedalboard, pedalboard.io, pyloudnorm, qc, requests, scipy.signal, shutil, socket, soundfile, tempfile, threading, time, urllib.parse, uuid, wratty_fix_v2
+  def _dyn9010()
+  def rmsdb()
+  def peakdb()
+  def lufs()
+  def load()
+  def save16()
+  def to_sr()
+  def _fx_ticket()
+  def _reject_private()
+  def grab()
+  def encode_all()
+  def encode_out()
+  def put()
+  def rss_mb()
+  def setjob()
+  def do_mix()
+  def worker()
+  class Handler
+
+FILE: ./fx-api/api/apply_tone.py (40 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/fx.py (190 lines)
+  IMPORTS: http.server, json, numpy, os, pedalboard, pedalboard.io, requests, shutil, tempfile, uuid, wave
+  def read_wav()
+  def write_wav()
+  def board_for()
+  def process_all()
+  class handler
+
+FILE: ./fx-api/api/polish.py (128 lines)
+  IMPORTS: numpy
+  def _stft()
+  def _istft()
+  def _smooth()
+  def _dyn_gain()
+  def calibrate()
+  def _specs()
+  def dynamic_eq()
+
+FILE: ./fx-api/api/apply_adaptive_comp.py (91 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/apply_adaptive_vocal.py (75 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/apply_ambience.py (67 lines)
+  IMPORTS: ast, sys
+  def sub()
+
+FILE: ./fx-api/api/master_bus.py (480 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def build_profile()
+  def register_genre()
+  def _resolve_preset()
+  def _to_cn()
+  def _from_cn()
+  def _k_weight_sos()
+  def lufs()
+  def _hop_true_peaks()
+  def true_peak_db()
+  def _ltas()
+  def _side_db()
+  def _ballistics()
+  def _static_gr()
+  def _level_db()
+  def _compress()
+  def stage_eq()
+  def _lr4()
+  def _lp4()
+  def _hp4()
+  def split3()
+  def stage_multiband()
+  def stage_glue()
+  def stage_saturate()
+  def stage_top_trim()
+  def stage_stereo()
+  def _soft_clip()
+  def _limit()
+  def stage_loudness()
+  def qc()
+  def _tone_probe()
+  def stage_corr_guard()
+  def master()
+
+FILE: ./fx-api/api/qc.py (244 lines)
+  IMPORTS: json, numpy, re, subprocess, sys
+  def _arr()
+  def _db()
+  def _rms()
+  def clip_stats()
+  def activity()
+  def f0_percentiles()
+  def band_levels_db()
+  def stereo_stats()
+  def stem_qc()
+  def output_qc()
+  def _decode()
+  def _ffmpeg_loudness()
+
+FILE: ./fx-api/api/pro_touch.py (207 lines)
+  IMPORTS: numpy, scipy.signal
+  def _mono()
+  def _interp()
+  def _smooth()
+  def _frame_db()
+  def _active_mask()
+  def _active_rms_db()
+  def _duck_env()
+  def _f0_median()
+  def analyze()
+  def _pick_delay_note()
+  def plan()
+  def long_tail()
+  def pingpong_delay()
+  def _finish()
+  def widen_return()
+  def filter_double()
+  def render()
+  def ride()
+
+FILE: ./fx-api/api/vocal_space.py (411 lines)
+  IMPORTS: numpy, scipy.ndimage, scipy.signal, time
+  def _genre()
+  def _bp()
+  def _rms()
+  def _db()
+  def _analyse()
+  def _activity()
+  def _smooth()
+  def _duck_curve()
+  def _clean_send()
+  def _plate_ir()
+  def _early_ir()
+  def _conv()
+  def _delay()
+  def _throw_gate()
+  def _syl_env()
+  def _fragments()
+  def _fragment_echoes()
+  def build()
+
+FILE: ./fx-api/api/vocal_sat.py (206 lines)
+  IMPORTS: numpy, scipy.ndimage, scipy.signal
+  def _mono()
+  def _sos()
+  def _zp()
+  def _db()
+  def _hfir()
+  def _frames()
+  def _f0_median()
+  def measure_vocal()
+  def plan()
+  def _curve()
+  def _sat_os()
+  def _dcblock()
+  def _apply()
+  def _peak_guard()
+  def _band_energy_db()
+  def process()
+
+FILE: ./fx-api/api/chains.py (192 lines)
+  IMPORTS: numpy, pedalboard
+  def _plug()
+  def plate()
+  def _send()
+  def _sends()
+  def lead_board()
+  def autotuned_lead_board()
+  def backing_board()
+  def processed_backing_board()
+  def adlib_board()
+  def processed_adlib_board()
+  def harmony()
+  def beat_board()
+  def beat_gain_db()
+  def glue_bus()
+  def classify_vocal()
+  def apply()
+
+FILE: ./fx-api/api/declip.py (123 lines)
+  IMPORTS: json, numpy, scipy.interpolate, subprocess, sys
+  def _lanczos_interp()
+  def detect_clips()
+  def declip()
+
+FILE: ./fx-api/api/delay_fx.py (150 lines)
+  IMPORTS: numpy
+  def fold_bpm()
+  def delay_ms()
+  def _mono()
+  def _rms()
+  def _shape()
+  def _duck_gain()
+  def _pan_gains()
+  def render()
+
+FILE: ./fx-api/api/beat_punch.py (173 lines)
+  IMPORTS: numpy, scipy.ndimage, scipy.signal
+  def _mono()
+  def _sos()
+  def _zp()
+  def _db()
+  def _smooth()
+  def measure_beat()
+  def decide()
+  def _event_window()
+  def kick_punch()
+  def _peak_guard()
+  def process()
+
+FILE: ./fx-api/api/clip_gain.py (105 lines)
+  IMPORTS: numba, numpy
+  def _asym_solver()
+  def clip_gain_ride()
+
+FILE: ./fx-api/api/reverb_fx.py (249 lines)
+  IMPORTS: numpy
+  def fold_bpm()
+  def _mono()
+  def _rms()
+  def _shape()
+  def _duck_gain()
+  def _band_weights()
+  def make_ir()
+  def _conv_blocks()
+  def render()
+
+FILE: ./fx-api/api/vocal_polish.py (226 lines)
+  IMPORTS: numpy, os, scipy.io.wavfile, scipy.ndimage, scipy.signal, shutil, subprocess, tempfile, time
+  def _cfg()
+  def _bp()
+  def _mono()
+  def _lvl()
+  def _to_samples()
+  def _thr()
+  def _db()
+  def _rms()
+  def ride_vocal()
+  def clean_gaps()
+  def carve_beat()
+  def polish()
+  def pad_tail()
+  def fade_tail()
+  def dither_int16()
+  def true_peak_db()
+  def mp3_safe_gain()
+
+FILE: ./fx-api/api/dynamics.py (75 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def _env()
+  def _db()
+  def highpass()
+  def deess()
+  def compress()
+  def duck()
+  def process_vocal()
+
+FILE: ./fx-api/api/fet_comp.py (120 lines)
+  IMPORTS: numba, numpy, scipy.signal
+  def _polyphase_iir_upsample_2x_core()
+  def _1176_solver()
+  def fet_compress()
+
+FILE: ./fx-api/api/gate_new_engines.py (343 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_corr_guard.py (81 lines)
+  IMPORTS: py_compile, shutil, sys
+  def main()
+
+FILE: ./fx-api/api/blobstore.py (93 lines)
+  IMPORTS: boto3, botocore.config, modal, os, pathlib
+  def _r2()
+  def r2_enabled()
+  def volume_enabled()
+  def _content_type()
+  def put()
+  def _commit_volume()
+  def commit()
+
+FILE: ./fx-api/api/measure_only.py (112 lines)
+  IMPORTS: pathlib, sys
+
+FILE: ./fx-api/api/noise_clean.py (299 lines)
+  IMPORTS: numpy, scipy.ndimage, scipy.signal, scipy.special, scipy.stats, time
+  def _frames()
+  def _runs()
+  def _tracker()
+  def _learn()
+  def _plan()
+  def _profile()
+  def _noise_matrix()
+  def _find_hum()
+  def _prefilter()
+  def _gain()
+  def _bands()
+  def _guard()
+  def analyse()
+  def clean()
+
+FILE: ./fx-api/api/vocal_align.py (167 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def _mono()
+  def _onset_env()
+  def _syllables()
+  def vocal_density()
+  def max_shift_for()
+  def _lag_sums()
+  def _peak_lag()
+  def estimate()
+  def shift_ms()
+  def align()
+  def align_group()
+
+FILE: ./fx-api/api/mix_tone_guard.py (39 lines)
+  IMPORTS: adaptive_tone, numpy, scipy.signal
+  def measure()
+  def guard()
+
+FILE: ./fx-api/api/parallel_comp.py (23 lines)
+  IMPORTS: numpy, pedalboard
+  def industry_parallel_compressor()
+
+FILE: ./fx-api/api/delay_spec.py (181 lines)
+  IMPORTS: numpy, pedalboard
+  def _pick_note_factor()
+  def _envelope()
+  def render()
+
+FILE: ./fx-api/api/patch_body.py (31 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_both.py (78 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_clip_gain.py (27 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_delay_level.py (22 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_delay_spec.py (21 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_delay_wire.py (40 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_double_swap.py (53 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_dsp_tier1.py (56 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_exciter.py (25 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_exclude_beat.py (20 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_fet.py (46 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_fet_thr.py (13 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_final.py (50 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_follow_list.py (60 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_hpf.py (13 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_missing.py (78 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_par_log.py (13 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_parallel_swap.py (43 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_plate_tier1.py (203 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_reverb_report.py (64 lines)
+  IMPORTS: pathlib, sys
+
+FILE: ./fx-api/api/patch_reverb_wire.py (23 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/patch_script.py (28 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_spec.py (26 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_tune.py (28 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_two.py (19 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/patch_wire_pro.py (79 lines)
+  IMPORTS: ast, pathlib, sys
+  def rep()
+
+FILE: ./fx-api/api/restore_and_test_duck.py (27 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/wire_spec_delay.py (296 lines)
+  IMPORTS: pathlib, sys
+
+FILE: ./fx-api/api/wrap3d.py (97 lines)
+  IMPORTS: numpy, scipy.signal
+  def _biquad_to_sos()
+  def _soft_clip_knee()
+  def _shelf_coeffs()
+  def _peaking_coeffs()
+  def apply_wrap()
+
+FILE: ./fx-api/api/song_sections.py (269 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def _mono()
+  def _stft_pow()
+  def _band_db()
+  def _onset_env()
+  def estimate_tempo()
+  def downbeat_phase()
+  def _bar_features()
+  def _z()
+  def _feature_matrix()
+  def _ssm()
+  def _novelty()
+  def _boundaries()
+  def _merge_short()
+  def _group()
+  def analyze()
+  def control_curves()
+  def apply_gain_db()
+
+FILE: ./fx-api/api/ab_preview.py (117 lines)
+  IMPORTS: master_bus, numpy, os, scipy, scipy.io.wavfile, scipy.signal, soundfile, subprocess
+  def _cn()
+  def _loud()
+  def pick_window()
+  def _fade()
+  def sync_offset_ms()
+  def make_ab_preview()
+  def write_mp3()
+
+FILE: ./fx-api/api/adaptive_ambience.py (225 lines)
+  IMPORTS: numpy, scipy.signal
+  def _mono()
+  def _frames_db()
+  def analyze_vocal()
+  def _adaptive_target()
+  def choose_params()
+  def calibrate_send()
+  def qc_ambience()
+  def tune_vocal()
+  def choose_delay_params()
+  def tune_compressors()
+
+FILE: ./fx-api/api/vocal_fx_detect.py (297 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def _prep()
+  def _conf()
+  def detect_reverb()
+  def _logmel()
+  def detect_delay()
+  def detect_stereo()
+  def _f0_track()
+  def detect_pitch()
+  def dynamics()
+  def analyze()
+  def engine_plan()
+
+FILE: ./fx-api/api/opto_comp.py (155 lines)
+  IMPORTS: numpy, scipy.signal
+  def _db_to_lin()
+  def _lin_to_db()
+  def opto_compress()
+
+FILE: ./fx-api/api/dsp_tier1.py (162 lines)
+  IMPORTS: numba, numpy
+  def _biquad_sat_inplace()
+  def _polyphase_up_core()
+  def _polyphase_dn_core()
+  def _hermite_core()
+  def _frame_filter_inplace()
+  def exciter()
+  def adt_double()
+
+FILE: ./fx-api/api/dsp_pro.py (413 lines)
+  IMPORTS: numba, numpy, numpy.fft, os, pedalboard, scipy.signal, soundfile
+  def _poly_up_2x()
+  def _poly_dn_2x()
+  def _t4_core()
+  def pro_la2a()
+  def _deess_core()
+  def pro_deesser()
+  def _sat_core()
+  def pro_saturator()
+  def la2a_compress()
+  def deess_drop_in()
+  def _load_ir()
+  def coeff_hpf()
+  def _coeff_tau()
+  def _reverb_duck_filter()
+  def _melt_ir()
+  def plate_wet()
+
+FILE: ./fx-api/api/fix_dupes.py (23 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/dsp_delay.py (133 lines)
+  IMPORTS: numba, numpy
+  def _delay_core()
+  def coeff_hpf()
+  def coeff_tau()
+  def delay_render()
+
+FILE: ./fx-api/api/fix_double_send.py (40 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/add_delay_debug.py (29 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/fix_sends.py (40 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/fix_duck_sends.py (47 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/test_engines.py (32 lines)
+  IMPORTS: dsp_delay, dsp_pro, numba, numpy
+
+FILE: ./fx-api/api/fix_hpf_coeff.py (57 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/fix_ir_norm.py (35 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/fix_mod_phase.py (18 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/align_reverb_spec.py (24 lines)
+  IMPORTS: ast, pathlib, sys
+
+FILE: ./fx-api/api/measure_delay_level.py (111 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def load()
+  def measure()
+
+FILE: ./fx-api/api/adaptive_tone.py (65 lines)
+  IMPORTS: numpy, scipy.signal
+  def _peak()
+  def _shelf()
+  def measure()
+  def plan()
+  def tone_correct()
+
+FILE: ./fx-api/api/mix_balance.py (55 lines)
+  IMPORTS: numpy, scipy, scipy.signal
+  def _mono()
+  def _ltas()
+  def _gap()
+  def _med()
+  def plan()
+  def vocal_trim_db()
+
+FILE: ./fx-api/api/measure_refs.py (80 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def _load_ffmpeg()
+  def _mono()
+  def _frames_db()
+  def analyze()
+
+FILE: ./fx-api/api/measure_reverb_level.py (80 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def load()
+  def measure()
+
+FILE: ./fx-api/api/measure_delay_feedback.py (115 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def load()
+  def measure()
+
+FILE: ./fx-api/api/measure_ref_crest.py (46 lines)
+  IMPORTS: glob, numpy, os, subprocess
+  def load()
+  def crest_median()
+
+FILE: ./fx-api/api/limiter.py (166 lines)
+  IMPORTS: numba, numpy
+  def _firwin()
+  def _limiter_hot_loop()
+  class ProductionMasteringLimiter
+
+FILE: ./fx-api/api/vocal_fix.py (57 lines)
+  IMPORTS: adaptive_tone, numpy, scipy.signal
+  def _band_pow()
+  def measure()
+  def plan()
+  def forward_guard()
+
+FILE: ./fx-api/api/wratty_fix_v2.py (233 lines)
+  IMPORTS: numpy, scipy
+  def _mono()
+  def rel_profile()
+  def _predict()
+  def plan_tone()
+  def _fir()
+  def _apply_fir()
+  def sib_index()
+  def master_tone_correct()
+  def _frame_db()
+  def _smooth_env()
+  def carve_beat()
+  def qa()
+  def needs_declip()
+  def tail_warning()
+
+FILE: ./vocaltune/__init__.py (0 lines)
+
+FILE: ./vocaltune/control.py (180 lines)
+  IMPORTS: __future__, dataclasses, numpy, scipy.ndimage
+  class Settings
+  class Note
+  class Correction
+  def _runs()
+  def segment_notes()
+  def choose_targets()
+  def compute_correction()
+
+FILE: ./vocaltune/dsp.py (49 lines)
+  IMPORTS: math, numpy, scipy, scipy.ndimage
+  def to_mono()
+  def resample()
+  def butter_sos()
+  def zero_phase()
+  def smoothstep()
+  def normalized_smooth()
+  def cubic_sample()
+  def hz_to_cents()
+  def cents_to_hz()
+
+FILE: ./vocaltune/engine.py (152 lines)
+  IMPORTS: __future__, control, dataclasses, numpy, pitch, presets, psola, resplice
+  class TuneResult
+  def _adapt()
+  class VocalTuner
+
+FILE: ./vocaltune/io_utils.py (40 lines)
+  IMPORTS: __future__, dsp, json, numpy, shutil, soundfile, subprocess
+  def read_audio()
+  def write_audio()
+
+FILE: ./vocaltune/pitch.py (181 lines)
+  IMPORTS: __future__, dataclasses, numpy, scipy.ndimage
+  class PitchTrack
+  def _cmnd()
+  def track_pitch()
+
+FILE: ./vocaltune/presets.py (23 lines)
+  IMPORTS: control
+  def make_settings()
+
+FILE: ./vocaltune/psola.py (186 lines)
+  IMPORTS: __future__, numpy, scipy
+  def _runs()
+  def find_marks()
+  def refine_marks()
+  def psola_correct()
+  def spectral_restore()
+
+FILE: ./vocaltune/quality.py (71 lines)
+  IMPORTS: __future__, dataclasses, numpy, scipy, scipy.ndimage
+  class Quality
+  def noise_psd()
+  def analyze_quality()
+
+FILE: ./vocaltune/rescue.py (55 lines)
+  IMPORTS: __future__, numpy, scipy, scipy.ndimage
+  def remove_hum()
+  def denoise()
+  def rescue()
+
+FILE: ./vocaltune/resplice.py (102 lines)
+  IMPORTS: __future__, numpy, scipy
+  def _runs()
+  def _best_period()
+  def resplice_run()
+  def resplice_correct()
+
+FILE: ./vocaltune/theory.py (128 lines)
+  IMPORTS: __future__, dataclasses, numpy, scipy, scipy.ndimage
+  def scale_mask()
+  def scale_weights()
+  def estimate_tuning_cents()
+  def chroma_from_audio()
+  def pitchclass_hist_from_f0()
+  class KeyEstimate
+  def detect_key()
+  def adaptive_allowed()
+
+FILE: ./gbedu/gbedu_ace.py (57 lines)
+  IMPORTS: acestep.pipeline_ace_step, argparse, librosa, numpy, sys
+  def detect_bpm()
+  def analyze()
+  def make_prompt()
+  def generate()
+
+FILE: ./gbedu/backend/analyze.py (24 lines)
+  IMPORTS: json, librosa, numpy, sys
+  def estimate_key()
+  def analyze()
+
+FILE: ./gbedu/backend/analyze_np.py (59 lines)
+  IMPORTS: json, numpy, sys, wave
+  def load_wav()
+  def estimate_tempo()
+  def estimate_key()
+
+FILE: ./gbedu/backend/brain.py (206 lines)
+  IMPORTS: __future__, essentia.standard, json, librosa, numpy, os, sys, tempfile
+  def norm_key()
+  def fold_bpm()
+  def fold_ratio()
+  def note_steps()
+  def bpm_gap()
+  def distance()
+  def fits()
+  def _window_spans()
+  def _agree()
+  def _vote_bpm()
+  def _one_window()
+  def analyze()
+  def analyze_bytes()
+  def build_prompt()
+  def _keys_match()
+  def _rel_only()
+  def distance()
+
+FILE: ./gbedu/backend/generate.py (11 lines)
+  def build_prompt()
+  def generate()
+
+FILE: ./gbedu/backend/make_beat.py (81 lines)
+  IMPORTS: analyze_np, json, numpy, os, sys, wave
+  def note_freq()
+  def freq_at()
+  def load_kit()
+  def make()
+
+FILE: ./gbedu/backend/match.py (90 lines)
+  IMPORTS: __future__, brain, json, os, pathlib, requests, sys
+  def _headers()
+  def analyze_on_worker()
+  def request_take()
+  def _beat_from_headers()
+  def produce_matched_beat()
+  def main()

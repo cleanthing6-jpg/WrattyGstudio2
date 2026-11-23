@@ -1,0 +1,6 @@
+Error: Specify a Modal Function or local entrypoint to run. E.g.
+> modal run modal_mix.py::my_function [..args]
+
+'modal_mix.py' has the following functions and local entrypoints:
+run_mix / app.run_mix
+engine_probe / app.engine_probe
