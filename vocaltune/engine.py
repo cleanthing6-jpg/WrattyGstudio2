@@ -126,13 +126,6 @@ class VocalTuner:
         singer_err = float(np.median(errs)) if len(errs) else 0.0
         if adaptive:
             st = _adapt(st, qual, float(track.conf[v].mean()), singer_err, warnings)
-            
-        if autotune_level != 1.0:
-            if autotune_level > 1.0:
-                st.retune_ms = max(5.0, st.retune_ms / autotune_level)
-                st.humanize = max(0.0, st.humanize / autotune_level)
-            
-        
         if singer_err > 42:
             warnings.append(f"vocal sits ~{singer_err:.0f} c from the chosen grid on average; check key / reference or expect heavy correction")
         corr = compute_correction(track.f0, track.conf, v, hop_s, allowed, tuning_cents, key, mode, st)

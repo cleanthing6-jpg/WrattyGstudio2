@@ -1372,7 +1372,7 @@ def _role_space(voc, sr, scale):
         return voc
 
 
-def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None, reverb_level=1.0, autotune_level=1.0):
+def _role_buses(pre, sr, bpm, raised, beat=None, fx_plans=None, reverb_level=1.0):
     """Give each vocal role its OWN glue and its OWN reverb depth, then sum.
     No cross-role compression: the lead is never glued to backing or adlib.
     Per-bus peak normalisation is SKIPPED (headroom=False) so the locked role
@@ -2050,7 +2050,7 @@ def _band_carve(beat, lead, sr):
     ducked, _ = wratty_fix_v2.carve_beat(beat.T, lead.T, sr, fallback=False)
     return ducked.T
 
-def mix(groups, sr, loud="MEDIUM", reverb_level=1.0, autotune_level=1.0):
+def mix(groups, sr, loud="MEDIUM", reverb_level=1.0):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
     rep = {"sr": int(sr)}

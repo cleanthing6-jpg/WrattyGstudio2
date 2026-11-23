@@ -25,7 +25,7 @@ mixvol = modal.Volume.from_name("wratty-mixes", create_if_missing=True)
 
 @app.function(image=image, cpu=2.0, memory=8192, timeout=3600, secrets=[SECRET] + ([R2_SECRET] if R2_SECRET else []),
               volumes={"/mixes": mixvol})
-def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0, reverb_level: float = 1.0, autotune_level: float = 1.0):
+def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", max_seconds: float = 0, reverb_level: float = 1.0):
     import sys
     import traceback
     import os
@@ -34,7 +34,7 @@ def run_mix(job_id: str, stems: list, loudness: str, preset: str = "neutral", ma
     import mix
     jobs[job_id] = {"status": "running"}
     try:
-        res = mix.do_mix(stems, loudness, job_id, max_seconds, preset, reverb_level=reverb_level, autotune_level=autotune_level)
+        res = mix.do_mix(stems, loudness, job_id, max_seconds, preset, reverb_level=reverb_level)
         try:
             mixvol.commit()      # publish the render to wratty-files
         except Exception as _e:
@@ -152,7 +152,6 @@ def api():
             str(body.get("preset") or "neutral"),
             float(body.get("maxSeconds") or 0),
             float(body.get("reverb_level") or 1.0),
-            float(body.get("autotune_level") or 1.0),
         )
         return {"job": jid}
 

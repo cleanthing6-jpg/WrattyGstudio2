@@ -250,7 +250,7 @@ PAN_VALUES = {
 _PAN_N = {"backing": 0, "adlib": 0, "response": 0, "intro": 0, "outro": 0}
 _PAN_REPORT = {"backing": [], "adlib": [], "response": []}
 
-def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0, autotune_level=1.0):
+def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0):
     # Reset per-render state so a previous job in this warm container
     # cannot leak plate/delay/reverb data into this render's report or audio.
     try:
@@ -328,7 +328,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0, auto
         setjob(jid, "analysing")
         
         
-        mixed, report = auto.mix(groups, sr, reverb_level=reverb_level, autotune_level=autotune_level)
+        mixed, report = auto.mix(groups, sr, reverb_level=reverb_level)
         
 
         # Trim trailing silence — end the render where the audio actually ends
