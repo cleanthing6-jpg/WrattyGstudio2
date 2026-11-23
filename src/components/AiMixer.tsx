@@ -622,10 +622,10 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         <div>
           <div className="flex justify-between text-sm font-bold text-slate-700 mb-1">
             <span>Autotune Strength</span>
-            <span>{Math.round(autotuneLevel * 100)}%</span>
+            <span>+{autotuneLevel}%</span>
           </div>
-          <input type="range" min="0" max="1.5" step="0.1" value={autotuneLevel} onChange={(e) => setAutotuneLevel(parseFloat(e.target.value))} className="w-full accent-green-500" />
-          <p className="text-xs text-slate-400 mt-1">100% = Natural adaptive tuning. 0% = Off. 150% = Heavy effect.</p>
+          <input type="range" min="0" max="100" step="1" value={autotuneLevel} onChange={(e) => setAutotuneLevel(parseFloat(e.target.value))} className="w-full accent-green-500" />
+          <p className="text-xs text-slate-400 mt-1">0% = Engine Adaptive Default. 100% = Extra tight snap.</p>
         </div>
       </div>
       <button
