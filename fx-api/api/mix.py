@@ -251,6 +251,7 @@ _PAN_N = {"backing": 0, "adlib": 0, "response": 0, "intro": 0, "outro": 0}
 _PAN_REPORT = {"backing": [], "adlib": [], "response": []}
 
 def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0):
+    print(f"[reverb] level={reverb_level}", flush=True)
     # Reset per-render state so a previous job in this warm container
     # cannot leak plate/delay/reverb data into this render's report or audio.
     try:
