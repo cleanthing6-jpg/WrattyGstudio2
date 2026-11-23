@@ -425,8 +425,8 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
         setMsg("Done - Beat-Lock mastered & saved: " + label);
       } else {
         setMsg("Sending stems to your engine…");
-        // A/B "Before" player: raw stems. Autotune applied only at final mix.
-        const stemsToPreview = done;
+        const stemsToPreview = await tune.applyToStems(done);
+        previewTunedStems.current = stemsToPreview;
         const post = await withTimeout(fetch("/api/mix-preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -483,7 +483,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
-      const stemsToMix = await tune.applyToStems(prepared);
+      const stemsToMix = previewTunedStems.current || await tune.applyToStems(prepared);
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
