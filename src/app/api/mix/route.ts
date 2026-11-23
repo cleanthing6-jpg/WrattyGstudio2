@@ -44,6 +44,7 @@ async function ensureTable() {
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS mp3_key     TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS raw_key     TEXT`;
   await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS hidden_at   TIMESTAMP`;
+  await sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS reverb_level REAL DEFAULT 1.0`;
   await sql`CREATE TABLE IF NOT EXISTS preview_quota (
     user_id TEXT NOT NULL,
     day DATE NOT NULL,
@@ -163,7 +164,7 @@ async function pump(depth = 0): Promise<void> {
 
   const r = await mixer("/", {
     method: "POST",
-    body: JSON.stringify({ stems, loudness: job.loudness, preset: job.preset, maxSeconds: job.max_seconds || 0 }),
+    body: JSON.stringify({ stems, loudness: job.loudness, preset: job.preset, maxSeconds: job.max_seconds || 0, reverb_level: Number(job.reverb_level) || 1.0 }),
   }, 3, [429, 502, 503]);
 
   if (!r.ok || !(r.data && r.data.job)) {
@@ -210,6 +211,8 @@ export async function POST(req: NextRequest) {
 
   const loudness = String(body?.loudness || "MEDIUM").toUpperCase();
   const preset = body?.preset ? String(body.preset) : "afrobeats";
+  const _rvRaw = Number(body?.reverb_level);
+  const reverbLevel = Number.isFinite(_rvRaw) && _rvRaw > 0 ? Math.min(_rvRaw, 4.0) : 1.0;
   const artist = String(body?.artist || "")
     .replace(/[^\p{L}\p{N} ._&'()-]/gu, "").trim().slice(0, 60);
   const title = String(body?.title || "")
@@ -291,8 +294,8 @@ export async function POST(req: NextRequest) {
 
   const id = crypto.randomUUID();
   try {
-    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title, mode)
-      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null}, ${mode})`;
+    await sql`INSERT INTO mix_jobs (id, user_id, status, stems, loudness, preset, max_seconds, credit_type, artist_name, song_title, mode, reverb_level)
+      VALUES (${id}, ${userId}, 'queued', ${JSON.stringify(stems)}::jsonb, ${loudness}, ${preset}, ${maxSeconds}, ${creditType}, ${artist || null}, ${title || null}, ${mode}, ${reverbLevel})`;
   } catch (e) {
     if (creditType) await refundCredit(userId, creditType as any);
     throw e;

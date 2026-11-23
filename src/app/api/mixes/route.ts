@@ -67,6 +67,7 @@ async function ensureMixCols() {
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS max_seconds INTEGER`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS credit_type TEXT`,
     sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMP`,
+    sql`ALTER TABLE mix_jobs ADD COLUMN IF NOT EXISTS reverb_level REAL DEFAULT 1.0`,
   ]);
   _cols = true;
 }
