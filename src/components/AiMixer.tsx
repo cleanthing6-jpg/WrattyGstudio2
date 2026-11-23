@@ -147,8 +147,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
   const [beatLockMode, setBeatLockMode] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [reverbLevel, setReverbLevel] = useState<number>(0);
-  const [autotuneLevel, setAutotuneLevel] = useState<number>(0);
-  const [prepared, setPrepared] = useState<Stem[]>([]);
+    const [prepared, setPrepared] = useState<Stem[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [rawUrl, setRawUrl] = useState("");
   const [finalUrl, setFinalUrl] = useState("");
@@ -484,11 +483,11 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
     setBusy(true); setErr("");
     try {
       setMsg("Unlocking the full Idan mix — this spends credits…");
-      const stemsToMix = previewTunedStems.current || (autotuneLevel > 0 ? await tune.applyToStems(prepared, autotuneLevel) : prepared);
+      const stemsToMix = previewTunedStems.current || (await tune.applyToStems(prepared));
       const r = await withTimeout(fetch("/api/mix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist, title: songTitle, stems: stemsToMix, loudness: masterLoudness, preset: style, reverb_level: 1.0 + (reverbLevel / 100), autotune_level: 1.0 + (autotuneLevel / 100) }),
+        body: JSON.stringify({ artist, title: songTitle, stems: stemsToMix, loudness: masterLoudness, preset: style, reverb_level: 1.0 + (reverbLevel / 100) }),
       }), 180000, "Mix request");
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.job) throw new Error(d.error || "Could not start the mix (code " + r.status + ")");
