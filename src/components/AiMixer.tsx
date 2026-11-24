@@ -612,13 +612,13 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       <AutoTuneToggle tune={tune} />
       <details className="mb-6 border border-slate-200 rounded-xl bg-slate-50 shadow-sm group">
       <summary className="p-4 font-bold text-sm text-slate-700 cursor-pointer list-none flex justify-between items-center hover:bg-slate-100 transition-colors rounded-xl">
-        <span>⚙️ Advanced Tweaks (Optional)</span>
+        <span>🎛️ Reverb & Delay Controls</span>
       </summary>
       <div className="p-5 border-t border-slate-200 space-y-5">
-        <p className="text-sm text-slate-600 mb-2">The engine automatically calculates the perfect adaptive mix. Use this slider if you want to <b>add extra</b> space on top of the default.</p>
+        <p className="text-sm text-slate-600 mb-2">The engine automatically calculates the perfect BPM-synced reverb and delay. Drag this slider to add <b>extra space</b> or keep it at 0% for the pure, adaptive mix.</p>
         <div>
           <div className="flex justify-between text-sm font-bold text-slate-700 mb-2">
-            <span>Add Extra Reverb & Space</span>
+            <span>Add Extra Reverb & Delay</span>
             <span className="text-green-600 font-mono">+{reverbLevel}%</span>
           </div>
           <input type="range" min="0" max="100" step="1" value={reverbLevel} onChange={(e) => setReverbLevel(parseInt(e.target.value))} className="w-full accent-green-500 cursor-pointer" />
