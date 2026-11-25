@@ -467,6 +467,9 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
 
   const tune = useAutoTune();
   const [mixStage, setMixStage] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [realPct, setRealPct] = useState(0);
+  const [realStage, setRealStage] = useState("");
 
   useEffect(() => {
     if (!busy) { setMixStage(0); return; }
@@ -475,6 +478,18 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       setMixStage((prev) => (prev < stages.length - 1 ? prev + 1 : prev));
     }, 8000); // Advances every 8 seconds
     return () => clearInterval(interval);
+  }, [busy]);
+
+  // Real elapsed timer — reads startedAt saved with activeJob on submit.
+  useEffect(() => {
+    if (!busy) { setElapsed(0); setRealPct(0); setRealStage(""); return; }
+    const t = setInterval(() => {
+      try {
+        const j = JSON.parse(localStorage.getItem("activeJob") || "{}");
+        if (j.startedAt) setElapsed(Math.floor((Date.now() - j.startedAt) / 1000));
+      } catch {}
+    }, 1000);
+    return () => clearInterval(t);
   }, [busy]);
 
 
@@ -495,6 +510,7 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       let finalR = d && d.url ? d.url : "";
       let dashboardSaved = false;
       let dashboardName = "";
+      let _lastPct = 0;
       for (let i = 0; i < 120 && !finalR; i++) {
         await new Promise((res) => setTimeout(res, 5000));
         const g = await fetchWithTimeout("/api/mix?id=" + encodeURIComponent(d.job), 60000).catch(() => null);
@@ -511,8 +527,26 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           dashboardName = String(gd.dashboardName || "");
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
         }
+        const _rs = String(gd.status || "");
+        if (_rs && _rs !== "queued" && _rs !== "done" && _rs !== "failed") {
+          const mm = _rs.match(/stem\s+(\d+)\s+of\s+(\d+)/i);
+          let _pct = 15;
+          if (mm) _pct = Math.min(45, Math.round((Number(mm[1]) / Number(mm[2])) * 45));
+          else if (/analys/i.test(_rs)) _pct = 55;
+          else if (/glue/i.test(_rs)) _pct = 75;
+          else if (/clip|limit|master/i.test(_rs)) _pct = 90;
+          _lastPct = Math.max(_lastPct, _pct);
+          setRealStage(_rs);
+          setRealPct(_lastPct);
+        }
         if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
-        else {
+        else if (_lastPct > 0) {
+          const _st = (JSON.parse(localStorage.getItem("activeJob") || "{}").startedAt) || Date.now();
+          const _el = Math.floor((Date.now() - _st) / 1000);
+          const mm2 = Math.floor(_el / 60);
+          const ss2 = String(_el % 60).padStart(2, "0");
+          setMsg("🎚️ " + _lastPct + "% — " + _rs + " (" + mm2 + ":" + ss2 + ")");
+        } else {
             const stageText = [
               "🔍 Analysing stems & fixing phase...",
               "🧹 Cleaning noise & repairing clips...",
