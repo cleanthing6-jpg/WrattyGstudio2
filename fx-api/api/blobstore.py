@@ -23,14 +23,14 @@ def _r2():
         from botocore.config import Config
         _r2_client = boto3.client(
             "s3",
-            endpoint_url="https://%s.r2.cloudflarestorage.com" % R2_ACCOUNT,
+            endpoint_url="https://s3.rumptycloud.com",
             aws_access_key_id=R2_KEY,
             aws_secret_access_key=R2_SECRET,
-            region_name="auto",
+            region_name="olas-closet",
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},
-                retries={"max_attempts": 3, "mode": "standard"},
+                retries={"max_attempts": 1}, connect_timeout=5, read_timeout=30,
             ),
         )
     return _r2_client
