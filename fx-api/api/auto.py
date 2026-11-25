@@ -365,6 +365,7 @@ PRESET_ALIASES = {
     "electronic amapiano": "amapiano", "electronic": "amapiano", "amapiano": "amapiano",
     "acoustic": "pop", "rock indie": "pop", "rock": "pop",
     "other": "pop", "neutral": "pop",
+    "asake": "afrobeats",
 }
 
 
@@ -393,6 +394,7 @@ def apply_preset(name):
     _PRESET = dict(cfg)
     _PRESET["_deltas"] = ROLE_DELTAS.get(p, {})
     _PRESET["_name"] = p
+    _PRESET["_style"] = "asake" if "asake" in str(name or "").lower() else p
     # per-preset overrides (afrobeats only — other presets fall back to defaults)
     globals()["MAX_AIR"] = float(cfg.get("max_air", 1.5))
     globals()["MAX_DEESS"] = float(cfg.get("max_deess", 2.5))
@@ -456,23 +458,41 @@ _HALL = {"ir": {}}
 _DBL = {"kind": ""}
 
 
+def _role_tokens(role):
+    """Split a name into lowercase WORDS (handles camelCase, underscores, dashes, numbers)."""
+    import re as _re
+    raw = _re.sub(r"([a-z])([A-Z])", r"\1 \2", str(role or ""))
+    return _re.findall(r"[a-z0-9]+", raw.lower())
+
+
 def role_of(role):
     r = str(role or "").lower().strip()
     if r == "response" and __import__("os").environ.get("WRATTY_ROLES", "1") != "0":
         return r
     if r == "feature" and __import__("os").environ.get("WRATTY_FEATURE", "1") != "0":
         return r
-    for t in BEAT_ROLES:
-        if t in r:
-            return "beat"
-    if any(t in r for t in ("adlib", "ad lib", "ad-lib", "harmon", "stack")):
+    tk = _role_tokens(role)
+    t = set(tk)
+    j = " " + " ".join(tk) + " "
+
+    def ph(p):
+        return (" " + p + " ") in j
+
+    # WHOLE-WORD matching: "Dubai_lead" is a lead (not "dub"), "bigger vocal" is a lead (not "bg").
+    if (ph("backing track") or ph("two track") or ph("minus one") or ph("type beat")
+            or t & {"beat", "beats", "instrumental", "instru", "inst", "instrument", "music", "2track", "riddim", "karaoke"}):
+        return "beat"
+    if (ph("ad lib") or ph("ad libs") or t & {"adlib", "adlibs"}
+            or any(x.startswith("harmon") for x in tk) or t & {"stack", "stacks", "stacked", "stacking", "harm"}):
         return "adlib"
-    if any(t in r for t in ("back", "backup", "bvox", "b-vox", "bv", "bgv", "bg", "harm", "dub", "dbl", "double", "group", "chorus", "stack", "vocal 2", "vocal 3", "vox 2", "vox 3", "vocal-2", "vocal-3")):
+    if (ph("back vocal") or ph("back vocals") or ph("back up") or ph("back vox")
+            or t & {"backing", "backup", "backups", "bvox", "bv", "bvs", "bgv", "bgvs", "bg", "dub", "dubs", "dbl",
+                    "double", "doubles", "doubled", "group", "chorus"}
+            or (t & {"vocal", "vox"} and any(x in ("2", "3", "4", "5") for x in tk))):
         return "backing"
-    if any(t in r for t in ("lead", "main", "vocal", "vox", "acap", "dry")):
+    if t & {"lead", "main", "vocal", "vocals", "vox", "acap", "acapella", "acappella", "dry"}:
         return "lead"
     return "other"
-
 
 def bucket(role):
     r = role_of(role)
@@ -2050,6 +2070,61 @@ def _band_carve(beat, lead, sr):
     ducked, _ = wratty_fix_v2.carve_beat(beat.T, lead.T, sr, fallback=False)
     return ducked.T
 
+def _asake_add_group(core, pre, sr, bpm, rep):
+    """Asake style only: add the 'many voices singing together' bus, built from the processed lead.
+    Never raises: on any problem the mix continues without it and rep['asake_group_error'] says why."""
+    if _PRESET.get("_style") != "asake":
+        return core
+    try:
+        try:
+            import asake_engine
+        except ImportError:
+            from . import asake_engine
+        src = pre.get("lead")
+        if src is None:
+            src = pre.get("feature")
+        if src is None:
+            rep["asake_group_error"] = "no lead stem"
+            return core
+        m = np.asarray(src, dtype=np.float64)
+        if m.ndim == 2:
+            m = m.mean(axis=0) if m.shape[0] <= 2 else m.mean(axis=1)
+        seed = int(np.sum(np.abs(m[:48000])) * 1000) % (2 ** 31)      # repeatable per song, different per user
+        g, g_rep = asake_engine.group_from_dry(m, sr, bpm=bpm, seed=seed)
+        rep["asake_group"] = g_rep
+        if g is None:
+            return core
+        c = np.asarray(core)
+        g = np.asarray(g, dtype=np.float64)                              # (n, 2)
+        cf = c.ndim == 2 and c.shape[0] <= 2 and c.shape[1] > c.shape[0]  # channels-first layout?
+        if c.ndim == 1:
+            g = g.mean(axis=1)
+        elif cf:
+            g = g.T
+            if c.shape[0] == 1:
+                g = g.mean(axis=0, keepdims=True)
+        elif c.shape[1] == 1:
+            g = g.mean(axis=1, keepdims=True)
+        ta = 1 if cf else 0
+        n, cur = c.shape[ta], g.shape[ta]
+        if cur > n:
+            g = np.take(g, np.arange(n), axis=ta)
+        elif cur < n:
+            pw = [(0, 0)] * g.ndim
+            pw[ta] = (0, n - cur)
+            g = np.pad(g, pw)
+        out = c + g.astype(c.dtype)
+        if not np.isfinite(out).all():
+            rep["asake_group_error"] = "non-finite audio, group skipped"
+            return core
+        rep["asake_group"]["added"] = True
+        return out
+    except Exception as _e:
+        import traceback
+        rep["asake_group_error"] = traceback.format_exc()[-240:]
+        return core
+
+
 def mix(groups, sr, loud="MEDIUM", reverb_level=1.0):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
@@ -2286,6 +2361,7 @@ def mix(groups, sr, loud="MEDIUM", reverb_level=1.0):
 
     _dry_voc = core.copy()
     core, _info = _role_buses(_pre, sr, bpm, raised, beat=beat, fx_plans=_fx_plans)
+    core = _asake_add_group(core, _pre, sr, bpm, rep)
 
     # --- LIVE SONG SECTION DETECTION ---
     try:

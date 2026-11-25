@@ -34,6 +34,7 @@ const STYLES = [
   { value: "pop", label: "Pop" },
   { value: "amapiano", label: "Electronic / Amapiano" },
   { value: "gospel", label: "Gospel" },
+  { value: "asake", label: "Afrobeats - Asake style (group vocals)" },
   { value: "other", label: "Other / Acoustic / Rock" },
 ];
 

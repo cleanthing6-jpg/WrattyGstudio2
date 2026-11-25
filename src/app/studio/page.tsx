@@ -120,7 +120,7 @@ type StudioTab = "mix";
 type SpaceMode = "studio" | "room" | "hall" | "cathedral" | "plate";
 type MixMode = "split" | "mix";
 type SplitResult = { name: string; stems: { type: string; url: string }[] };
-type StemRole = "lead" | "backing" | "backup" | "adlib" | "response" | "intro" | "outro" | "beat";
+type StemRole = "lead" | "backing" | "backup" | "adlib" | "response" | "intro" | "outro" | "beat" | "unassigned";
 // Browser playback only. Stems/ masters live in R2 behind a presigned
 // url that dies after 7 days; the cards route through /api/file, which
 // re-signs on every load. DO NOT use this for the urls handed to the
@@ -134,7 +134,8 @@ function playSrc(url: string): string {
   return url;
 }
 
-type UploadedFile = { url: string; name: string; role: StemRole };
+import { inferRole } from "@/lib/stemRoles";
+type UploadedFile = { url: string; name: string; role: StemRole; picked?: boolean; why?: string };
 type ReadyStem = { url: string; name: string; role: StemRole };
 
 function getStudioTab(_value: string | null): StudioTab {
@@ -183,7 +184,8 @@ function StudioInner() {
   const addFile = (url: string, name: string) => {
     setFiles((prev) => {
       if (prev.some((f) => f.url === url)) return prev;
-      return [...prev, { url, name, role: "lead" }];
+      const _g = inferRole(name);
+      return [...prev, { url, name, role: _g.role as StemRole, why: _g.reason }];
     });
   };
 
@@ -193,7 +195,7 @@ function StudioInner() {
   };
 
   const setRole = (url: string, role: StemRole) => {
-    setFiles((prev) => prev.map((f) => (f.url === url ? { ...f, role } : f)));
+    setFiles((prev) => prev.map((f) => (f.url === url ? { ...f, role, picked: true } : f)));
   };
 
   ;
@@ -447,8 +449,9 @@ function StudioInner() {
                           <select
                             value={f.role}
                             onChange={(e) => setRole(f.url, e.target.value as StemRole)}
-                            className="mt-1 text-xs border border-slate-200 rounded-lg px-2 py-1 w-full bg-white"
+                            className={"mt-1 text-xs border rounded-lg px-2 py-1 w-full bg-white " + (f.role === ("unassigned" as StemRole) ? "border-red-400" : "border-slate-200")}
                           >
+                            <option value="unassigned">Pick a role…</option>
                             <option value="lead">Lead vocal</option>
                             <option value="feature">Feature (Rap)</option>
                             <option value="backing">Backing vocal</option>

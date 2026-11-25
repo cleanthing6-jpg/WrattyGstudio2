@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
   let body: any = {};
   try { body = await req.json(); } catch {}
   const stems = (Array.isArray(body?.stems) ? body.stems : [])
-    .map((s: any) => ({ url: String(s?.url || ""), role: String(s?.role || s?.name || "stem") }))
+    .map((s: any) => ({ url: String(s?.url || ""), role: String((s?.role && s.role !== "unassigned") ? s.role : (s?.name || "stem")) }))
     .filter((s: any) => {
       if (!/^https:\/\//.test(s.url)) return false;
       try {
