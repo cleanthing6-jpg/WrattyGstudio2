@@ -251,8 +251,17 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
       if (!r.ok || !data.taskId) throw new Error(data.error || "Mastering did not start");
       localStorage.setItem("activeJob", JSON.stringify({ kind: "master", id: data.taskId, startedAt: Date.now() }));
 
+      const _mStart = Date.now();
       for (let i = 0; i < (full ? 180 : 48); i++) {
         await new Promise((res) => setTimeout(res, 5000));
+        {
+          const _mEl = Math.floor((Date.now() - _mStart) / 1000);
+          const _mBudget = full ? 240 : 60;
+          const _mPct = Math.min(95, Math.round((_mEl / _mBudget) * 100));
+          const _mMin = Math.floor(_mEl / 60);
+          const _mSec = String(_mEl % 60).padStart(2, "0");
+          setMsg("💎 " + (full ? "Mastering" : "Mastering preview") + " " + _mPct + "% (" + _mMin + ":" + _mSec + ")…");
+        }
         const s2 = await fetch("/api/master-render?taskId=" + encodeURIComponent(data.taskId));
         const st = await s2.json().catch(() => ({}));
         if (!s2.ok) throw new Error(st.error || ("Mastering failed (HTTP " + s2.status + ")"));
@@ -527,37 +536,19 @@ export default function AiMixer({ stems }: { stems: Stem[] }) {
           dashboardName = String(gd.dashboardName || "");
           setToast("✅ Your mix is ready — scroll down to listen and save it.");
         }
-        const _rs = String(gd.status || "");
-        if (_rs && _rs !== "queued" && _rs !== "done" && _rs !== "failed") {
-          const mm = _rs.match(/stem\s+(\d+)\s+of\s+(\d+)/i);
-          let _pct = 15;
-          if (mm) _pct = Math.min(45, Math.round((Number(mm[1]) / Number(mm[2])) * 45));
-          else if (/analys/i.test(_rs)) _pct = 55;
-          else if (/glue/i.test(_rs)) _pct = 75;
-          else if (/clip|limit|master/i.test(_rs)) _pct = 90;
-          _lastPct = Math.max(_lastPct, _pct);
-          setRealStage(_rs);
-          setRealPct(_lastPct);
-        }
-        if (gd.status === "queued") setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
-        else if (_lastPct > 0) {
+        if (gd.status === "queued") {
+          setMsg("In the queue — position " + (gd.position || 1) + ". It will start automatically.");
+        } else {
           const _st = (JSON.parse(localStorage.getItem("activeJob") || "{}").startedAt) || Date.now();
           const _el = Math.floor((Date.now() - _st) / 1000);
+          const _budget = 240; // ~4 min typical full mix
+          const _rawPct = Math.min(95, Math.round((_el / _budget) * 100));
+          _lastPct = Math.max(_lastPct, _rawPct);
+          setRealPct(_lastPct);
           const mm2 = Math.floor(_el / 60);
           const ss2 = String(_el % 60).padStart(2, "0");
-          setMsg("🎚️ " + _lastPct + "% — " + _rs + " (" + mm2 + ":" + ss2 + ")");
-        } else {
-            const stageText = [
-              "🔍 Analysing stems & fixing phase...",
-              "🧹 Cleaning noise & repairing clips...",
-              "🎸 Carving the beat to make room for vocals...",
-              "🎛️ Applying analog compression & 3D spatial effects...",
-              "🔥 Running vocal polish & dynamic EQ...",
-              "🎚️ Glueing bus & balancing levels...",
-              "💎 Mastering & final True-Peak limiting..."
-            ];
-            setMsg(stageText[mixStage]);
-          }
+          setMsg("🎚️ " + _lastPct + "% (" + mm2 + ":" + ss2 + ") — mixing your song…");
+        }
         if (gd.status === "failed") {
           setToast("❌ Mix failed. Please try again.");
           setTimeout(() => setToast(""), 5000);
