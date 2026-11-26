@@ -1,4 +1,5 @@
 "use client";
+import DemoPlayer from "@/components/DemoPlayer";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { PLANS, MASTER_PLANS } from "@/lib/pricing";
@@ -44,6 +45,9 @@ const MASTER_FROM = naira(Math.min(...MASTER_PLANS.map((p) => p.ngn)));
 export default function Home() {
   const { isLoaded, isSignedIn } = useUser();
   return (
+    <div className="w-full flex justify-center pt-10">
+      <DemoPlayer />
+    </div>
     <div className="min-h-screen bg-[#faf9f4] text-slate-900 overflow-x-hidden">
       <div className="h-1 bg-gradient-to-r from-green-500 via-yellow-400 to-red-500" />
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#faf9f4]/80 border-b border-slate-200">
