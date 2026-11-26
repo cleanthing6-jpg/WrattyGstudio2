@@ -2125,6 +2125,48 @@ def _asake_add_group(core, pre, sr, bpm, rep):
         return core
 
 
+def _level_guard_stage(beat, ro_map, sr, rep):
+    """Raise a too-quiet beat / vocal to a pro level before the chain runs (never lowers anything). Never raises."""
+    voc = _sum(list(ro_map.values())) if ro_map else None
+    try:
+        if __import__("os").environ.get("WRATTY_LEVEL_GUARD", "1") == "0":
+            rep["level_guard"] = {"ok": False, "note": "switched off (WRATTY_LEVEL_GUARD=0)"}
+            return beat, ro_map, voc
+        try:
+            import level_guard
+        except ImportError:
+            from . import level_guard
+        sub = {"beat": beat}
+        sub.update(ro_map)
+        new, lg = level_guard.apply_to_groups(sub, sr, profile=str(_PRESET.get("_name") or "afrobeats"))
+        rep["level_guard"] = lg
+        if not lg.get("ok"):
+            return beat, ro_map, voc
+        moved = (float((lg.get("beat") or {}).get("gain_db", 0.0)) > 0.0
+                 or float((lg.get("vocal") or {}).get("gain_db", 0.0)) > 0.0)
+        if not moved:
+            return beat, ro_map, voc
+        beat2 = new["beat"]
+        ro2 = {r: new[r] for r in ro_map}
+        voc2 = _sum(list(ro2.values()))
+        try:
+            arr = rep.get("arrived")
+            if isinstance(arr, dict) and "error" not in arr:
+                rep["arrived_before_level_guard"] = {k: dict(v) for k, v in arr.items() if isinstance(v, dict)}
+                if "beat" in arr:
+                    arr["beat"]["rms_db"] = round(_rms_db(beat2), 1)
+                    arr["beat"]["lufs"] = integrated_lufs(beat2, sr)
+                for r, a in ro2.items():
+                    if r in arr:
+                        arr[r]["rms_db"] = round(_rms_db(a), 1)
+        except Exception:
+            pass
+        return beat2, ro2, voc2
+    except Exception as _e:
+        rep["level_guard"] = {"ok": False, "error": str(_e)[:160]}
+        return beat, ro_map, voc
+
+
 def mix(groups, sr, loud="MEDIUM", reverb_level=1.0):
     beats = list(groups.get("beat") or [])
     others = list(groups.get("other") or [])
@@ -2194,6 +2236,10 @@ def mix(groups, sr, loud="MEDIUM", reverb_level=1.0):
     except Exception as _rwe:
         print('raw sum error:', _rwe)
     # -----------------------------------------
+
+    # --- LEVEL GUARD: raise a too-quiet beat / vocal to a pro level (never lowers anything) ---
+    if beat is not None and voc is not None:
+        beat, ro_map, voc = _level_guard_stage(beat, ro_map, sr, rep)
 
     if beat is None and voc is None:
         rep["mode"] = "sum"
