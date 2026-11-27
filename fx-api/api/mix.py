@@ -276,7 +276,7 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0):
         except Exception:
             _qc = None
         sr = None
-        groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "response": [], "intro": [], "outro": [], "feature": [], "other": []}
+        groups = {"beat": [], "lead": [], "adlib": [], "backing": [], "response": [], "intro": [], "outro": [], "feature": [], "other": [], "dj_drop": []}
         _qc_in = {}
         for i, s in enumerate(stems):
             setjob(jid, "stem %d of %d" % (i + 1, len(stems)))
@@ -324,6 +324,19 @@ def do_mix(stems, loud, jid, max_sec=0, preset="neutral", reverb_level=1.0):
                         a = np.stack([_wm + _ws, _wm - _ws]).astype(np.float32)
                     except Exception:
                         pass
+            # ── DJ DROP STANDALONE PROCESSING ──
+            if bucket == "dj_drop" or "dj drop" in (s.get("role") or s.get("name") or "").lower() or "dj_drop" in (s.get("role") or s.get("name") or "").lower():
+                try:
+                    import dj_drop_chain
+                    _target = {"LOW": -16.0, "MEDIUM": -14.0, "HIGH": -11.0}.get(str(loud).upper(), -14.0)
+                    _in = a.T if a.ndim > 1 else a
+                    _out, _rep = dj_drop_chain.process_dj_drop(_in, s0, preset="club", target_loudness=_target)
+                    a = _out.T
+                    bucket = "other"  # Route to 'other' so auto.mix() actually sums it in
+                    print(f"[dj_drop] processed {s.get('name')} -> target {_target} LUFS", flush=True)
+                except Exception as e:
+                    print(f"[dj_drop] FAILED, falling back to normal mix: {e}", flush=True)
+
             groups[bucket].append(a)
 
         setjob(jid, "analysing")
