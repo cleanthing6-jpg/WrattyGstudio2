@@ -19,6 +19,9 @@ _r2_client = None
 def _r2():
     global _r2_client
     if _r2_client is None:
+        os_env = __import__("os").environ
+        os_env.setdefault("AWS_REQUEST_CHECKSUM_CALCULATION", "when_required")
+        os_env.setdefault("AWS_RESPONSE_CHECKSUM_VALIDATION", "when_required")
         import boto3
         from botocore.config import Config
         _r2_client = boto3.client(
@@ -30,7 +33,7 @@ def _r2():
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},
-                retries={"max_attempts": 1}, connect_timeout=5, read_timeout=30,
+                retries={"max_attempts": 3, "mode": "standard"}, connect_timeout=10, read_timeout=120,
             ),
         )
     return _r2_client
